@@ -49,9 +49,11 @@ class FavoriteRequestSerializer(serializers.Serializer):
     productId=serializers.SlugField(max_length=80)
 
 
-def product_json(product,pricing_context=None):
+def product_json(product,pricing_context=None,request=None):
     image_items=list(product.photos.all())
-    photos=[p.url for p in image_items]
+    # Uploaded media uses an absolute, HTTPS URL for the separate staging frontend.
+    photos=[(request.build_absolute_uri(p.image.url) if request else p.image.url)
+            if p.image else p.url for p in image_items]
     inventory=getattr(product,'inventory',None)
     from .rate_service import current_pricing_context
     from .services import calculate_line,ServiceUnavailable
