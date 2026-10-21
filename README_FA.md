@@ -54,5 +54,5 @@ docker compose --profile rates up -d rate-worker
 
 - تست نحوی Python و Node.js و اعتبار نحوی YAML انجام شده است.
 - `tools/preflight.py` بررسی وجود فایل‌های ضروری، CSRF و نبود `.env` واقعی را با موفقیت گذرانده است.
-- اجرای Django، PostgreSQL، Docker Compose و GitHub Actions در این محیط هنوز ممکن نبوده است؛ آماده‌بودن ساختاری را نباید با قبولی عملیاتی برابر دانست.
-- این سورس هنوز روی GitHub قرار نگرفته و سروری برای آن راه‌اندازی نشده است.
+- اجرای Django با ۴۶ تست روی SQLite ایزوله و DEBUG=0 تأیید شد. نتیجه PostgreSQL و Python 3.13 در [GitHub Actions](https://github.com/alireza-anari/Haniel_Gold/actions) قابل بررسی است. Docker Compose محلی اجرا نشده؛ قبولی تست‌ها به معنی آمادگی فروش عملیاتی نیست.
+- سورس در مخزن عمومی [Haniel_Gold](https://github.com/alireza-anari/Haniel_Gold) روی شاخه `main` ثبت شده است؛ سروری در این مرحله راه‌اندازی نشده است.
