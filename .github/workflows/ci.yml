@@ -20,6 +20,13 @@ jobs:
           node-version: '22'
       - name: Verify frontend JavaScript
         run: node --check frontend/app.js
+      - name: Verify real Cloudflare Pages staging build
+        run: |
+          bash tools/build_cloudflare_pages.sh
+          test -f .cloudflare-pages-dist/index.html
+          test -f .cloudflare-pages-dist/robots.txt
+          test -f .cloudflare-pages-dist/_headers
+          grep -q "apiBaseUrl:''" .cloudflare-pages-dist/runtime-config.js
       - name: Project structure and safety preflight
         run: python3 tools/preflight.py
       - name: Public repository staged-file safety
