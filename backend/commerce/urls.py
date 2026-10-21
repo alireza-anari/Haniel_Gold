@@ -1,0 +1,25 @@
+from django.urls import path
+from . import views as v
+urlpatterns = [
+    path('health',v.Health.as_view()),
+    path('ready',v.Ready.as_view()),
+    path('auth/csrf',v.csrf_token),
+    path('auth/otp/request',v.OtpRequest.as_view()),
+    path('auth/otp/verify',v.OtpVerify.as_view()),
+    path('auth/logout',v.Logout.as_view()),
+    path('account/me',v.Account.as_view()),
+    path('account/addresses',v.AddressList.as_view()),
+    path('account/addresses/<int:pk>',v.AddressDetail.as_view()),
+    path('account/favorites',v.FavoriteList.as_view()),
+    path('account/favorites/<slug:slug>',v.FavoriteDetail.as_view()),
+    path('market/gold',v.PublicGoldRate.as_view()),
+    path('catalog/categories',v.Categories.as_view()),
+    path('catalog/products',v.Products.as_view()),
+    path('catalog/products/<slug:slug>',v.ProductDetail.as_view()),
+    path('support/messages',v.Support.as_view()),
+    path('cart/quote',v.Quote.as_view()),
+    path('orders',v.Orders.as_view()),
+    path('orders/<uuid:pk>',v.OrderDetail.as_view()),
+    path('payments/start',v.PaymentStart.as_view()),
+    path('store/content/<slug:key>',v.PublicContent.as_view()),
+]

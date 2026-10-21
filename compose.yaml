@@ -1,0 +1,104 @@
+# HANI-EL GOLD staging / production deployment. No secret is committed.
+# Run: docker compose up -d --build
+services:
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [private]
+
+  init:
+    image: haniel-backend:local
+    build: ./backend
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      TRUST_REVERSE_PROXY: "1"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - static_data:/app/staticfiles
+      - media_data:/app/media
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
+    restart: "no"
+    networks: [private]
+
+  web:
+    image: haniel-backend:local
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+      TRUST_REVERSE_PROXY: "1"
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "40", "--max-requests", "1000", "--max-requests-jitter", "100"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    volumes:
+      - static_data:/app/staticfiles:ro
+      - media_data:/app/media
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/v1/health', headers={'X-Forwarded-Proto': 'https'}), timeout=4)"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 30s
+    networks: [private]
+
+  rate-worker:
+    profiles: ["rates"]
+    image: haniel-backend:local
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_HOST: database
+    command: ["python", "manage.py", "run_rate_scheduler"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    networks: [private]
+
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend:/srv/frontend:ro
+      - static_data:/srv/static:ro
+      - media_data:/srv/media:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    networks: [private]
+
+networks:
+  private:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  static_data:
+  media_data:
+  caddy_data:
+  caddy_config:

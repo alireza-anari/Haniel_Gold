@@ -1,0 +1,39 @@
+{$SITE_DOMAIN} {
+  encode zstd gzip
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+    X-Frame-Options DENY
+    -Server
+  }
+  # Prelaunch: prevent early search indexing. Remove before verified public launch.
+  header X-Robots-Tag "noindex, nofollow"
+  @api path /api /api/*
+  handle @api {
+    uri strip_prefix /api
+    reverse_proxy web:8000
+  }
+  @admin path /admin /admin/*
+  handle @admin {
+    reverse_proxy web:8000
+  }
+  handle_path /private-fonts/* {
+    root * /srv/frontend/private-fonts
+    file_server
+  }
+  handle_path /static/* {
+    root * /srv/static
+    file_server
+  }
+  handle_path /media/* {
+    root * /srv/media
+    file_server
+  }
+  @prelaunch path / /index.html /runtime-config.js
+  header @prelaunch Cache-Control "no-store"
+  handle {
+    root * /srv/frontend
+    try_files {path} /index.html
+    file_server
+  }
+}
