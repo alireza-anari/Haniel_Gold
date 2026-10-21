@@ -27,6 +27,7 @@ jobs:
           test -f .cloudflare-pages-dist/robots.txt
           test -f .cloudflare-pages-dist/_headers
           grep -q "apiBaseUrl:''" .cloudflare-pages-dist/runtime-config.js
+          rm -rf .cloudflare-pages-dist  # generated files are not committed source
       - name: Project structure and safety preflight
         run: python3 tools/preflight.py
       - name: Public repository staged-file safety
@@ -76,7 +77,7 @@ jobs:
       - name: Validate Django and migrations
         run: |
           python manage.py check
-          python manage.py makemigrations --check --dry-run
+          python manage.py makemigrations --check --dry-run --verbosity 3
           python manage.py migrate --noinput
       - name: Run automated tests
         run: python manage.py test tests --verbosity 2
