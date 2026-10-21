@@ -74,13 +74,13 @@ class Products(PublicAPIView):
         except ValueError:raise ValidationError({'offset':'عدد معتبر لازم است.'})
         if offset<0 or offset>100000:raise ValidationError({'offset':'خارج از محدوده است.'})
         context=current_pricing_context()
-        items=[product_json(p,pricing_context=context) for p in qs[offset:offset+limit]]
+        items=[product_json(p,pricing_context=context,request=request) for p in qs[offset:offset+limit]]
         return Response({'items':items,'total':total,'limit':limit,'offset':offset,'nextOffset':offset+limit if offset+limit<total else None})
 
 class ProductDetail(PublicAPIView):
     def get(self,request,slug):
         p=get_object_or_404(Product.objects.filter(published=True,category__active=True,photos__isnull=False).distinct().select_related('category','inventory').prefetch_related('photos'),slug=slug)
-        return Response(product_json(p,pricing_context=current_pricing_context()))
+        return Response(product_json(p,pricing_context=current_pricing_context(),request=request))
 
 class PublicGoldRate(PublicAPIView):
     def get(self,request):
@@ -144,7 +144,7 @@ class AddressDetail(CsrfAPIView):
 class FavoriteList(CsrfAPIView):
     def get(self,request):
         records=Favorite.objects.filter(user=request.user).select_related('product','product__category','product__inventory').prefetch_related('product__photos')
-        return Response({'items':[product_json(x.product) for x in records if x.product.published]})
+        return Response({'items':[product_json(x.product,request=request) for x in records if x.product.published]})
     def post(self,request):
         ser=FavoriteRequestSerializer(data=request.data);ser.is_valid(raise_exception=True)
         p=get_object_or_404(Product,published=True,slug=ser.validated_data['productId'])
