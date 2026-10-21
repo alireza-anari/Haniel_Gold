@@ -33,3 +33,6 @@ frontend/private-fonts/
 *.bak
 *.rar
 node_modules/
+
+# Generated static output for Cloudflare Pages staging
+.cloudflare-pages-dist/
