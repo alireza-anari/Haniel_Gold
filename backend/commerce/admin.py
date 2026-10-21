@@ -4,6 +4,9 @@ from . import models as m
 class PhotoInline(admin.TabularInline):
     model=m.ProductImage
     extra=0
+    fields=['image','url','alt','sort_order']
+    verbose_name='تصویر محصول'
+    verbose_name_plural='تصاویر محصول (آپلود فایل یا لینک HTTPS)'
 
 @admin.register(m.Category)
 class CategoryAdmin(admin.ModelAdmin):
