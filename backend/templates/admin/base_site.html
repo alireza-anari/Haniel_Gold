@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'commerce/haniel_admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+  <div class="haniel-admin-brand">
+    <a href="{% url 'admin:index' %}" aria-label="مدیریت HANI-EL GOLD">
+      <img src="{% static 'commerce/brand-gold.png' %}" alt="HANI-EL GOLD" width="132" height="45">
+      <span>پنل مدیریت</span>
+    </a>
+  </div>
+{% endblock %}
