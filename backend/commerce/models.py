@@ -2,7 +2,7 @@
 import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, FileExtensionValidator
 from django.db import models
 from django.db.models import Q, F
 from django.utils import timezone
@@ -48,13 +48,31 @@ class Product(AuditStamp):
     def __str__(self):
         return self.name
 
+def product_photo_upload_path(instance, filename):
+    # Random server-managed filename, never trust user-supplied path.
+    from pathlib import Path
+    ext = Path(filename).suffix.lower()
+    return f'products/{uuid.uuid4().hex}{ext}'
+
+
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, related_name='photos', on_delete=models.CASCADE)
-    url = models.URLField(max_length=800, validators=[https_url])
+    # Existing HTTPS image URL remains supported; new photos may be uploaded directly.
+    url = models.URLField(max_length=800, validators=[https_url], blank=True)
+    image = models.ImageField(upload_to=product_photo_upload_path, blank=True, null=True,
+                              validators=[FileExtensionValidator(['jpg', 'jpeg', 'png', 'webp'])])
     alt = models.CharField(max_length=250)
     sort_order = models.PositiveIntegerField(default=0)
     class Meta:
         ordering = ['sort_order','id']
+
+    def clean(self):
+        super().clean()
+        # Choose exactly one source for each product image.
+        if bool(self.image) == bool(self.url):
+            raise ValidationError('برای هر تصویر دقیقاً یک منبع انتخاب کنید: آپلود فایل یا URL معتبر HTTPS.')
+        if self.image and self.image.size > 8 * 1024 * 1024:
+            raise ValidationError({'image':'حجم هر تصویر باید حداکثر ۸ مگابایت باشد.'})
 
 class Inventory(AuditStamp):
     product = models.OneToOneField(Product, related_name='inventory', on_delete=models.PROTECT)
