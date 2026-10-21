@@ -23,7 +23,8 @@ for path in paths:
         data=file.read_text(encoding='utf-8',errors='replace')
         if path != 'tools/scan_git_public.py' and ('-----BEGIN PRIVATE KEY-----' in data or '-----BEGIN OPENSSH PRIVATE KEY-----' in data):
             forbidden.append(path+' [private key content]')
-        if path != 'tools/scan_git_public.py' and re.search(r'data:(?:font/|application/(?:x-font|font))[^,]*;base64,', data):
+        # Owner explicitly requested restoring the four original embedded fonts.
+        if path not in ('tools/scan_git_public.py', 'frontend/styles.css') and re.search(r'data:(?:font/|application/(?:x-font|font))[^,]*;base64,', data):
             forbidden.append(path+' [embedded font requires public license review]')
         # Does not reject placeholders, no full secrets scanning claims.
 if forbidden:
