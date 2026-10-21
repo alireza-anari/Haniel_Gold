@@ -19,7 +19,8 @@ export async function onRequest({request,env}) {
     const origin = new URL(rawOrigin);
     if (origin.protocol !== 'https:' || origin.username || origin.password ||
         origin.pathname !== '/' || origin.search || origin.hash) return disabled();
-    target = new URL(publicUrl.pathname.substring('/api'.length) + publicUrl.search, origin);
+    // The origin Caddyfile already strips /api before proxying to Django.
+    target = new URL(publicUrl.pathname + publicUrl.search, origin);
   } catch { return disabled(); }
   const headers = new Headers(request.headers);
   for (const key of ['host','cf-connecting-ip','x-real-ip','x-forwarded-host','x-forwarded-proto','x-forwarded-for']) {
