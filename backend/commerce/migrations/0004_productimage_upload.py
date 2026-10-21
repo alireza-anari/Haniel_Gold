@@ -18,6 +18,6 @@ class Migration(migrations.Migration):
             model_name='productimage',
             name='image',
             field=models.ImageField(blank=True, null=True, upload_to=commerce.models.product_photo_upload_path,
-                validators=[django.core.validators.FileExtensionValidator(allowed_extensions=['jpg','jpeg','png','webp'])]),
+                validators=[django.core.validators.FileExtensionValidator(['jpg', 'jpeg', 'png', 'webp'])]),
         ),
     ]
