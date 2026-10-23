@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  SERVIX_URL,parseServixQuote,fetchServix,calculatePrice,MarketError,
- marketPublic,approvePricingPolicy
+ marketPublic,approvePricingPolicy,syncRate
 } from '../functions/_lib/gold-market.js';
 
 const now=Date.parse('2026-10-23T08:00:00Z');
@@ -64,4 +64,36 @@ test('public market stays unavailable when the database is missing',async()=>{
  const info=await marketPublic({});
  assert.equal(info.tomanPerGram,null);
  assert.equal(info.pricingReady,false);
+});
+
+
+test('scheduled sync records a safe AUTH code after provider rejection without exposing secrets',async()=>{
+ let recorded='';
+ const env={SERVIX_API_KEY:'fake-test-api-key',DB:{prepare(sql){
+  return {bind(...args){this.args=args;return this;},
+   async first(){assert.match(sql,/SELECT \* FROM gold_market_state/);return {version:0,last_attempt_at:null,paused_until:null};},
+   async run(){
+    if(sql.includes('last_error='))recorded=this.args[0];
+    return {meta:{changes:1}};
+   }};
+ }}};
+ const r=await syncRate(env,{now,fetcher:async()=>({status:401})});
+ assert.equal(r.status,'failed');
+ assert.equal(r.errorCode,'AUTH');
+ assert.equal(recorded,'AUTH');
+ assert.doesNotMatch(JSON.stringify(r),/fake-test-api-key/);
+});
+test('scheduled sync uses quota status distinctly from provider errors',async()=>{
+ let recorded='',pause=null;
+ const env={SERVIX_API_KEY:'fake-test-api-key',DB:{prepare(sql){
+  return {bind(...args){this.args=args;return this;},
+   async first(){return {version:0,last_attempt_at:null,paused_until:null};},
+   async run(){if(sql.includes('last_error=')){recorded=this.args[0];pause=this.args[1];}
+    return {meta:{changes:1}};}};
+ }}};
+ const r=await syncRate(env,{now,fetcher:async()=>({status:429})});
+ assert.equal(r.status,'quota_exceeded');
+ assert.equal(r.errorCode,'QUOTA');
+ assert.equal(recorded,'QUOTA');
+ assert.equal(pause,now+24*60*60*1000);
 });
