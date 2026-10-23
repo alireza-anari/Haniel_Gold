@@ -52,7 +52,10 @@ async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0,pricing=nu
  karat:r.karat,makingFeeBps:r.making_fee_bps,profitBps:r.profit_bps,inventoryCount:r.inventory_count,
  inventoryStatus:r.inventory_count===null?'unknown':r.inventory_count>0?'available':'unavailable',
  published:!!r.published,imageUrl:images[0]||null,images,
+ // Public prices are computed only from fresh, approved Servix rates.
+ // Staging manual amounts remain visible to authenticated admins, never shoppers.
  price:auto?{...auto,updatedAt:pricing.observedAt,validUntil:pricing.validUntil}
+  :onlyPublic?{amountToman:null,updatedAt:null,validUntil:null,source:null}
   :{amountToman:fresh?r.price_toman:null,updatedAt:fresh?new Date(r.price_verified_at).toISOString():null,
     validUntil:fresh?new Date(r.price_valid_until).toISOString():null,source:fresh?'manual_staging':null},
  priceToman:r.price_toman,priceValidUntil:r.price_valid_until?new Date(r.price_valid_until).toISOString():null};
