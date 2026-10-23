@@ -57,6 +57,7 @@ function drawProducts(){
 async function reload(){
  const [cats,products]=await Promise.all([api('/admin/categories'),api('/admin/products')]);
  store.categories=cats.items||[];store.products=products.items||[];drawCategories();drawProducts();
+ await refreshMarket();
 }
 function editProduct(id){
  const p=store.products.find(x=>x.id===id);if(!p)return;
@@ -156,6 +157,59 @@ async function uploadImage(){
   note('تصویر آپلود شد و آدرس آن در فرم قرار گرفت. حالا می‌توانی محصول را ذخیره کنی.');
  }catch(x){note(x.message,true);}finally{button.disabled=false;}
 }
+async function refreshMarket(){
+ const headline=$('#market-status'),detail=$('#market-detail'),approve=$('#approve-gold'),pending=$('#market-pending-note');
+ if(!headline)return;
+ try{
+  const data=await api('/admin/market'),m=data.market,p=data.policy;
+  headline.textContent=m.status==='ready'?'نرخ تأییدشده موقتاً معتبر است':m.status==='blocked'?'نرخ جدید منتظر بررسی مدیر است':'نرخ معتبر در دسترس نیست';
+  const rate=m.rateTomanPerGram==null?'—':fa(m.rateTomanPerGram)+' تومان / گرم ۱۸ عیار';
+  const proposed=m.pendingTomanPerGram==null?'—':fa(m.pendingTomanPerGram)+' تومان / گرم';
+  detail.textContent='آخرین نرخ تأییدشده: '+rate+' | اعتبار تا: '+(m.validUntil?new Date(m.validUntil).toLocaleString('fa-IR'):'—')+
+   ' | نرخ در انتظار بررسی: '+proposed+' | سیاست مالی: '+(p.approved?'تأیید شده':'هنوز تأیید نشده');
+  approve.hidden=m.pendingTomanPerGram==null;
+  pending.hidden=m.pendingTomanPerGram==null;
+  const form=$('#pricing-policy-form');
+  if(form && document.activeElement?.closest('#pricing-policy-form')!==form){
+   if(p.approved){
+    field(form,'taxPercent').value=p.taxPercent??'';
+    field(form,'maxRateChangePercent').value=p.maxRateChangePercent??'';
+   }
+  }
+ }catch(e){
+  headline.textContent='بخش نرخ هنوز فعال نشده است.';
+  detail.textContent=e.message||'پس از اجرای SQL و اتصال کلید Servix فعال می‌شود.';
+  approve.hidden=true;pending.hidden=true;
+ }
+}
+async function syncGold(){
+ const button=$('#sync-gold');button.disabled=true;
+ try{
+  const x=await api('/admin/market/sync',{method:'POST'});
+  note(x.message||'وضعیت دریافت نرخ ثبت شد.');
+  await refreshMarket();
+ }catch(e){note(e.message,true);}finally{button.disabled=false;}
+}
+async function approveGold(){
+ if(!confirm('آیا نرخ پیشنهادی را با منبع معتبر و زمان مشاهده آن مقایسه و تأیید کرده‌ای؟'))return;
+ const button=$('#approve-gold');button.disabled=true;
+ try{
+  const x=await api('/admin/market/approve',{method:'POST',data:{confirmReviewed:true}});
+  note(x.message||'نرخ تأیید شد.');await refreshMarket();
+ }catch(e){note(e.message,true);}finally{button.disabled=false;}
+}
+async function savePricingPolicy(e){
+ e.preventDefault();const f=e.currentTarget,button=f.querySelector('button[type=submit]');
+ if(!field(f,'confirmReviewed').checked){note('تأیید صریح سیاست لازم است.',true);return;}
+ button.disabled=true;
+ try{
+  const x=await api('/admin/market/policy',{method:'POST',data:{
+   taxPercent:val(f,'taxPercent'),maxRateChangePercent:val(f,'maxRateChangePercent'),
+   taxBasis:'fee_profit',confirmReviewed:true
+  }});
+  note(x.message||'سیاست مالی ثبت شد.');await refreshMarket();
+ }catch(e){note(e.message,true);}finally{button.disabled=false;}
+}
 async function login(e){
  e.preventDefault();const f=e.currentTarget,button=f.querySelector('button[type=submit]');
  button.disabled=true;try{
@@ -175,6 +229,9 @@ async function boot(){
  $('#refresh').addEventListener('click',async()=>{try{await reload();note('محصولات به‌روزرسانی شدند.');}catch(x){note(x.message,true);}});
  $('#upload-image').addEventListener('click',uploadImage);
  $('#logout').addEventListener('click',logout);
+ $('#sync-gold').addEventListener('click',syncGold);
+ $('#approve-gold').addEventListener('click',approveGold);
+ $('#pricing-policy-form').addEventListener('submit',savePricingPolicy);
  try{const session=await api('/admin/session');
   if(session.authenticated){store.csrf=session.csrfToken;view('#dashboard');await reload();}
   else view('#login-view');
