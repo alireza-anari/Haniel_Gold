@@ -112,8 +112,8 @@ export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
  if(cur.pending_rate_rial===q.rialPerGram&&cur.pending_observed_at===q.observedAt)
    return {status:'pending',message:'نرخ منتظر تأیید است.'};
  const rules=await policy(env.DB);
- let pendingReason='initial_review';
- if(cur.rate_rial_per_gram){
+ let pendingReason=cur.blocked&&cur.pending_rate_rial?'existing_pending_review':'initial_review';
+ if(cur.rate_rial_per_gram&&!cur.blocked){
   if(!rules?.approved||!rules.auto_change_bps)pendingReason='policy_not_approved';
   else {
    const diff=(BigInt(q.rialPerGram)-BigInt(cur.rate_rial_per_gram));
