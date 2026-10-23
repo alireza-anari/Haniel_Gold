@@ -39,17 +39,19 @@
 <div class="columns"><label>دسته‌بندی<select name="categoryId" id="category-select" required><option value="">ابتدا دسته‌بندی ثبت شود</option></select></label>
 <label>سبک<select name="style"><option value="مینیمال">مینیمال</option><option value="کلاسیک">کلاسیک</option><option value="چشمگیر">چشمگیر</option></select></label></div>
 <label>توضیحات واقعی<textarea name="description" rows="3" maxlength="4000" placeholder="توصیف دقیق، بدون ادعای تأییدنشده"></textarea></label>
-<div class="columns"><label>وزن به گرم (تا ۳ اعشار)<input name="weightGrams" type="number" inputmode="decimal" min="0" step="0.001" placeholder="—"></label>
+<div class="columns"><label>وزن دقیق به گرم (تا ۳ اعشار)<input name="weightGrams" type="number" inputmode="decimal" min="0" step="0.001" placeholder="مثلاً 0.244"></label>
 <label>عیار<input name="karat" type="number" inputmode="numeric" min="1" max="24" step="1" placeholder="—"></label></div>
-<div class="columns"><label>اجرت (درصد × ۱۰۰، اختیاری)<input name="makingFeeBps" type="number" inputmode="numeric" min="0" max="10000" step="1" placeholder="فعلاً ثبت مشخصات"></label>
-<label>سود (درصد × ۱۰۰، اختیاری)<input name="profitBps" type="number" inputmode="numeric" min="0" max="10000" step="1" placeholder="فعلاً ثبت مشخصات"></label></div>
+<p class="hint">اگر وزن محصول ۲۴۴ سوت است، مقدار 0.244 گرم وارد کن؛ عدد 244 یعنی ۲۴۴ گرم.</p>
+<div class="columns"><label>اجرت (درصد ٪، اختیاری)<input name="makingFeeBps" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="مثلاً 10 برای ۱۰٪"></label>
+<label>سود (درصد ٪، اختیاری)<input name="profitBps" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="مثلاً 8 برای ۸٪"></label></div>
+<p class="hint">درصدها را مستقیم وارد کن؛ تبدیل دقیق برای ذخیره در دیتابیس به‌صورت خودکار انجام می‌شود.</p>
 <div class="columns"><label>تعداد موجودی واقعی<input name="inventoryCount" type="number" min="0" step="1" placeholder="نامشخص"></label>
 <label>مبلغ تأییدشده دستی (تومان)<input name="priceToman" type="number" inputmode="numeric" min="1" step="1" placeholder="در صورت تأیید دستی"></label></div>
 <label>اعتبار قیمت (حداکثر ۴۵ دقیقه آینده)<input name="priceValidUntil" type="datetime-local"></label>
 <label>آدرس تصاویر محصول، هر خط یک URL
 <textarea name="images" rows="3" dir="ltr" placeholder="https://…"></textarea></label>
 <div class="upload-row"><label for="photo-file">بارگذاری تصویر محصول (Workers KV رایگان)</label><input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp"><button id="upload-image" type="button" class="text-button">آپلود عکس</button></div>
-<p class="hint">فرمت JPG، PNG یا WebP. عکس بزرگ به‌صورت خودکار برای فضای KV کم‌حجم می‌شود. پس از اتصال MEDIA_KV بدون کارت بانکی فعال است. فقط از تصاویر واقعی محصولات استفاده کن.</p>
+<p class="hint">اگر عکس را انتخاب کنی، هنگام «ذخیره محصول» به‌طور خودکار آپلود می‌شود. امکان آپلود جداگانه هم وجود دارد. پس از اتصال MEDIA_KV فعال است؛ از تصویر واقعی همان محصول استفاده کن.</p>
 <label class="switch-label"><input name="published" type="checkbox"><span>نمایش در ویترین (انتشار محصول)</span></label>
 <div class="actions"><button class="primary" type="submit">ذخیره محصول</button><span class="muted" id="edit-status">ثبت محصول جدید</span></div>
 </form>
