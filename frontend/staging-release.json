@@ -1,0 +1,11 @@
+{
+  "project": "HANI-EL GOLD",
+  "environment": "cloudflare-staging",
+  "release": "gold-market-v1",
+  "requires": [
+    "cloudflare/0002_gold_pricing.sql",
+    "SERVIX_API_KEY"
+  ],
+  "publicRateEnabled": false,
+  "note": "This is a deployment marker only and does not report secret or D1 state."
+}
