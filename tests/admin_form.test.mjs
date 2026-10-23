@@ -54,3 +54,23 @@ test('admin shows source timestamp and refuses stale, future or missing pending 
  assert.match(js,/timeZone:'Asia\/Tehran'/);
  assert.match(js,/زمان ثبت منبع \(تهران\)/);
 });
+
+
+test('product cards expose product-specific making fee, profit, and readiness',()=>{
+ const start=js.indexOf('function drawProducts(){'),end=js.indexOf('async function reload(){',start);
+ assert.ok(start>=0&&end>start);
+ const chunk=js.slice(start,end);
+ assert.match(chunk,/p\.makingFeeBps\/100/);
+ assert.match(chunk,/p\.profitBps\/100/);
+ assert.match(chunk,/p\.pricingReadiness/);
+ assert.match(chunk,/p\.price\.breakdown\.makingFeeToman/);
+ assert.match(chunk,/p\.price\.breakdown\.profitToman/);
+});
+test('category title can be corrected without changing product/category identifiers',()=>{
+ const start=js.indexOf('function drawCategories(){'),end=js.indexOf('function drawProducts(){',start);
+ const chunk=js.slice(start,end);
+ assert.ok(start>=0&&end>start);
+ assert.match(chunk,/admin\/categories\/.*c\.slug/);
+ assert.match(chunk,/method:'PATCH'/);
+ assert.match(chunk,/data:\{title:value\}/);
+});
