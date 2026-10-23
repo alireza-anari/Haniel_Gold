@@ -749,3 +749,6 @@ h3{font-size:clamp(1.2rem,1.7vw,1.65rem)}
 .showcase-only .product-buttons .primary-action,
 .showcase-only .mobile-buy-dock .primary-action{border-radius:12px}
 .showcase-only .price-missing{background:var(--soft);border-radius:16px}
+
+/* A single authentic product photo needs no duplicated thumbnail. */
+.detail-thumbs.single-image{display:none!important}
