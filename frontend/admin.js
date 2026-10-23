@@ -88,13 +88,43 @@ async function submitCategory(e){
  f.reset();await reload();note('دسته‌بندی جدید ثبت شد.');}
  catch(x){note(x.message,true);}finally{button.disabled=false;}
 }
+// Keep product close-ups crisp while staying well within Workers KV's free storage.
+async function prepareProductPhoto(file){
+ if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw Error('فرمت تصویر باید JPG، PNG یا WebP باشد.');
+ if(file.size>16*1024*1024)throw Error('تصویر اصلی بیش از حد بزرگ است؛ نسخه کم‌حجم انتخاب کن.');
+ const limit=1500*1024;
+ if(file.size<=limit)return file;
+ let bitmap;
+ try{bitmap=await createImageBitmap(file);}catch{throw Error('فایل تصویر در مرورگر قابل خواندن نیست.');}
+ try{
+  for(const [longEdge,quality] of [[2200,.88],[1900,.83],[1600,.78]]){
+   const ratio=Math.min(1,longEdge/Math.max(bitmap.width,bitmap.height));
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round(bitmap.width*ratio));
+   canvas.height=Math.max(1,Math.round(bitmap.height*ratio));
+   const context=canvas.getContext('2d');
+   if(!context)throw Error('پردازش تصویر روی این دستگاه ممکن نیست.');
+   context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';
+   context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+   const out=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
+   if(out&&out.type==='image/webp'&&out.size>=20&&out.size<=limit)
+    return new File([out],(file.name||'product').replace(/\.[^.]+$/,'')+'.webp',{type:'image/webp'});
+  }
+  throw Error('حجم عکس برای فضای رایگان زیاد است؛ ابتدا تصویر را به WebP کوچک‌تر تبدیل کن.');
+ }finally{bitmap.close?.();}
+}
 async function uploadImage(){
  const file=$('#photo-file').files?.[0],button=$('#upload-image');
  if(!file){note('ابتدا فایل تصویر را انتخاب کن.',true);return;}
  button.disabled=true;
- try{const data=new FormData();data.set('file',file);const out=await api('/admin/uploads',{method:'POST',upload:data});
-  const target=field($('#product-form'),'images');target.value+=(target.value.trim()?'\n':'')+out.url;
-  $('#photo-file').value='';note('تصویر در R2 بارگذاری شد. حالا محصول را ذخیره کن.');
+ try{
+  note('در حال آماده‌سازی عکس با حفظ جزئیات محصول…');
+  const prepared=await prepareProductPhoto(file);
+  const data=new FormData();data.set('file',prepared);
+  const out=await api('/admin/uploads',{method:'POST',upload:data});
+  const target=field($('#product-form'),'images');
+  target.value+=(target.value.trim()?'\n':'')+out.url;
+  $('#photo-file').value='';note('تصویر ذخیره شد. ممکن است نمایش آن در شبکه Cloudflare کمی تأخیر داشته باشد؛ حالا محصول را ذخیره کن.');
  }catch(x){note(x.message,true);}finally{button.disabled=false;}
 }
 async function login(e){
