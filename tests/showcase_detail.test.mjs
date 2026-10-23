@@ -32,7 +32,7 @@ test('real showcase does not show a nonfunctional purchase button',()=>{
  assert.match(html,/مشاهده مجموعه محصولات/);
  assert.match(html,/۰٫۲۴۴ گرم/);
  assert.match(html,/عیار: 18/);
- assert.match(html,/جزئیات ثبت‌نشده را حدس نمی‌زنیم/);
+ assert.match(html,/مشخصات ثبت‌نشده را حدس نمی‌زنیم/);
  assert.match(html,/قیمت محاسبه‌شده از نرخ معتبر/);
 });
 test('demo remains interactive without modifying its user experience',()=>{
