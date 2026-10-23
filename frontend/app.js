@@ -97,10 +97,22 @@ function normalizeProduct(raw){
  const first=imgs[0]||safeImg(raw.imageUrl)||'gallery-ivory.webp';
  const price=raw.price?.amountToman,expiresAt=Date.parse(raw.price?.validUntil||''),verifiedAt=Date.parse(raw.price?.updatedAt||'');
  const validPrice=Number.isSafeInteger(price)&&price>0&&Number.isFinite(expiresAt)&&expiresAt>Date.now()&&Number.isFinite(verifiedAt)&&verifiedAt<=Date.now();
+ const source=validPrice&&raw.price?.source==='servix_18k'?'servix_18k'
+  :validPrice&&raw.price?.source==='manual_staging'?'manual_staging':null;
+ const components=raw.price?.breakdown;
+ const amounts=components&&[components.rawGoldToman,components.makingFeeToman,
+  components.profitToman,components.taxToman];
+ const verifiedBreakdown=source==='servix_18k'&&amounts&&amounts.every(v=>Number.isSafeInteger(v)&&v>=0)
+  &&amounts.reduce((total,v)=>total+v,0)===price?{
+   rawGoldToman:amounts[0],makingFeeToman:amounts[1],profitToman:amounts[2],taxToman:amounts[3]
+  }:null;
  return {id:String(raw.id),name:safeText(raw.name),category:safeText(raw.category||'سایر'),
   style:safeText(raw.style||'مینیمال'),light:first,dark:first,images:imgs.length?imgs:[first],
   alt:safeText(raw.alt||raw.name),priceToman:validPrice?price:null,priceExpiresAt:validPrice?expiresAt:null,
-  priceVerifiedAt:validPrice?verifiedAt:null,weightGrams:typeof raw.weightGrams==='number'?raw.weightGrams:null,
+  priceVerifiedAt:validPrice?verifiedAt:null,priceSource:source,priceBreakdown:verifiedBreakdown,
+  makingFeeBps:Number.isSafeInteger(raw.makingFeeBps)?raw.makingFeeBps:null,
+  profitBps:Number.isSafeInteger(raw.profitBps)?raw.profitBps:null,
+  weightGrams:typeof raw.weightGrams==='number'?raw.weightGrams:null,
   karat:raw.karat??null,inventoryStatus:String(raw.inventoryStatus||'unknown')};
 }
 
@@ -151,12 +163,36 @@ ${state.sortMenu?`<div class="sort-popup"><button data-action="sort-set" data-so
 <div class="category-chips">${displayCategories.map(c=>{const sp=new URLSearchParams();if(c!=='همه')sp.set('category',c);if(sty!=='همه')sp.set('style',sty);if(q)sp.set('q',q);return `<a href="#/collection${sp.size?'?'+sp.toString():''}" class="chip ${cat===c?'active':''}">${c}</a>`}).join('')}</div>${cat!=='همه'||sty!=='همه'?`<div class="applied-filters"><span>فیلترهای فعال</span>${cat!=='همه'?`<a href="#/collection${sty!=='همه'?'?style='+encodeURIComponent(sty):''}">${cat} ${I('close',13)}</a>`:''}${sty!=='همه'?`<a href="#/collection${cat!=='همه'?'?category='+encodeURIComponent(cat):''}">${sty} ${I('close',13)}</a>`:''}<a class="clear-filters" href="#/collection">پاک کردن همه</a></div>`:''}
 ${list.length?`<div class="catalog-list">${list.map(productRow).join('')}</div>`:`<div class="empty-state">${I('search',28)}<h2>محصولی در این گروه ثبت نشده است</h2><p>${BACKEND_READY?'در این دسته هنوز محصولی منتشر نشده است.':'این دسته در نسخه آزمایشی هنوز نمونه‌ای ندارد.'}</p>${linkButton('دیدن همه محصولات','#/collection')}</div>`}
 ${state.catalogStatus==='error'?`<div class="catalog-error" role="alert">${I('info',18)} دریافت محصولات از سرور ناموفق بود. <button type="button" data-action="catalog-retry">تلاش مجدد</button></div>`:''}<p class="catalog-disclaimer">${state.catalogStatus==='demo'?PLACEHOLDER_NOTICE:''}</p></main>`}
+function productLedger(p){
+ const fresh=p?.priceToman!=null&&p.priceExpiresAt>Date.now();
+ const rows=[['وزن محصول',p.weightGrams!=null?Number(p.weightGrams).toLocaleString('fa-IR')+' گرم':'—'],
+  ['اجرت این محصول',p.makingFeeBps!=null?(p.makingFeeBps/100).toLocaleString('fa-IR')+'٪':'—'],
+  ['سود این محصول',p.profitBps!=null?(p.profitBps/100).toLocaleString('fa-IR')+'٪':'—']];
+ if(fresh&&p.priceSource==='servix_18k'&&p.priceBreakdown){
+  rows.push(['ارزش طلای خام',formatMoney(p.priceBreakdown.rawGoldToman)],
+   ['مبلغ اجرت',formatMoney(p.priceBreakdown.makingFeeToman)],
+   ['مبلغ سود',formatMoney(p.priceBreakdown.profitToman)],
+   ['مالیات طبق سیاست تأییدشده',formatMoney(p.priceBreakdown.taxToman)],
+   ['قیمت محاسبه‌شده',formatMoney(p.priceToman)]);
+  const checked=p.priceVerifiedAt?new Intl.DateTimeFormat('fa-IR',{
+   timeZone:'Asia/Tehran',dateStyle:'medium',timeStyle:'short'
+  }).format(new Date(p.priceVerifiedAt)):'نامشخص';
+  return '<p>قیمت بر اساس نرخ معتبر طلای ۱۸ عیار و اطلاعات اختصاصی این محصول محاسبه شده است. زمان نرخ (تهران): '+checked+
+   '. قیمت تنها تا پایان اعتبار نرخ قابل نمایش است.</p><div class="price-ledger">'+
+   rows.map(([label,value])=>'<div><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('')+'</div>';
+ }
+ const note=fresh&&p.priceSource==='manual_staging'
+  ?'این مبلغ به‌صورت دستی تأیید شده است؛ ریز محاسبه خودکار برای آن وجود ندارد.'
+  :'تا تأیید نرخ تازه و سیاست قیمت‌گذاری، مبلغ و ریز محاسبه محصول نمایش داده نمی‌شود.';
+ return '<p>'+note+'</p><div class="price-ledger">'+
+  rows.map(([label,value])=>'<div><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('')+'</div>';
+}
 function productPage(id){const p=products.find(x=>x.id===id);if(!p)return notFound();const imgs=p.images||[p.light];let shown=imgs[state.productImage%imgs.length]||p.light;const liked=state.favorites.includes(p.id);return `<main class="inner-main product-page"><div class="breadcrumb"><a href="#/">خانه</a>${I('left',12)}<a href="#/collection?category=${encodeURIComponent(p.category)}">${p.category}</a>${I('left',12)}<span>${p.name}</span></div>
 <div class="detail-grid"><div class="detail-media"><button type="button" class="detail-main-art" data-action="lightbox-open" aria-label="بزرگنمایی تصویر محصول">${img(state.theme==='dark'&&(shown===p.light||shown===p.images[0])?p.dark:shown,p.alt)}${!BACKEND_READY?'<span class="demo-label">تصویر مفهومی</span>':''}<span class="image-zoom-indicator">${I('search',16)} مشاهده بزرگ‌تر</span></button><div class="detail-thumbs">${imgs.map((src,i)=>`<button class="detail-thumb ${i===state.productImage?'active':''}" data-action="product-img" data-index="${i}">${img(src,`نمای ${i+1} از محصول`)}</button>`).join('')}</div></div>
 <div class="detail-info"><span class="eyebrow">HANI-EL / THE COLLECTION</span><h1>${p.name}</h1><p class="detail-subtitle">${BACKEND_READY?'مشخصات این محصول را پیش از انتخاب بررسی کنید.':'پیش‌نمایش یک زیور با نقش شبدر'}</p><div class="price-missing"><strong>${p.priceToman!=null?productPrice(p):'اطلاعات قیمت در حال تکمیل'}</strong><span>${p.priceToman!=null?'قیمت دریافتی از فروشگاه، مشروط به تأیید نهایی هنگام خرید.':'قیمت نهایی و موجودی تنها پس از اتصال داده‌های واقعی نمایش داده می‌شوند.'}</span></div>
 <div class="detail-spec-list"><div><span>دسته‌بندی</span><strong>${p.category}</strong></div><div><span>سبک</span><strong>${p.style} ${BACKEND_READY?'':'<small>(نمونه)</small>'}</strong></div><div><span>وزن و عیار</span><strong>${p.weightGrams!=null&&p.karat?`${esc(p.weightGrams)} گرم · عیار ${esc(p.karat)}`:'ثبت نشده'}</strong></div><div><span>قیمت نهایی</span><strong>${productPrice(p)}</strong></div></div>
 <div class="product-buttons"><button class="primary-action" data-action="cart-add" data-id="${p.id}">${I('bag',19)} افزودن به سبد</button><button class="outline-action" data-action="favorite" data-id="${p.id}">${I('heart',18)} ${liked?'حذف از علاقه‌مندی':'افزودن به علاقه‌مندی'}</button></div>
-<div class="detail-trust-note">${I('shield',18)} پیش از سفارش واقعی، وزن، عیار، مبلغ نهایی و شرایط خرید باید قابل بررسی باشند.</div><div class="detail-accordions"><details><summary>مشخصات دقیق محصول ${I('down',16)}</summary><p>وزن، عیار، طول یا ابعاد و سایر مشخصات باید از اطلاعات ثبت‌شده واقعی همین قطعه دریافت شوند.</p></details><details class="price-details"><summary>ریز اجزای قیمت ${I('down',16)}</summary><p>این جدول فقط ساختار نمایش قیمت است و هیچ عددی را تخمین نمی‌زند.</p><div class="price-ledger">${[['نرخ مبنای طلا','—'],['وزن دقیق محصول','—'],['اجرت و سود','—'],['سایر هزینه‌های قابل اعمال','—'],['مبلغ نهایی','—']].map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div></details><details><summary>راهنمای خرید ${I('down',16)}</summary><p>در این پیش‌نمایش می‌توانید مراحل انتخاب و سبد خرید را امتحان کنید، اما ثبت سفارش و پرداخت فعال نیست.</p></details></div>
+<div class="detail-trust-note">${I('shield',18)} پیش از سفارش واقعی، وزن، عیار، مبلغ نهایی و شرایط خرید باید قابل بررسی باشند.</div><div class="detail-accordions"><details><summary>مشخصات دقیق محصول ${I('down',16)}</summary><p>وزن، عیار، طول یا ابعاد و سایر مشخصات باید از اطلاعات ثبت‌شده واقعی همین قطعه دریافت شوند.</p></details><details class="price-details"><summary>ریز اجزای قیمت ${I('down',16)}</summary>${productLedger(p)}</details><details><summary>راهنمای خرید ${I('down',16)}</summary><p>در این پیش‌نمایش می‌توانید مراحل انتخاب و سبد خرید را امتحان کنید، اما ثبت سفارش و پرداخت فعال نیست.</p></details></div>
 </div></div><div class="mobile-buy-dock"><div><small>قیمت و موجودی</small><strong>${productPrice(p)}</strong></div><button type="button" data-action="cart-add" data-id="${p.id}" class="primary-action">${I('bag',17)} سبد خرید</button></div></main>`}
 function cartPage(){const chosen=Object.entries(state.cart).filter(([id,n])=>n>0).map(([id,n])=>({...products.find(p=>p.id===id),qty:n})).filter(x=>x.id);return `<main class="inner-main cart-page"><div class="page-simple-head"><span class="eyebrow">YOUR SELECTION</span><h1>سبد خرید</h1><p>انتخاب‌هایت را مرور کن</p></div>
 ${!chosen.length?`<div class="empty-state">${I('bag',30)}<h2>سبد خریدت هنوز خالی‌ست</h2><p>از میان طرح‌های هانی‌ال انتخاب کن.</p>${linkButton('مشاهده محصولات','#/collection')}</div>`:
