@@ -16,7 +16,7 @@ function detail(backend,price){
   alt:'تصویر واقعی',priceToman:price,priceExpiresAt:Date.now()+(price?10000:-10000),
   priceSource:'servix_18k'};
  const ctx={
-  products:[product],state:{productImage:0,favorites:[],theme:'light'},BACKEND_READY:backend,
+  products:[product],state:{productImage:0,favorites:[],theme:'light',inquiry:{enabled:false}},BACKEND_READY:backend,
   I:()=>'',img:()=>'<img alt="تصویر واقعی">',esc:x=>String(x),
   productPrice:p=>p.priceToman!=null&&p.priceExpiresAt>Date.now()?'قیمت معتبر':'نیازمند استعلام قیمت',
   productLedger:()=>'<span>ریز قیمت معتبر</span>',notFound:()=>'<p>یافت نشد</p>',
