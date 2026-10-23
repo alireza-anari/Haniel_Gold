@@ -41,3 +41,52 @@ test('backend request path stays off unless flag or full build enabled',()=>{
  assert.match(source,/get\('catalog'\)==='live'/);
  assert.match(source,/COMMERCE_READY=false/);
 });
+
+
+test('separate product fee and profit rates survive catalog normalization without mixing',()=>{
+ const a=normal({...base,makingFeeBps:1000,profitBps:800,price:{
+  amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k',
+  breakdown:{rawGoldToman:1000000,makingFeeToman:100000,profitToman:80000,taxToman:160000}
+ }});
+ const b=normal({...base,id:'ring-02',makingFeeBps:1800,profitBps:500,price:{
+  amountToman:1480000,updatedAt:now,validUntil:future,source:'servix_18k',
+  breakdown:{rawGoldToman:1000000,makingFeeToman:180000,profitToman:50000,taxToman:250000}
+ }});
+ assert.equal(a.makingFeeBps,1000);assert.equal(a.profitBps,800);
+ assert.equal(b.makingFeeBps,1800);assert.equal(b.profitBps,500);
+ assert.equal(a.priceBreakdown.makingFeeToman,100000);
+ assert.equal(b.priceBreakdown.makingFeeToman,180000);
+ assert.equal(a.priceBreakdown.profitToman,80000);
+ assert.equal(b.priceBreakdown.profitToman,50000);
+});
+test('stale price and inconsistent breakdown are not presented as valid priced ledgers',()=>{
+ const stale=normal({...base,price:{amountToman:1340000,updatedAt:past,validUntil:past,source:'servix_18k',
+  breakdown:{rawGoldToman:1000000,makingFeeToman:100000,profitToman:80000,taxToman:160000}
+ }});
+ assert.equal(stale.priceToman,null);
+ assert.equal(stale.priceBreakdown,null);
+ const tampered=normal({...base,price:{amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k',
+  breakdown:{rawGoldToman:1,makingFeeToman:2,profitToman:3,taxToman:4}
+ }});
+ assert.equal(tampered.priceBreakdown,null);
+});
+test('price details are rendered only for independently verified, unexpired Servix price',()=>{
+ const a=source.indexOf('function productLedger(p){'),b=source.indexOf('function productPage(id){',a);
+ assert.ok(a>0&&b>a);
+ const ledger=source.slice(a,b);
+ const formatMoney=x=>Number.isSafeInteger(x)?x.toLocaleString('fa-IR')+' تومان':'—';
+ const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+ const prod=normal({...base,makingFeeBps:1000,profitBps:800,price:{
+  amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k',
+  breakdown:{rawGoldToman:1000000,makingFeeToman:100000,profitToman:80000,taxToman:160000}
+ }});
+ const html=vm.runInNewContext(ledger+'\nproductLedger(prod)',{prod,Date,Intl,Number,formatMoney,esc});
+ assert.match(html,/مبلغ اجرت/);
+ assert.match(html,/مبلغ سود/);
+ assert.match(html,/زمان نرخ/);
+ const old=vm.runInNewContext(ledger+'\nproductLedger(prod)',{
+  prod:{...prod,priceExpiresAt:Date.now()-1000},Date,Intl,Number,formatMoney,esc
+ });
+ assert.doesNotMatch(old,/مبلغ اجرت/);
+ assert.match(old,/تأیید نرخ تازه/);
+});
