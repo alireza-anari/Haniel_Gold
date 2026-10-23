@@ -175,7 +175,7 @@ async function submitInquiry(event){
  if(!lines.length){state.inquiry.error='سبد انتخاب‌ها خالی است.';render();return;}
  state.inquiry.submitting=true;state.inquiry.error='';
  try{
-  const res=await fetch(String(CONFIG.apiBaseUrl).replace(/\\/$/,'')+'/v1/inquiries',{
+  const res=await fetch(String(CONFIG.apiBaseUrl).replace(/\/$/,'')+'/v1/inquiries',{
    method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
    body:JSON.stringify({name,phone,items:lines,turnstileToken:state.inquiry.turnstileToken}),credentials:'same-origin'
   });
