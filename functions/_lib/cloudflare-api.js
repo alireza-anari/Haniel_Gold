@@ -1,3 +1,4 @@
+import { MarketError, marketPublic, marketAdmin, syncRate, approvePendingRate, approvePricingPolicy, dynamicContext, calculatePrice } from './gold-market.js';
 // HANI-EL GOLD — Cloudflare-native catalogue API. No live orders/payments/Servix.
 const C='haniel_admin_session';
 const j=(x,status=200,headers={})=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','x-robots-tag':'noindex, nofollow',...headers}});
@@ -30,7 +31,7 @@ function validate(o){
  p.price=price;p.verifiedAt=price===null?null:Date.now();p.validUntil=until;
  return p;
 }
-async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0}={}){
+async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0,pricing=null}={}){
  const wh=[],args=[];
  if(onlyPublic)wh.push('p.published=1','c.active=1');
  if(id){wh.push('p.slug=?');args.push(id);}
@@ -41,12 +42,14 @@ async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0}={}){
  const pics=(await db.prepare('SELECT product_slug,url FROM product_images WHERE product_slug IN ('+rows.map(()=>'?').join(',')+') ORDER BY sort_order,id').bind(...rows.map(r=>r.slug)).all()).results||[];
  const map=new Map(rows.map(r=>[r.slug,[]]));for(const p of pics)map.get(p.product_slug)?.push(p.url);
  return rows.map(r=>{const images=map.get(r.slug)||[];const fresh=r.price_toman!==null&&r.price_toman>0&&r.price_valid_until>Date.now();
+ const auto=onlyPublic&&pricing?calculatePrice(r,pricing.rateRial,pricing.taxBps):null;
  const obj={id:r.slug,name:r.name,category:r.category_title,categoryId:r.category_id,style:r.style,description:r.description,weightGrams:r.weight_mg===null?null:r.weight_mg/1000,
  karat:r.karat,makingFeeBps:r.making_fee_bps,profitBps:r.profit_bps,inventoryCount:r.inventory_count,
  inventoryStatus:r.inventory_count===null?'unknown':r.inventory_count>0?'available':'unavailable',
  published:!!r.published,imageUrl:images[0]||null,images,
- price:{amountToman:fresh?r.price_toman:null,updatedAt:fresh?new Date(r.price_verified_at).toISOString():null,
- validUntil:fresh?new Date(r.price_valid_until).toISOString():null},
+ price:auto?{...auto,updatedAt:pricing.observedAt,validUntil:pricing.validUntil}
+  :{amountToman:fresh?r.price_toman:null,updatedAt:fresh?new Date(r.price_verified_at).toISOString():null,
+    validUntil:fresh?new Date(r.price_valid_until).toISOString():null,source:fresh?'manual_staging':null},
  priceToman:r.price_toman,priceValidUntil:r.price_valid_until?new Date(r.price_valid_until).toISOString():null};
  if(onlyPublic){delete obj.priceToman;delete obj.priceValidUntil;}
  return obj;
@@ -79,15 +82,19 @@ async function route(c){
  if(!e.DB)return err('دیتابیس D1 به پروژه Cloudflare متصل نشده است.',503);
  if(path==='admin/login'&&method==='POST')return login(c);
  if(path==='admin/session'&&method==='GET'){const s=await admin(c);return j(s?{authenticated:true,csrfToken:s.csrf}:{authenticated:false});}
- if(path==='market/gold'&&method==='GET')return j({status:'unavailable',valid:false,priceToman:null,updatedAt:null},503);
+ if(path==='market/gold'&&method==='GET'){
+  try{return j(await marketPublic(e));}
+  catch{return j({status:'not_initialized',currency:'TOMAN',karat:18,tomanPerGram:null,pricingReady:false},503);}
+ }
  if(path==='catalog/categories'&&method==='GET'){
  const data=await e.DB.prepare('SELECT slug,title FROM categories WHERE active=1 ORDER BY sort_order,id').all();return j({items:data.results||[]});
  }
  if(path==='catalog/products'&&method==='GET'){
  const l=Math.min(100,Math.max(1,Number(url.searchParams.get('limit'))||24)),o=Math.min(100000,Math.max(0,Number(url.searchParams.get('offset'))||0));
- const items=await listing(e.DB,{limit:l,offset:o});return j({items,total:items.length,limit:l,offset:o,nextOffset:items.length===l?o+l:null});
+ let pricing=null;try{pricing=await dynamicContext(e);}catch{ /* migration not yet applied */ }
+ const items=await listing(e.DB,{limit:l,offset:o,pricing});return j({items,total:items.length,limit:l,offset:o,nextOffset:items.length===l?o+l:null});
  }
- if(path.startsWith('catalog/products/')&&method==='GET'){const id=path.slice(17);if(!slug(id))return err('یافت نشد.',404);const p=(await listing(e.DB,{id,limit:1}))[0];return p?j(p):err('یافت نشد.',404);}
+ if(path.startsWith('catalog/products/')&&method==='GET'){const id=path.slice(17);if(!slug(id))return err('یافت نشد.',404);let pricing=null;try{pricing=await dynamicContext(e);}catch{}const p=(await listing(e.DB,{id,limit:1,pricing}))[0];return p?j(p):err('یافت نشد.',404);}
  if(path.startsWith('media/products/')&&method==='GET'){
  const key=path.slice(6);if(!/^products\/[a-f0-9-]{36}\.(webp|png|jpg|jpeg)$/.test(key))return err('یافت نشد.',404);
  // KV is included in Workers Free and does not require R2 billing. Keep R2 only for migration.
@@ -107,6 +114,14 @@ async function route(c){
  const s=await admin(c);if(!s)return err('ابتدا وارد پنل مدیریت شوید.',401);
  if(method!=='GET'&&(!sameOrigin(r)||!equal(r.headers.get('x-haniel-csrf'),s.csrf)))return err('درخواست امنیتی معتبر نیست.',403);
  if(path==='admin/logout'&&method==='POST'){await e.DB.prepare('DELETE FROM admin_sessions WHERE token_hash=?').bind(s.hash).run();return j({authenticated:false},200,{'set-cookie':setCookie(r,'',0)});}
+ if(path==='admin/market'&&method==='GET')return j(await marketAdmin(e));
+ if(path==='admin/market/sync'&&method==='POST')return j(await syncRate(e));
+ if(path==='admin/market/approve'&&method==='POST'){
+  const confirmation=await body(r);
+  if(confirmation.confirmReviewed!==true)return err('بررسی مستقل نرخ و تأیید صریح لازم است.',400);
+  return j(await approvePendingRate(e));
+ }
+ if(path==='admin/market/policy'&&method==='POST')return j(await approvePricingPolicy(e,await body(r)));
  if(path==='admin/categories'&&method==='GET'){const x=await e.DB.prepare('SELECT id,slug,title,active,sort_order FROM categories ORDER BY sort_order,id').all();return j({items:x.results||[]});}
  if(path==='admin/categories'&&method==='POST'){const d=await body(r);if(!slug(d.slug)||typeof d.title!=='string'||d.title.trim().length<2||d.title.length>80)return err('دسته‌بندی نامعتبر است.');await e.DB.prepare('INSERT INTO categories(slug,title,active,sort_order) VALUES(?,?,1,0)').bind(d.slug,d.title.trim()).run();return j({created:true},201);}
  if(path==='admin/products'&&method==='GET')return j({items:await listing(e.DB,{onlyPublic:false})});
@@ -142,4 +157,4 @@ async function route(c){
  return err('مسیر وجود ندارد.',404);
 }
 export async function handle(c){if(!new URL(c.request.url).pathname.startsWith('/api/v1/'))return err('یافت نشد.',404);
- try{return await route(c);}catch(x){console.error('HANIEL_API',x?.name,x?.message);if(x instanceof SyntaxError)return err('JSON نامعتبر است.');if(String(x?.message).includes('UNIQUE constraint'))return err('شناسه تکراری است.',409);return err('خطای سرور؛ بعداً دوباره تلاش کنید.',500);}}
+ try{return await route(c);}catch(x){console.error('HANIEL_API',x?.name,x?.message);if(x instanceof SyntaxError)return err('JSON نامعتبر است.');if(x instanceof MarketError)return err(x.message,['DB_SETUP','NOT_CONFIGURED'].includes(x.code)?503:409);if(String(x?.message).includes('UNIQUE constraint'))return err('شناسه تکراری است.',409);return err('خطای سرور؛ بعداً دوباره تلاش کنید.',500);}}
