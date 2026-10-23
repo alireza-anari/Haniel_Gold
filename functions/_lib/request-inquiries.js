@@ -8,10 +8,10 @@ const closed=data=>json({error:'این بخش هنوز برای ثبت درخو�
 const digits=s=>String(s||'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 export function inquiryClock(now=Date.now()){
  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Tehran',
-  hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date(now));
+  hour:'2-digit',minute:'2-digit',weekday:'short',hour12:false}).formatToParts(new Date(now));
  const hour=Number(parts.find(x=>x.type==='hour')?.value),min=Number(parts.find(x=>x.type==='minute')?.value);
  const clock=hour*60+min;
- return {timezone:'Asia/Tehran',start:'10:00',end:'17:00',withinHours:clock>=600&&clock<1020};
+ return {timezone:'Asia/Tehran',start:'10:00',end:'17:00',weekday:parts.find(x=>x.type==='weekday')?.value?.toLowerCase(),withinHours:clock>=600&&clock<1020};
 }
 async function verifyTurnstile(secret,token,ip){
  if(typeof token!=='string'||token.length<8||token.length>2048)return false;
@@ -30,17 +30,20 @@ async function hashIp(ip,salt){
 }
 export async function publicInquiry(c,path){
  const {request:r,env:e}=c,method=r.method.toUpperCase();
- const enabled=e.REQUESTS_ENABLED==='1'&&!!e.TURNSTILE_SECRET&&!!e.TURNSTILE_SITE_KEY&&!!e.INQUIRY_RATE_SALT;
+ const allowedDays=String(e.INQUIRY_OPEN_DAYS||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean);
+ const scheduleConfigured=allowedDays.length>0&&allowedDays.every(day=>['sat','sun','mon','tue','wed','thu','fri'].includes(day));
+ const enabled=e.REQUESTS_ENABLED==='1'&&!!e.TURNSTILE_SECRET&&!!e.TURNSTILE_SITE_KEY&&!!e.INQUIRY_RATE_SALT&&scheduleConfigured;
+ const clock=inquiryClock();
+ const accepting=enabled&&clock.withinHours&&allowedDays.includes(clock.weekday);
  if(path==='inquiries/settings'&&method==='GET'){
-  const clock=inquiryClock();
-  return json({enabled,accepting:enabled&&clock.withinHours,
-   timezone:clock.timezone,open:'10:00',close:'17:00',
+  return json({enabled,accepting,
+   timezone:clock.timezone,open:'10:00',close:'17:00',days:enabled?allowedDays:[],
    turnstileSiteKey:enabled?e.TURNSTILE_SITE_KEY:null,
    notice:'انتخاب محصول صرفاً درخواست استعلام است؛ موجودی و قیمت نهایی تا تأیید مدیر قطعی نیست.'});
  }
  if(path!=='inquiries'||method!=='POST')return json({error:'یافت نشد.'},404);
  if(!enabled)return closed({code:'NOT_ENABLED'});
- if(!inquiryClock().withinHours)return json({error:'ثبت درخواست فقط بین ساعت ۱۰ تا ۱۷ تهران فعال است.',code:'OUTSIDE_HOURS'},409);
+ if(!accepting)return json({error:'ثبت درخواست فقط در روزهای مجاز، بین ساعت ۱۰ تا ۱۷ تهران فعال است.',code:'OUTSIDE_HOURS'},409);
  if(Number(r.headers.get('content-length')||0)>7000)return json({error:'داده بیش از حد مجاز است.'},413);
  const raw=await r.text();if(raw.length>7000)return json({error:'داده بیش از حد مجاز است.'},413);
  let data;try{data=JSON.parse(raw);}catch{return json({error:'ساختار درخواست معتبر نیست.'},400);}
