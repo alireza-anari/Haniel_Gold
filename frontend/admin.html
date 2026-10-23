@@ -29,7 +29,7 @@
 </section>
 <section id="dashboard" hidden>
 <div class="dash-head"><div><div class="eyebrow">HANI-EL GOLD / STAGING</div><h1>ویترین و محصولات</h1><p class="muted">محصولات واقعی را ثبت کن؛ اطلاعات ساختگی در این پنل ساخته نمی‌شود.</p></div><button id="logout" class="text-button" type="button">خروج امن</button></div>
-<div class="warning">قیمت‌های دستی فقط برای تست ویترین هستند و حداکثر ۴۵ دقیقه اعتبار دارند. فرمول مالیاتی و نرخ Servix هنوز فعال نیست؛ هیچ سفارشی از این پنل ثبت نمی‌شود.</div>
+<div class="warning">نرخ Servix و قیمت‌های خودکار تنها پس از اجرای مهاجرت D1، تأیید نرخ اول و سیاست مالی معتبر فعال می‌شوند. هیچ سفارش یا پرداخت واقعی در Staging ثبت نمی‌شود.</div>
 <div class="dashboard-grid">
 <section class="panel">
 <div class="section-head"><div><div class="eyebrow">01 / CATALOGUE</div><h2>محصول</h2></div><button type="button" class="text-button" id="reset-product">محصول جدید +</button></div>
@@ -57,6 +57,26 @@
 </form>
 </section>
 <div class="side-stack">
+<section class="panel" id="market-panel">
+<div class="eyebrow">04 / LIVE GOLD RATE</div><h2>نرخ طلا و سیاست قیمت‌گذاری</h2>
+<p class="muted" id="market-status" role="status">در حال بررسی وضعیت سرویس نرخ…</p>
+<p class="hint" id="market-detail">فقط نرخ یک گرم طلای ۱۸ عیار با واحد دقیق و زمان منبع معتبر خواهد بود.</p>
+<div class="actions" style="margin:15px 0">
+<button type="button" id="sync-gold" class="secondary">دریافت نرخ Servix</button>
+<button type="button" id="approve-gold" class="primary" hidden>تأیید نرخ بررسی‌شده</button>
+</div>
+<div class="warning" id="market-pending-note" hidden>تأیید نرخ تنها پس از مقایسه مستقل با منبع معتبر مجاز است. ممکن است پس از ۴۰ دقیقه نیاز به دریافت مجدد باشد.</div>
+<form id="pricing-policy-form" class="field-stack compact">
+<label>درصد مالیات تأییدشده روی اجرت و سود (٪)
+<input type="number" name="taxPercent" inputmode="decimal" min="0" max="100" step="0.01" placeholder="بدون مقدار پیش‌فرض" required></label>
+<label>حداکثر تغییر خودکار نرخ نسبت به نرخ تأییدشده (٪)
+<input type="number" name="maxRateChangePercent" inputmode="decimal" min="0.01" max="100" step="0.01" placeholder="پس از بررسی میزان نوسان" required></label>
+<p class="hint">فرمول: طلای خام + اجرت + سود روی (طلای خام + اجرت) + مالیات تأییدشده بر (اجرت + سود). محاسبه تنها برای محصولات ۱۸ عیار با مشخصات کامل انجام می‌شود.</p>
+<label class="switch-label"><input type="checkbox" name="confirmReviewed" required> <span>نرخ مالیات، مبنای مالیات و سقف تغییر را مستقلاً بررسی و برای Staging تأیید کرده‌ام.</span></label>
+<button type="submit" class="secondary">ذخیره و تأیید سیاست آزمایشی</button>
+</form>
+<p class="hint" style="margin-top:16px">کلید Servix فقط از Cloudflare Secret با نام SERVIX_API_KEY خوانده می‌شود؛ هرگز آن را در این فرم وارد نکن.</p>
+</section>
 <section class="panel">
 <div class="eyebrow">02 / ORGANISE</div><h2>دسته‌بندی‌ها</h2>
 <form id="category-form" class="field-stack compact">
