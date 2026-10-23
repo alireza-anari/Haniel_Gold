@@ -24,7 +24,7 @@ jobs:
           node --check frontend/admin.js
           node --check functions/_lib/cloudflare-api.js
           node --check 'functions/api/[[path]].js'
-          node --test tests/cloudflare_api.test.mjs
+          node --test tests/cloudflare_api.test.mjs tests/frontend_catalog.test.mjs
       - name: Verify real Cloudflare Pages staging build
         run: |
           bash tools/build_cloudflare_pages.sh
