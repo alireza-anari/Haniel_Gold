@@ -1,6 +1,5 @@
-// Build a copy-pasteable, single-file Cloudflare Worker from the canonical Servix logic.
+// Deterministically bundle Servix sync into a single-file Cloudflare dashboard Worker.
 // Usage: node tools/build_gold_scheduler.mjs [--check]
-// Never add credentials or real product data to this generated bundle.
 import {readFileSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -17,4 +16,32 @@ const preface='/* AUTO-GENERATED from functions/_lib/gold-market.js — do not h
  '   Paste this entire file into Cloudflare Worker Edit Code.\n'+
  '   Bind existing D1 as DB, add SERVIX_API_KEY Secret, then set Cron Trigger.\n'+
  '   No public HTTP endpoint or API secret in this source. */\n\n';
-const suffix=String.raw
+const suffix=[
+ '',
+ 'export default {',
+ '  async fetch() {',
+ "    return new Response('Not Found',{status:404,headers:{'Cache-Control':'no-store'}});",
+ '  },',
+ '  async scheduled(_event,env,ctx) {',
+ '    ctx.waitUntil((async()=>{',
+ '      const result=await syncRate(env);',
+ '      // Log only safe status and error code, never keys or prices.',
+ "      console.log('haniel_gold_rate_sync',result.status,result.errorCode||'');",
+ '    })().catch(error=>{',
+ "      console.error('haniel_gold_rate_sync_failed',error?.code||'WORKER_ERROR');",
+ '      throw error;',
+ '    }));',
+ '  }',
+ '};',
+ ''
+].join('\n');
+const output=preface+minimal+suffix;
+const target=resolve(root,'cloudflare/gold-scheduler-dashboard.js');
+if(process.argv.includes('--check')){
+ const current=readFileSync(target,'utf8');
+ if(current!==output)throw Error('Dashboard Worker bundle is outdated; regenerate before deploying.');
+ console.log('Dashboard Worker bundle matches canonical Servix source');
+}else{
+ writeFileSync(target,output);
+ console.log('Updated '+target);
+}
