@@ -33,13 +33,15 @@ test('unpublished products are not leaked, expired pricing is never public', asy
       }};
     }
   };
-  // Return no photos on the second SELECT.
-  let calls=0;
+  // The gold-market D1 lookups must not consume the catalogue's mocked rows.
+  let catalogueCalls=0;
   d.prepare=q=>{
-    calls++;
-    if(calls===1)assert.match(q,/p.published=1/);
+    if(q.includes('gold_market_state')||q.includes('pricing_policy'))
+      return {bind(){return this;},async first(){return null;}};
+    const isProducts=q.includes('FROM products p JOIN categories c');
+    if(isProducts){catalogueCalls++;assert.match(q,/p.published=1/);}
     return {bind(){return this;},async all(){
-      return {results:calls===1?[{
+      return {results:isProducts?[{
         slug:'real-pendant',name:'محصول برای تست',category_title:'آویز',
         category_id:1,style:'مینیمال',description:'',weight_mg:1500,karat:18,
         making_fee_bps:null,profit_bps:null,inventory_count:1,published:1,
