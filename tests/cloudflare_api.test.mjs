@@ -167,3 +167,22 @@ test('no auto calculation is published with an unapproved global tax policy',asy
  assert.equal(items[0].price.amountToman,null);
  assert.equal(items[0].price.source,null);
 });
+
+
+test('fresh manually entered staging price never appears as public price when Servix is unavailable',async()=>{
+ const now=Date.now(),row={slug:'staging-manual',name:'دستبند تست',category_title:'دستبند',category_id:1,
+  style:'مینیمال',description:'',weight_mg:1000,karat:18,making_fee_bps:1000,profit_bps:800,
+  inventory_count:1,published:1,price_toman:5000000,price_verified_at:now-60000,
+  price_valid_until:now+1800000,updated_at:now};
+ const DB={prepare(sql){return {bind(){return this;},
+  async first(){return null;},
+  async all(){return {results:sql.includes('FROM products p JOIN categories c')?[row]:[]};}
+ };}};
+ const r=await call('/api/v1/catalog/products?limit=4',{DB});
+ assert.equal(r.status,200);
+ const out=await r.json();
+ assert.equal(out.items.length,1);
+ assert.equal(out.items[0].price.amountToman,null);
+ assert.equal(out.items[0].price.source,null);
+ assert.equal(out.items[0].price.validUntil,null);
+});
