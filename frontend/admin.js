@@ -164,11 +164,26 @@ async function refreshMarket(){
   const data=await api('/admin/market'),m=data.market,p=data.policy;
   headline.textContent=m.status==='ready'?'نرخ تأییدشده موقتاً معتبر است':m.status==='blocked'?'نرخ جدید منتظر بررسی مدیر است':'نرخ معتبر در دسترس نیست';
   const rate=m.rateTomanPerGram==null?'—':fa(m.rateTomanPerGram)+' تومان / گرم ۱۸ عیار';
-  const proposed=m.pendingTomanPerGram==null?'—':fa(m.pendingTomanPerGram)+' تومان / گرم';
-  detail.textContent='آخرین نرخ تأییدشده: '+rate+' | اعتبار تا: '+(m.validUntil?new Date(m.validUntil).toLocaleString('fa-IR'):'—')+
-   ' | نرخ در انتظار بررسی: '+proposed+' | سیاست مالی: '+(p.approved?'تأیید شده':'هنوز تأیید نشده');
-  approve.hidden=m.pendingTomanPerGram==null;
-  pending.hidden=m.pendingTomanPerGram==null;
+  const proposed=m.pendingTomanPerGram==null?'—':fa(m.pendingTomanPerGram)+' تومان / گرم ۱۸ عیار';
+  const tehranTime=iso=>{
+   if(!iso||!Number.isFinite(Date.parse(iso)))return 'نامشخص';
+   return new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',dateStyle:'medium',timeStyle:'short'}).format(new Date(iso));
+  };
+  const pendingAt=m.pendingObservedAt?Date.parse(m.pendingObservedAt):null;
+  const pendingAge=pendingAt==null?Infinity:Date.now()-pendingAt;
+  const pendingExpired=pendingAt==null||pendingAge>40*60_000||pendingAge< -120_000;
+  const hasPending=m.pendingTomanPerGram!=null;
+  detail.textContent='آخرین نرخ تأییدشده: '+rate+' | اعتبار تا (تهران): '+tehranTime(m.validUntil)+
+   ' | نرخ در انتظار بررسی: '+proposed+' | زمان ثبت منبع (تهران): '+tehranTime(m.pendingObservedAt)+
+   ' | سیاست مالی: '+(p.approved?'تأیید شده':'هنوز تأیید نشده');
+  approve.hidden=!hasPending;
+  approve.disabled=hasPending&&pendingExpired;
+  pending.hidden=!hasPending;
+  if(hasPending){
+   pending.textContent=pendingExpired
+    ?'زمان نرخ پیشنهادی منقضی شده یا مشخص نیست. آن را تأیید نکن؛ پس از پایان فاصله مجاز، نرخ جدید بگیر.'
+    :'نرخ پیشنهادی هنوز تأیید نشده است. مبلغ و زمان ثبت آن را با منبع مستقل مقایسه کن و فقط پس از اطمینان تأیید کن.';
+  }
   const form=$('#pricing-policy-form');
   if(form && document.activeElement?.closest('#pricing-policy-form')!==form){
    if(p.approved){
