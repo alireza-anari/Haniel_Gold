@@ -108,3 +108,62 @@ test('admin image upload stores validated binary in KV and returns same-origin r
  assert.equal(saved.key,output.url.replace('/api/v1/media/',''));
  assert.equal(saved.buffer.byteLength,38);
 });
+
+
+test('Cloudflare catalogue calculates independent fee and profit amounts for each product', async()=>{
+ const now=Date.now();
+ const rows=[
+  {slug:'gold-item-one',name:'محصول اول',category_title:'دستبند',category_id:1,
+   style:'مینیمال',description:'',weight_mg:1000,karat:18,making_fee_bps:1000,profit_bps:800,
+   inventory_count:2,published:1,price_toman:null,price_verified_at:null,price_valid_until:null,updated_at:now},
+  {slug:'gold-item-two',name:'محصول دوم',category_title:'دستبند',category_id:1,
+   style:'مینیمال',description:'',weight_mg:1000,karat:18,making_fee_bps:2000,profit_bps:500,
+   inventory_count:1,published:1,price_toman:null,price_verified_at:null,price_valid_until:null,updated_at:now}
+ ];
+ const mock={prepare(query){
+  const statement={
+   bind(){return this;},
+   async first(){
+    if(query.includes('gold_market_state'))return {blocked:0,valid_until:now+20*60_000,
+      observed_at:now-60_000,rate_rial_per_gram:100000000};
+    if(query.includes('pricing_policy'))return {approved:1,tax_basis:'fee_profit',tax_bps:0};
+    throw Error('Unexpected SQL first '+query);
+   },
+   async all(){
+    if(query.includes('FROM products p JOIN categories c'))return {results:rows};
+    if(query.includes('FROM product_images'))return {results:[]};
+    throw Error('Unexpected SQL all '+query);
+   }
+  };
+  return statement;
+ }};
+ const r=await call('/api/v1/catalog/products',{DB:mock});
+ assert.equal(r.status,200);
+ const {items}=await r.json();
+ assert.equal(items.length,2);
+ assert.equal(items[0].price.source,'servix_18k');
+ assert.equal(items[1].price.source,'servix_18k');
+ assert.equal(items[0].price.breakdown.rawGoldToman,10000000);
+ assert.equal(items[1].price.breakdown.rawGoldToman,10000000);
+ assert.equal(items[0].price.breakdown.makingFeeToman,1000000);
+ assert.equal(items[1].price.breakdown.makingFeeToman,2000000);
+ assert.equal(items[0].price.breakdown.profitToman,880000);
+ assert.equal(items[1].price.breakdown.profitToman,600000);
+ assert.notEqual(items[0].price.amountToman,items[1].price.amountToman);
+});
+test('no auto calculation is published with an unapproved global tax policy',async()=>{
+ const now=Date.now(),item={slug:'gold-item',name:'محصول',category_title:'دستبند',
+  category_id:1,style:'مینیمال',description:'',weight_mg:1000,karat:18,making_fee_bps:1000,
+  profit_bps:800,inventory_count:2,published:1,price_toman:null,price_verified_at:null,
+  price_valid_until:null,updated_at:now};
+ const mock={prepare(query){return {bind(){return this;},async first(){
+  if(query.includes('gold_market_state'))return {blocked:0,valid_until:now+20*60_000,observed_at:now-60_000,rate_rial_per_gram:100000000};
+  if(query.includes('pricing_policy'))return {approved:0,tax_basis:null,tax_bps:null};
+  return null;
+ },async all(){return {results:query.includes('FROM products p JOIN categories c')?[item]:[]};}};}};
+ const r=await call('/api/v1/catalog/products',{DB:mock});
+ assert.equal(r.status,200);
+ const {items}=await r.json();
+ assert.equal(items[0].price.amountToman,null);
+ assert.equal(items[0].price.source,null);
+});
