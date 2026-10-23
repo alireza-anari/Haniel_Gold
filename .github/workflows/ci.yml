@@ -25,6 +25,8 @@ jobs:
           node --check functions/_lib/cloudflare-api.js
           node --check functions/_lib/gold-market.js
           node --check cloudflare/gold-scheduler.js
+          node --check cloudflare/gold-scheduler-dashboard.js
+          node tools/build_gold_scheduler.mjs --check
           node --check 'functions/api/[[path]].js'
           node --test tests/cloudflare_api.test.mjs tests/frontend_catalog.test.mjs tests/admin_form.test.mjs tests/gold_market.test.mjs
       - name: Verify real Cloudflare Pages staging build
