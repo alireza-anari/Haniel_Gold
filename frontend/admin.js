@@ -1,7 +1,7 @@
 /* HANI-EL GOLD Cloudflare admin; all writes use same-origin credentials + CSRF. */
 'use strict';
 const $=s=>document.querySelector(s);
-const store={csrf:'',products:[],categories:[],editing:null};
+const store={csrf:'',products:[],categories:[],editing:null,pricingReady:false};
 const views=['#login-view','#offline-view','#dashboard'];
 function view(id){for(const s of views)$(s).hidden=s!==id;}
 function note(message,error=false){const n=$('#message');n.hidden=false;n.classList.toggle('error',error);n.textContent=message;n.scrollIntoView({block:'nearest',behavior:'smooth'});}
@@ -39,7 +39,29 @@ function drawCategories(){
  const chips=$('#category-list');chips.replaceChildren();
  for(const c of store.categories){
   const opt=make('option',c.title);opt.value=String(c.id);select.append(opt);
-  chips.append(make('span',c.title,'chip'));
+  const row=make('div',null,'category-entry');
+  const title=make('span',c.title,'chip');
+  const edit=make('button','اصلاح نام','text-button');
+  edit.type='button';edit.setAttribute('aria-label','اصلاح عنوان دسته‌بندی '+c.title);
+  edit.addEventListener('click',()=>{
+   const form=make('form',null,'category-edit-form');
+   const input=make('input');input.type='text';input.value=c.title;input.maxLength=80;input.required=true;input.setAttribute('aria-label','عنوان صحیح دسته‌بندی');
+   const save=make('button','ذخیره نام','secondary');save.type='submit';
+   const cancel=make('button','انصراف','text-button');cancel.type='button';
+   cancel.addEventListener('click',()=>form.replaceWith(title,edit));
+   form.append(input,save,cancel);
+   form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const value=input.value.trim();if(value.length<2){note('نام دسته‌بندی حداقل دو کاراکتر باشد.',true);return;}
+    save.disabled=true;
+    try{
+     await api('/admin/categories/'+encodeURIComponent(c.slug),{method:'PATCH',data:{title:value}});
+     await reload();note('عنوان دسته‌بندی اصلاح شد؛ محصولات همین دسته همچنان متصل می‌مانند.');
+    }catch(error){note(error.message,true);save.disabled=false;}
+   });
+   row.replaceChildren(form);input.focus();input.select();
+  });
+  row.append(title,edit);chips.append(row);
  }
  select.value=chosen||'';
 }
@@ -47,16 +69,41 @@ function drawProducts(){
  const list=$('#product-list');list.replaceChildren();
  if(!store.products.length){list.append(make('p','هنوز محصولی ثبت نشده است.','muted'));return;}
  for(const p of store.products){
-  const row=make('div',null,'catalogue-item'),name=make('div'),title=make('strong',p.name);
-  const price=p.price?.amountToman?fa(p.price.amountToman)+' تومان':'قیمت معتبر ثبت نشده';
-  name.append(title,make('small',(p.published?'منتشر شده':'پیش‌نویس')+' · '+price));
+  const row=make('div',null,'catalogue-item'),name=make('div',null,'catalogue-item-details');
+  const title=make('strong',p.name);
+  const grams=p.weightGrams==null?'وزن ثبت نشده':fa(p.weightGrams)+' گرم';
+  const making=p.makingFeeBps==null?'اجرت نامشخص':fa(p.makingFeeBps/100)+'٪ اجرت';
+  const profit=p.profitBps==null?'سود نامشخص':fa(p.profitBps/100)+'٪ سود';
+  const readiness=p.pricingReadiness||{productComplete:false,missing:[]};
+  const auto=p.price?.source==='servix_18k'&&p.price?.validUntil&&Date.parse(p.price.validUntil)>Date.now();
+  const manual=p.price?.source==='manual_staging'&&p.price?.validUntil&&Date.parse(p.price.validUntil)>Date.now();
+  const price=auto?'قیمت خودکار: '+fa(p.price.amountToman)+' تومان'
+   :manual?'مبلغ تأییدشده دستی: '+fa(p.price.amountToman)+' تومان'
+   :readiness.missing?.length?'ناقص: '+readiness.missing.join('، ')
+   :!store.pricingReady?'در انتظار نرخ معتبر و سیاست مالی تأییدشده':'قیمت معتبر در دسترس نیست';
+  name.append(title,
+   make('small',(p.published?'منتشرشده':'پیش‌نویس')+' · '+grams),
+   make('small',making+' · '+profit),
+   make('small',price,'pricing-readiness'));
+  if(auto&&p.price.breakdown){
+   const summary=make('details',null,'admin-price-breakdown');
+   summary.append(make('summary','ریز محاسبه همین محصول'));
+   const rows=[
+    ['طلای خام',p.price.breakdown.rawGoldToman],
+    ['اجرت همین محصول',p.price.breakdown.makingFeeToman],
+    ['سود همین محصول',p.price.breakdown.profitToman],
+    ['مالیات طبق سیاست تأییدشده',p.price.breakdown.taxToman]
+   ];
+   for(const [label,value] of rows)summary.append(make('p',label+' — '+fa(value)+' تومان'));
+   name.append(summary);
+  }
   const edit=make('button','ویرایش','text-button');edit.type='button';edit.addEventListener('click',()=>editProduct(p.id));
   row.append(name,edit);list.append(row);
  }
 }
 async function reload(){
  const [cats,products]=await Promise.all([api('/admin/categories'),api('/admin/products')]);
- store.categories=cats.items||[];store.products=products.items||[];drawCategories();drawProducts();
+ store.categories=cats.items||[];store.products=products.items||[];store.pricingReady=products.marketAndPolicyReady===true;drawCategories();drawProducts();
  await refreshMarket();
 }
 function editProduct(id){
