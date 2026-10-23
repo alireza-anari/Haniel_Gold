@@ -89,9 +89,19 @@ async function route(c){
  }
  if(path.startsWith('catalog/products/')&&method==='GET'){const id=path.slice(17);if(!slug(id))return err('یافت نشد.',404);const p=(await listing(e.DB,{id,limit:1}))[0];return p?j(p):err('یافت نشد.',404);}
  if(path.startsWith('media/products/')&&method==='GET'){
- if(!e.MEDIA)return err('فضای ذخیره‌سازی R2 متصل نیست.',503);
  const key=path.slice(6);if(!/^products\/[a-f0-9-]{36}\.(webp|png|jpg|jpeg)$/.test(key))return err('یافت نشد.',404);
- const obj=await e.MEDIA.get(key);return obj?new Response(obj.body,{headers:{'content-type':obj.httpMetadata?.contentType||'image/jpeg','cache-control':'public, max-age=3600','x-content-type-options':'nosniff'}}):err('یافت نشد.',404);
+ // KV is included in Workers Free and does not require R2 billing. Keep R2 only for migration.
+ if(e.MEDIA_KV){
+  const stored=await e.MEDIA_KV.getWithMetadata(key,'arrayBuffer');
+  if(!stored?.value)return err('تصویر هنوز در شبکه آماده نیست؛ کمی بعد دوباره تلاش کنید.',404);
+  const type=stored.metadata?.contentType||({'webp':'image/webp','jpg':'image/jpeg','jpeg':'image/jpeg','png':'image/png'})[key.split('.').pop()]||'application/octet-stream';
+  return new Response(stored.value,{headers:{'content-type':type,'cache-control':'public, max-age=3600, immutable','x-content-type-options':'nosniff'}});
+ }
+ if(e.MEDIA){
+  const obj=await e.MEDIA.get(key);
+  return obj?new Response(obj.body,{headers:{'content-type':obj.httpMetadata?.contentType||'image/jpeg','cache-control':'public, max-age=3600','x-content-type-options':'nosniff'}}):err('یافت نشد.',404);
+ }
+ return err('فضای تصاویر KV هنوز به Pages متصل نشده است.',503);
  }
  if(!path.startsWith('admin/'))return err('مسیر موجود نیست.',404);
  const s=await admin(c);if(!s)return err('ابتدا وارد پنل مدیریت شوید.',401);
@@ -116,14 +126,18 @@ async function route(c){
  }
  if(path.startsWith('admin/products/')&&method==='DELETE'){const id=path.slice('admin/products/'.length);if(!slug(id))return err('شناسه نامعتبر است.');await e.DB.prepare('UPDATE products SET published=0,updated_at=? WHERE slug=?').bind(Date.now(),id).run();return j({unpublished:true,slug:id});}
  if(path==='admin/uploads'&&method==='POST'){
- if(!e.MEDIA)return err('R2 هنوز فعال نشده است.',503);
+ if(!e.MEDIA_KV&&!e.MEDIA)return err('ذخیره تصاویر هنوز متصل نشده است؛ KV را با نام MEDIA_KV وصل کنید.',503);
  const f=(await r.formData()).get('file'),types={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
- if(!f||typeof f.arrayBuffer!=='function'||f.size<20||f.size>6*1024*1024||!types[f.type])return err('فقط JPG، PNG یا WebP تا ۶ مگابایت.');
+ const maxBytes=1500*1024; // small, high-quality WebP photos; no billing method required
+ if(!f||typeof f.arrayBuffer!=='function'||f.size<20||f.size>maxBytes||!types[f.type])return err('تصویر باید JPG، PNG یا WebP و حداکثر ۱.۵ مگابایت باشد.');
  const b=new Uint8Array(await f.arrayBuffer());const jpg=b[0]===255&&b[1]===216&&b[2]===255;
  const png=b.slice(0,8).join(',')==='137,80,78,71,13,10,26,10';const webp=String.fromCharCode(...b.slice(0,4))==='RIFF'&&String.fromCharCode(...b.slice(8,12))==='WEBP';
- if(!(f.type==='image/jpeg'&&jpg||f.type==='image/png'&&png||f.type==='image/webp'&&webp))return err('محتوای تصویر معتبر نیست.');
- const key='products/'+crypto.randomUUID()+'.'+types[f.type];await e.MEDIA.put(key,b,{httpMetadata:{contentType:f.type}});
- return j({url:new URL('/api/v1/media/'+key,r.url).href},201);
+ if(!(f.type==='image/jpeg'&&jpg||f.type==='image/png'&&png||f.type==='image/webp'&&webp))return err('فرمت محتوای تصویر معتبر نیست.');
+ const key='products/'+crypto.randomUUID()+'.'+types[f.type];
+ if(e.MEDIA_KV)await e.MEDIA_KV.put(key,b.buffer,{metadata:{contentType:f.type}});
+ else await e.MEDIA.put(key,b,{httpMetadata:{contentType:f.type}});
+ // Relative same-origin URL, safe to use on an eventual custom domain.
+ return j({url:'/api/v1/media/'+key,storage:e.MEDIA_KV?'kv':'r2'},201);
  }
  return err('مسیر وجود ندارد.',404);
 }
