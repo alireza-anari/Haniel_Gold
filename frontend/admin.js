@@ -169,9 +169,9 @@ async function refreshMarket(){
    if(!iso||!Number.isFinite(Date.parse(iso)))return 'نامشخص';
    return new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',dateStyle:'medium',timeStyle:'short'}).format(new Date(iso));
   };
-  const pendingAt=m.pendingObservedAt?Date.parse(m.pendingObservedAt):null;
-  const pendingAge=pendingAt==null?Infinity:Date.now()-pendingAt;
-  const pendingExpired=pendingAt==null||pendingAge>40*60_000||pendingAge< -120_000;
+  const pendingAt=m.pendingObservedAt?Date.parse(m.pendingObservedAt):NaN;
+  const pendingAge=Date.now()-pendingAt;
+  const pendingExpired=!Number.isFinite(pendingAt)||pendingAge>40*60_000||pendingAge< -120_000;
   const hasPending=m.pendingTomanPerGram!=null;
   detail.textContent='آخرین نرخ تأییدشده: '+rate+' | اعتبار تا (تهران): '+tehranTime(m.validUntil)+
    ' | نرخ در انتظار بررسی: '+proposed+' | زمان ثبت منبع (تهران): '+tehranTime(m.pendingObservedAt)+
