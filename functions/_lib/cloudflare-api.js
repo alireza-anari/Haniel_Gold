@@ -42,7 +42,12 @@ async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0,pricing=nu
  const pics=(await db.prepare('SELECT product_slug,url FROM product_images WHERE product_slug IN ('+rows.map(()=>'?').join(',')+') ORDER BY sort_order,id').bind(...rows.map(r=>r.slug)).all()).results||[];
  const map=new Map(rows.map(r=>[r.slug,[]]));for(const p of pics)map.get(p.product_slug)?.push(p.url);
  return rows.map(r=>{const images=map.get(r.slug)||[];const fresh=r.price_toman!==null&&r.price_toman>0&&r.price_valid_until>Date.now();
- const auto=onlyPublic&&pricing?calculatePrice(r,pricing.rateRial,pricing.taxBps):null;
+ const auto=pricing?calculatePrice(r,pricing.rateRial,pricing.taxBps):null;
+ const missing=[];
+ if(r.karat!==18)missing.push('عیار ۱۸');
+ if(!Number.isSafeInteger(r.weight_mg)||r.weight_mg<=0)missing.push('وزن');
+ if(!Number.isSafeInteger(r.making_fee_bps))missing.push('درصد اجرت');
+ if(!Number.isSafeInteger(r.profit_bps))missing.push('درصد سود');
  const obj={id:r.slug,name:r.name,category:r.category_title,categoryId:r.category_id,style:r.style,description:r.description,weightGrams:r.weight_mg===null?null:r.weight_mg/1000,
  karat:r.karat,makingFeeBps:r.making_fee_bps,profitBps:r.profit_bps,inventoryCount:r.inventory_count,
  inventoryStatus:r.inventory_count===null?'unknown':r.inventory_count>0?'available':'unavailable',
@@ -52,6 +57,7 @@ async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0,pricing=nu
     validUntil:fresh?new Date(r.price_valid_until).toISOString():null,source:fresh?'manual_staging':null},
  priceToman:r.price_toman,priceValidUntil:r.price_valid_until?new Date(r.price_valid_until).toISOString():null};
  if(onlyPublic){delete obj.priceToman;delete obj.priceValidUntil;}
+ else obj.pricingReadiness={productComplete:missing.length===0,missing,validMarketAndPolicy:!!pricing,autoPriceAvailable:!!auto};
  return obj;
  });
 }
@@ -124,7 +130,18 @@ async function route(c){
  if(path==='admin/market/policy'&&method==='POST')return j(await approvePricingPolicy(e,await body(r)));
  if(path==='admin/categories'&&method==='GET'){const x=await e.DB.prepare('SELECT id,slug,title,active,sort_order FROM categories ORDER BY sort_order,id').all();return j({items:x.results||[]});}
  if(path==='admin/categories'&&method==='POST'){const d=await body(r);if(!slug(d.slug)||typeof d.title!=='string'||d.title.trim().length<2||d.title.length>80)return err('دسته‌بندی نامعتبر است.');await e.DB.prepare('INSERT INTO categories(slug,title,active,sort_order) VALUES(?,?,1,0)').bind(d.slug,d.title.trim()).run();return j({created:true},201);}
- if(path==='admin/products'&&method==='GET')return j({items:await listing(e.DB,{onlyPublic:false})});
+ if(path.startsWith('admin/categories/')&&method==='PATCH'){
+  const categorySlug=path.slice('admin/categories/'.length),input=await body(r);
+  if(!slug(categorySlug)||typeof input.title!=='string'||input.title.trim().length<2||input.title.trim().length>80)
+   return err('عنوان دسته‌بندی باید بین ۲ تا ۸۰ کاراکتر باشد.');
+  const updated=await e.DB.prepare('UPDATE categories SET title=? WHERE slug=?')
+    .bind(input.title.trim(),categorySlug).run();
+  return updated.meta?.changes===1?j({updated:true,slug:categorySlug,title:input.title.trim()}):err('دسته‌بندی یافت نشد.',404);
+ }
+ if(path==='admin/products'&&method==='GET'){
+  let pricing=null;try{pricing=await dynamicContext(e);}catch{/* migrations not yet applied */}
+  return j({items:await listing(e.DB,{onlyPublic:false,pricing}),marketAndPolicyReady:!!pricing});
+ }
  if(path==='admin/products'&&method==='POST'){
  let p;try{p=validate(await body(r));}catch(x){return err(x.message);}
  if(!(await e.DB.prepare('SELECT 1 FROM categories WHERE id=?').bind(p.categoryId).first()))return err('دسته‌بندی ثبت نشده است.');
