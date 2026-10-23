@@ -227,6 +227,30 @@ async function refreshMarket(){
   detail.textContent='آخرین نرخ تأییدشده: '+rate+' | اعتبار تا (تهران): '+tehranTime(m.validUntil)+
    ' | نرخ در انتظار بررسی: '+proposed+' | زمان ثبت منبع (تهران): '+tehranTime(m.pendingObservedAt)+
    ' | سیاست مالی: '+(p.approved?'تأیید شده':'هنوز تأیید نشده');
+  // Last provider error is stored in D1 and exposed only to the authenticated owner.
+  // Keep the error code descriptive without exposing API keys or market quote payloads.
+  const errorPanel=$('#market-sync-error');
+  const code=typeof m.lastError==='string'&&/^[A-Z_]{3,32}$/.test(m.lastError)?m.lastError:'';
+  const errorHints={
+   AUTH:'کلید یا سطح دسترسی Servix در همین Worker را بررسی کن.',
+   NOT_CONFIGURED:'Secret با نام SERVIX_API_KEY روی Worker تعریف نشده است.',
+   NETWORK:'ارتباط Worker با Servix برقرار نشده است.',
+   PROVIDER:'سرویکس پاسخ HTTP موفق برنگردانده است؛ دسترسی یا وضعیت سرویس را بررسی کن.',
+   QUOTA:'سهمیه API به پایان رسیده است؛ درخواست‌ها باید متوقف بمانند.',
+   STALE_SOURCE:'زمان ثبت نرخ Servix قدیمی است؛ از نرخ قدیمی برای فروش استفاده نمی‌شود.',
+   BAD_TIME:'زمان businessTime پاسخ Servix معتبر یا کامل نیست.',
+   BAD_AMOUNT:'مقدار ریالی value در پاسخ Servix معتبر نیست.',
+   BAD_SHAPE:'ساختار پاسخ Servix مطابق قرارداد مورد انتظار نیست.',
+   WRONG_UNIT:'کد نماد یا واحد quoteUnit با طلای ۱۸ عیار ریالی مطابقت ندارد.',
+   INVALID_JSON:'پاسخ API، JSON معتبر نیست.',
+   TOO_LARGE:'حجم پاسخ Servix از سقف تعیین‌شده بیشتر است.'
+  };
+  if(errorPanel){
+   errorPanel.hidden=!code;
+   errorPanel.textContent=code?'آخرین خطای دریافت نرخ: '+code+' — '+
+    (errorHints[code]||'علت دقیق را در بخش دریافت نرخ بررسی کن.')+
+    ' | آخرین تلاش (تهران): '+tehranTime(m.lastAttemptAt):'';
+  }
   approve.hidden=!hasPending;
   approve.disabled=hasPending&&pendingExpired;
   pending.hidden=!hasPending;
@@ -245,6 +269,7 @@ async function refreshMarket(){
  }catch(e){
   headline.textContent='بخش نرخ هنوز فعال نشده است.';
   detail.textContent=e.message||'پس از اجرای SQL و اتصال کلید Servix فعال می‌شود.';
+  const errorPanel=$('#market-sync-error');if(errorPanel)errorPanel.hidden=true;
   approve.hidden=true;pending.hidden=true;
  }
 }
