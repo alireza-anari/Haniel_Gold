@@ -7,10 +7,22 @@ export const RATE_COOLDOWN_MS=20*60*1000;
 export const RATE_VALID_MS=40*60*1000;
 const nowMs=()=>Date.now();
 const safeInteger=(v,minimum=0)=>Number.isSafeInteger(v)&&v>=minimum;
-const digits=x=>{
- if(typeof x==='number')return Number.isSafeInteger(x)&&x>0?String(x):null;
- return typeof x==='string'&&/^[1-9]\d{0,14}$/.test(x)?x:null;
-};
+// Servix returns a JSON number (potentially fractional rials). D1 stores one
+// integer rial per gram, so round positive fractions HALF_UP to the nearest rial.
+// Accept only ordinary decimal notation; never strip separators, guess units,
+// coerce null, or accept protected placeholders/non-finite values.
+export function normalizeRialValue(value){
+ if(typeof value!=='number'&&typeof value!=='string')return null;
+ if(typeof value==='number'&&(!Number.isFinite(value)||value<=0||value>Number.MAX_SAFE_INTEGER))return null;
+ const raw=String(value);
+ if(raw.length>40)return null;
+ const match=/^([1-9]\d{0,14}|0)(?:\.(\d{1,18}))?$/.exec(raw);
+ if(!match)return null;
+ const whole=BigInt(match[1]);
+ const fraction=match[2]||'';
+ const rounded=whole+(fraction&&fraction[0]>='5'?1n:0n);
+ return rounded>0n&&rounded<=BigInt(Number.MAX_SAFE_INTEGER)?Number(rounded):null;
+}
 export class MarketError extends Error{
  constructor(code,msg){super(msg);this.name='MarketError';this.code=code;}
 }
@@ -18,17 +30,16 @@ export function parseServixQuote(data,now=nowMs()){
  if(!data||typeof data!=='object'||Array.isArray(data))throw new MarketError('BAD_SHAPE','ساختار پاسخ نرخ معتبر نیست.');
  if(data.code!=='GOLD_18_RLS'||data.quoteUnit!=='RLS')throw new MarketError('WRONG_UNIT','نماد یا واحد نرخ Servix صحیح نیست.');
  if(data.stale===true)throw new MarketError('STALE_SOURCE','منبع نرخ را قدیمی اعلام کرده است.');
- const raw=digits(data.value);
- if(!raw)throw new MarketError('BAD_AMOUNT','مقدار ریالی نرخ معتبر نیست.');
- const rial=BigInt(raw);
- if(rial>BigInt(Number.MAX_SAFE_INTEGER))throw new MarketError('BAD_AMOUNT','نرخ خارج از محدوده عدد امن است.');
+ if(data.value==null)throw new MarketError('MISSING_VALUE','منبع برای این نماد مقدار قیمت ارائه نکرده است.');
+ const rial=normalizeRialValue(data.value);
+ if(rial===null)throw new MarketError('BAD_AMOUNT','مقدار ریالی نرخ در قالب عددی معتبر نیست.');
  const time=data.businessTime;
  if(typeof time!=='string'||!/(?:Z|[+-]\d{2}:\d{2})$/.test(time)||!Number.isFinite(Date.parse(time)))
    throw new MarketError('BAD_TIME','زمان نرخ باید ISO-8601 دارای منطقه زمانی باشد.');
  const observedAt=Date.parse(time);
  if(observedAt>now+120_000||now-observedAt>SOURCE_MAX_AGE_MS)
    throw new MarketError('STALE_SOURCE','زمان نرخ از محدوده تازگی خارج است.');
- return {rialPerGram:Number(rial),observedAt};
+ return {rialPerGram:rial,observedAt};
 }
 export async function fetchServix(env,fetcher=fetch,now=nowMs()){
  if(!env.SERVIX_API_KEY||String(env.SERVIX_API_KEY).trim().length<8)
