@@ -20,6 +20,15 @@ const fa=n=>Number(n).toLocaleString('fa-IR');
 const field=(f,n)=>f.elements.namedItem(n);
 const val=(f,n)=>field(f,n)?.value?.trim()||'';
 const nullable=(f,n)=>val(f,n)===''?null:Number(val(f,n));
+// UI displays human-friendly percentages; API persists integer basis points.
+function percentToBps(f,name){
+ const entered=val(f,name);
+ if(entered==='')return null;
+ const percent=Number(entered), scaled=percent*100, rounded=Math.round(scaled);
+ if(!Number.isFinite(percent)||percent<0||percent>100||Math.abs(scaled-rounded)>1e-6)
+  throw Error('درصد اجرت و سود باید بین صفر تا ۱۰۰ با حداکثر دو رقم اعشار باشد.');
+ return rounded;
+}
 function resetForm(){
  const f=$('#product-form');f.reset();field(f,'slug').readOnly=false;store.editing=null;
  $('#edit-status').textContent='ثبت محصول جدید';clearNote();
@@ -53,7 +62,7 @@ function editProduct(id){
  const p=store.products.find(x=>x.id===id);if(!p)return;
  const f=$('#product-form');resetForm();store.editing=id;
  const values={slug:p.id,name:p.name,categoryId:p.categoryId,style:p.style||'مینیمال',description:p.description||'',
- weightGrams:p.weightGrams,karat:p.karat,makingFeeBps:p.makingFeeBps,profitBps:p.profitBps,
+ weightGrams:p.weightGrams,karat:p.karat,makingFeeBps:p.makingFeeBps==null?null:p.makingFeeBps/100,profitBps:p.profitBps==null?null:p.profitBps/100,
  inventoryCount:p.inventoryCount,images:(p.images||[]).join('\n')};
  for(const [k,v] of Object.entries(values))if(field(f,k))field(f,k).value=v==null?'':v;
  field(f,'published').checked=!!p.published;
@@ -66,19 +75,30 @@ function editProduct(id){
 }
 async function submitProduct(e){
  e.preventDefault();const f=e.currentTarget,button=f.querySelector('button[type=submit]');
- const urls=val(f,'images').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
- const raw={slug:val(f,'slug'),name:val(f,'name'),categoryId:Number(val(f,'categoryId')),
- style:val(f,'style'),description:val(f,'description'),
- weightGrams:nullable(f,'weightGrams'),karat:nullable(f,'karat'),makingFeeBps:nullable(f,'makingFeeBps'),
- profitBps:nullable(f,'profitBps'),inventoryCount:nullable(f,'inventoryCount'),
- priceToman:nullable(f,'priceToman'),priceValidUntil:val(f,'priceValidUntil')?new Date(val(f,'priceValidUntil')).toISOString():null,
- published:field(f,'published').checked,images:urls};
- if(raw.published&&!raw.images.length){note('برای انتشار محصول باید تصویر واقعی آن ثبت شود.',true);return;}
- if(raw.priceToman&&!raw.priceValidUntil){note('برای قیمت تأییدشده زمان اعتبار تعیین کن.',true);return;}
  button.disabled=true;clearNote();
  try{
+  // Validate monetary inputs before spending a KV upload.
+  const makingFeeBps=percentToBps(f,'makingFeeBps');
+  const profitBps=percentToBps(f,'profitBps');
+  const published=field(f,'published').checked;
+  const priceToman=nullable(f,'priceToman');
+  const priceValidUntil=val(f,'priceValidUntil')?new Date(val(f,'priceValidUntil')).toISOString():null;
+  if(priceToman!=null&&!priceValidUntil)throw Error('برای قیمت تأییدشده زمان اعتبار تعیین کن.');
+  if(published&&!val(f,'images')&&!$('#photo-file').files?.length)
+   throw Error('برای انتشار محصول تصویر واقعی انتخاب یا آپلود کن.');
+  // A selected picture is automatically uploaded before saving the product.
+  if($('#photo-file').files?.length){
+   note('عکس انتخاب‌شده در حال آپلود به Cloudflare است…');
+   await storeSelectedPhoto();
+  }
+  const images=val(f,'images').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  if(published&&!images.length)throw Error('برای انتشار محصول باید تصویر واقعی ثبت شود.');
+  const raw={slug:val(f,'slug'),name:val(f,'name'),categoryId:Number(val(f,'categoryId')),
+   style:val(f,'style'),description:val(f,'description'),
+   weightGrams:nullable(f,'weightGrams'),karat:nullable(f,'karat'),makingFeeBps,profitBps,
+   inventoryCount:nullable(f,'inventoryCount'),priceToman,priceValidUntil,published,images};
   await api(store.editing?'/admin/products/'+encodeURIComponent(store.editing):'/admin/products',{method:store.editing?'PATCH':'POST',data:raw});
-  resetForm();await reload();note('اطلاعات محصول ذخیره شد.');
+  resetForm();await reload();note('محصول با موفقیت ذخیره شد؛ می‌توانی آن را در پیش‌نمایش D1 بررسی کنی.');
  }catch(x){note(x.message,true);}finally{button.disabled=false;}
 }
 async function submitCategory(e){
@@ -113,18 +133,27 @@ async function prepareProductPhoto(file){
   throw Error('حجم عکس برای فضای رایگان زیاد است؛ ابتدا تصویر را به WebP کوچک‌تر تبدیل کن.');
  }finally{bitmap.close?.();}
 }
+// Returns URL and updates the image list; can be used by save or the explicit upload button.
+async function storeSelectedPhoto(){
+ const file=$('#photo-file').files?.[0];
+ if(!file)throw Error('ابتدا فایل تصویر را انتخاب کن.');
+ const prepared=await prepareProductPhoto(file);
+ const data=new FormData();data.set('file',prepared);
+ const out=await api('/admin/uploads',{method:'POST',upload:data});
+ if(!out.url||typeof out.url!=='string')throw Error('آدرس تصویر پس از آپلود دریافت نشد.');
+ const target=field($('#product-form'),'images');
+ target.value+=(target.value.trim()?'\n':'')+out.url;
+ $('#photo-file').value='';
+ return out.url;
+}
 async function uploadImage(){
- const file=$('#photo-file').files?.[0],button=$('#upload-image');
- if(!file){note('ابتدا فایل تصویر را انتخاب کن.',true);return;}
+ const button=$('#upload-image');
+ if(!$('#photo-file').files?.length){note('ابتدا فایل تصویر را انتخاب کن.',true);return;}
  button.disabled=true;
  try{
-  note('در حال آماده‌سازی عکس با حفظ جزئیات محصول…');
-  const prepared=await prepareProductPhoto(file);
-  const data=new FormData();data.set('file',prepared);
-  const out=await api('/admin/uploads',{method:'POST',upload:data});
-  const target=field($('#product-form'),'images');
-  target.value+=(target.value.trim()?'\n':'')+out.url;
-  $('#photo-file').value='';note('تصویر ذخیره شد. ممکن است نمایش آن در شبکه Cloudflare کمی تأخیر داشته باشد؛ حالا محصول را ذخیره کن.');
+  note('در حال آماده‌سازی و آپلود تصویر محصول…');
+  await storeSelectedPhoto();
+  note('تصویر آپلود شد و آدرس آن در فرم قرار گرفت. حالا می‌توانی محصول را ذخیره کنی.');
  }catch(x){note(x.message,true);}finally{button.disabled=false;}
 }
 async function login(e){
