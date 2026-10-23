@@ -37,3 +37,20 @@ test('selecting a photo and pressing save uploads before persisting product',()=
  assert.match(upload,/api\('\/admin\/uploads'/);
  assert.match(upload,/target\.value\+=/);
 });
+
+
+test('admin shows source timestamp and refuses stale, future or missing pending rate',()=>{
+ const start=js.indexOf('function pendingRateIsStale(iso,now=Date.now()){');
+ const end=js.indexOf('async function refreshMarket(){',start);
+ assert.ok(start>=0 && end>start, 'pending rate validation must exist');
+ const now=Date.parse('2026-10-23T12:00:00Z');
+ const stale=(iso)=>vm.runInNewContext(js.slice(start,end)+'\npendingRateIsStale(iso, now)',{iso,now,Number,Date});
+ assert.equal(stale('2026-10-23T11:55:00Z'),false);
+ assert.equal(stale('2026-10-23T11:19:00Z'),true);
+ assert.equal(stale('2026-10-23T12:03:00Z'),true);
+ assert.equal(stale('invalid-date'),true);
+ assert.equal(stale(null),true);
+ assert.match(js,/approve\.disabled=hasPending&&pendingExpired/);
+ assert.match(js,/timeZone:'Asia\/Tehran'/);
+ assert.match(js,/زمان ثبت منبع \(تهران\)/);
+});
