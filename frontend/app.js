@@ -64,7 +64,7 @@ const categories=['همه','گردنبند','دستبند','گوشواره','ا�
 const styles=['مینیمال','کلاسیک','چشمگیر'];
 const getStore=(key,def)=>{try{let t=localStorage.getItem(key);return t===null?def:JSON.parse(t)}catch{return def}};
 const state={catalogStatus:BACKEND_READY?'loading':'demo',apiError:'',addressFormOpen:false,addressPreview:null,addressDraft:{},contactDraft:{},contactFeedback:'',contactBusy:false,accountPhone:'',accountStep:'phone',accountBusy:false,accountMessage:'',checkoutStep:1,checkoutErrors:{},checkoutDraft:{},trackingCode:'',theme:getStore('haniel-theme','light'),menu:false,searchOverlay:false,filter:false,cartOpen:false,trust:null,hero:0,featured:0,selectedStyle:'مینیمال',styleIndex:0,macroIndex:0,productImage:0,query:'',category:'همه',sort:'default',filterCategory:'همه',filterStyle:'همه',cart:getStore('haniel-cart',{}),favorites:getStore('haniel-favorites',[]),notice:false,lightbox:false};
-state.inquiry={enabled:false,accepting:false,siteKey:null,turnstileToken:'',submitting:false,error:'',receipt:null};
+state.inquiry={enabled:false,accepting:false,siteKey:null,turnstileToken:'',submitting:false,error:'',receipt:null,contactName:'',contactPhone:''};
 if(state.theme!=='dark')state.theme='light';
 const iconPaths={
  menu:'<path d="M4 7h16M4 12h16M4 17h16"/>', close:'<path d="M18 6 6 18M6 6l12 12"/>', search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>', bag:'<path d="M4 8h16l-1 13H5L4 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/>',
@@ -123,18 +123,20 @@ async function hydrateCatalog(){
   const data=await requestAPI('/v1/catalog/products?limit=100');
   const list=Array.isArray(data?.items)?data.items:Array.isArray(data)?data:[];
   products=list.map(normalizeProduct).filter(Boolean);
-  state.catalogStatus='ready';state.apiError='';render();
+  state.catalogStatus='ready';state.apiError='';if(!(state.inquiry.enabled&&routeInfo().name==='cart'))render();
  }catch(err){state.catalogStatus='error';state.apiError=String(err.message||'خطای ارتباط');products=[];render()}
 }
 async function hydrateInquiryConfig(){
  if(!BACKEND_READY)return;
  try{
   const result=await requestAPI('/v1/inquiries/settings');
-  state.inquiry.enabled=result?.enabled===true;
-  state.inquiry.accepting=result?.accepting===true;
-  state.inquiry.siteKey=state.inquiry.enabled?result.turnstileSiteKey:null;
-  if(!state.inquiry.enabled){state.inquiry.turnstileToken='';}
-  render();
+  const enabled=result?.enabled===true,accepting=result?.accepting===true;
+  const changed=enabled!==state.inquiry.enabled||accepting!==state.inquiry.accepting;
+  state.inquiry.enabled=enabled;
+  state.inquiry.accepting=accepting;
+  state.inquiry.siteKey=enabled?result.turnstileSiteKey:null;
+  if(!enabled)state.inquiry.turnstileToken='';
+  if(changed)render();
  }catch{
   state.inquiry.enabled=false;state.inquiry.accepting=false;state.inquiry.siteKey=null;
  }
@@ -168,6 +170,7 @@ async function submitInquiry(event){
  if(!BACKEND_READY||!state.inquiry.enabled||!state.inquiry.accepting||state.inquiry.submitting)return;
  const form=event.currentTarget;const name=form.elements.name?.value.trim()||'';
  const phone=visiblePhone(form.elements.phone?.value||'');
+ state.inquiry.contactName=name;state.inquiry.contactPhone=phone;
  if(!name||!isIranMobile(phone)){state.inquiry.error='نام و موبایل معتبر وارد کن.';render();return;}
  if(!state.inquiry.turnstileToken){state.inquiry.error='لطفاً تأیید امنیتی را کامل کن.';render();return;}
  const lines=Object.entries(state.cart).filter(([slug,count])=>count>0&&products.some(p=>p.id===slug))
@@ -182,7 +185,7 @@ async function submitInquiry(event){
   const data=await res.json();
   if(!res.ok)throw new Error(data.error||'ثبت درخواست ممکن نشد.');
   if(!data.inquiryId)throw new Error('شناسه درخواست دریافت نشد.');
-  state.inquiry.receipt=data;state.cart={};save();
+  state.inquiry.receipt=data;state.cart={};state.inquiry.contactName='';state.inquiry.contactPhone='';save();
  }catch(x){state.inquiry.error=String(x.message||'خطا در ثبت درخواست');}
  finally{state.inquiry.submitting=false;state.inquiry.turnstileToken='';render();}
 }
@@ -190,7 +193,7 @@ function countCart(){return Object.values(state.cart).reduce((t,n)=>t+Number(n||
 function header(){return `<header class="site-header"><div class="header-inner">
 <div class="header-left">${btn('menu-open','menu','باز کردن فهرست')}${btn('theme',state.theme==='dark'?'sun':'moon','تغییر تم روشن و تاریک','theme-button')}</div>
 ${brand()}<div class="header-right"><a href="#/favorites" class="icon-button header-favorites" aria-label="علاقه‌مندی‌ها">${I('heart',20)}${state.favorites.length?`<span class="cart-count">${state.favorites.length.toLocaleString('fa-IR')}</span>`:''}</a><a href="#/account" class="icon-button header-account" aria-label="حساب کاربری">${I('user',20)}</a>${btn('search','search','جست‌وجو')}
-<button type="button" data-action="cart-open" class="icon-button cart-icon" aria-label="سبد خرید">${I('bag',22)}${countCart()?`<span class="cart-count">${countCart()}</span>`:''}</button></div></div></header>`}
+<button type="button" data-action="cart-open" class="icon-button cart-icon" aria-label="${BACKEND_READY&&state.inquiry.enabled?'سبد درخواست بررسی':'سبد خرید'}">${I('bag',22)}${countCart()?`<span class="cart-count">${countCart()}</span>`:''}</button></div></div></header>`}
 function footer(){return `<footer class="site-footer"><div class="footer-inner">
 <div class="footer-copy"><div class="footer-goldmark">${img('clover-gold.png','نشان رسمی هانی‌ال')}</div><p>زیبایی، در انتخاب تو</p><small>نسخه پیش‌نمایش سایت HANI-EL GOLD</small></div>
 <div class="footer-links"><a href="#/collection">مجموعه‌ها</a><a href="#/favorites">علاقه‌مندی‌ها</a><a href="#/account">حساب من</a><a href="#/orders">پیگیری سفارش‌ها</a><a href="#/guide">راهنمای خرید</a><a href="#/faq">پرسش‌های متداول</a><a href="#/contact">ارتباط با ما</a><a href="#/policies">شرایط خرید</a><a href="#/privacy">حریم خصوصی</a><a href="#/about">داستان هانی‌ال</a></div>
@@ -271,8 +274,8 @@ function inquiryCartPage(){
  <div><span>تعداد انتخاب‌ها</span><span>${countCart().toLocaleString('fa-IR')}</span></div>
  <p class="summary-notice">پذیرش درخواست: ۱۰:۰۰ تا ۱۷:۰۰ به وقت تهران؛ ویترین شبانه‌روز قابل مشاهده است.</p>
  ${state.inquiry.accepting?`<form id="inquiry-form" class="field-stack">
- <label>نام و نام خانوادگی<input name="name" maxlength="80" autocomplete="name" required placeholder="نام برای تماس"></label>
- <label>شماره موبایل<input name="phone" inputmode="tel" autocomplete="tel-national" pattern="09[0-9]{9}" required placeholder="09xxxxxxxxx"></label>
+ <label>نام و نام خانوادگی<input name="name" maxlength="80" autocomplete="name" required placeholder="نام برای تماس" value="${esc(state.inquiry.contactName)}"></label>
+ <label>شماره موبایل<input name="phone" inputmode="tel" autocomplete="tel-national" pattern="09[0-9]{9}" required placeholder="09xxxxxxxxx" value="${esc(state.inquiry.contactPhone)}"></label>
  <div id="inquiry-challenge" aria-label="تأیید امنیتی"></div>
  <button class="primary-action" type="submit" ${state.inquiry.submitting?'disabled':''}>ثبت درخواست بررسی · بدون پرداخت</button>
  </form>`:`<p class="summary-notice" role="status">درخواست جدید خارج از ساعات کاری پذیرفته نمی‌شود؛ انتخاب‌های تو در سبد باقی می‌مانند.</p>`}
@@ -344,7 +347,7 @@ case 'filter-reset':state.filterCategory='همه';state.filterStyle='همه';bre
 case 'sort-toggle':state.sortMenu=!state.sortMenu;break;case 'sort-set':state.sort=a.dataset.sort;state.sortMenu=false;break;
 case 'product-img':state.productImage=ix;break;case 'lightbox-open':state.lightbox=true;break;case 'lightbox-close':state.lightbox=false;break;case 'lightbox-next':state.productImage++;break;case 'lightbox-prev':{const pr=products.find(p=>p.id===routeInfo().id);state.productImage+=(pr?.images?.length||1)-1;break}
 case 'collection-open':location.hash='#/collection';return;
-case 'cart-add':if(BACKEND_READY&&!state.inquiry.enabled){toast('خرید آنلاین در این ویترین هنوز فعال نشده است.');return;}state.cart[id]=(state.cart[id]||0)+1;save();toast('به سبد خرید اضافه شد');return;
+case 'cart-add':if(BACKEND_READY&&!state.inquiry.enabled){toast('خرید آنلاین در این ویترین هنوز فعال نشده است.');return;}state.inquiry.receipt=null;state.cart[id]=(state.cart[id]||0)+1;save();toast('به سبد خرید اضافه شد');return;
 case 'cart-plus':state.cart[id]=(state.cart[id]||0)+1;save();break;case 'cart-minus':state.cart[id]=Math.max(0,(state.cart[id]||0)-1);save();break;case 'cart-remove':delete state.cart[id];save();break;
 case 'favorite':{const wasSaved=state.favorites.includes(id);state.favorites=wasSaved?state.favorites.filter(t=>t!==id):[...state.favorites,id];save();state.notice=wasSaved?'از علاقه‌مندی‌ها حذف شد':'در انتخاب‌های تو ذخیره شد';setTimeout(()=>{state.notice=false;const notice=document.querySelector('.toast');if(notice)notice.remove()},2200);break;}
 case 'search-term':state.query=a.dataset.term;break;case 'catalog-retry':state.catalogStatus='loading';hydrateCatalog();break;case 'checkout-edit':state.checkoutStep=1;break;case 'account-edit':state.accountStep='phone';state.accountMessage='';break;case 'address-new':state.addressFormOpen=true;break;case 'address-edit':state.addressDraft={...state.addressPreview};state.addressFormOpen=true;break;case 'address-clear':state.addressPreview=null;state.addressDraft={};state.addressFormOpen=false;break;case 'address-cancel':state.addressFormOpen=false;break;
