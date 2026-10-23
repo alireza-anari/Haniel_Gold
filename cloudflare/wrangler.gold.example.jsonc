@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/wrangler.json",
+  "name": "haniel-gold-rate-staging",
+  "main": "gold-scheduler.js",
+  "compatibility_date": "2026-10-23",
+  "triggers": {
+    "crons": ["0,30 * * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "haniel-gold-staging",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_UUID"
+    }
+  ]
+}
