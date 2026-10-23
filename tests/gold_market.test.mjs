@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  SERVIX_URL,parseServixQuote,fetchServix,calculatePrice,MarketError,
- marketPublic,approvePricingPolicy,syncRate
+ marketPublic,approvePricingPolicy,syncRate,normalizeRialValue
 } from '../functions/_lib/gold-market.js';
 
 const now=Date.parse('2026-10-23T08:00:00Z');
@@ -14,12 +14,42 @@ test('official Servix symbol, unit and source timestamp are verified',()=>{
   {...valid,quoteUnit:'TOMAN'},
   {...valid,value:'NaN'},
   {...valid,value:-1},
-  {...valid,value:1.5},
+  {...valid,value:null},
+  {...valid,value:'invalid'},
+  {...valid,value:'270,128,875.50'},
+  {...valid,value:-1.5},
+  {...valid,value:Infinity},
+  {...valid,value:0},
+  {...valid,value:'0.001'},
   {...valid,businessTime:'2026-10-23T07:55:00'},
   {...valid,businessTime:'2026-10-23T07:00:00Z'},
   {...valid,businessTime:'2026-10-23T09:00:00Z'},
   {...valid,stale:true}
  ]) assert.throws(()=>parseServixQuote(item,now),MarketError);
+});
+test('Servix numerical JSON decimals round to the nearest whole rial (half up)',()=>{
+ // All values below are SYNTHETIC, not quotes from the real provider.
+ for(const [received,expected] of [
+  [270128875.5,270128876],
+  ['270128875.50',270128876],
+  [270128875.49,270128875],
+  ['270128875.0000',270128875],
+  [270128875,270128875],
+  ['270128875',270128875],
+  [0.5,1]
+ ]){
+  assert.equal(normalizeRialValue(received),expected);
+  assert.equal(parseServixQuote({...valid,value:received},now).rialPerGram,expected);
+ }
+});
+test('no fabricated quote from null, locale formatted or unsafe values',()=>{
+ for(const invalid of [null,undefined,'','270,128,875.5','NaN',NaN,Infinity,
+  -100,0,'0','0.49',true,{},[],Number.MAX_SAFE_INTEGER+100]){
+  assert.equal(normalizeRialValue(invalid),null);
+  assert.throws(()=>parseServixQuote({...valid,value:invalid},now),MarketError);
+ }
+ assert.throws(()=>parseServixQuote({...valid,value:null},now),{code:'MISSING_VALUE'});
+ assert.throws(()=>parseServixQuote({...valid,value:'270,128,875.50'},now),{code:'BAD_AMOUNT'});
 });
 test('a Servix HTTP request uses only X-API-Key, not query strings',async()=>{
  let called=0;
