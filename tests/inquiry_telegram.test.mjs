@@ -13,6 +13,17 @@ test('inquiries open precisely at 10:00 and close exactly at 17:00 Asia/Tehran',
  assert.equal(inquiryClock(at('13:30:00')).withinHours,false);
  assert.equal(inquiryClock().timezone,'Asia/Tehran');
 });
+test('supplier weekday schedule must be explicit before intake can activate',async()=>{
+ const env={DB:{},REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'test',TURNSTILE_SITE_KEY:'public-test',INQUIRY_RATE_SALT:'abcdefghabcdefghabcdefgh'};
+ const url='https://example.com/api/v1/inquiries/settings';
+ let response=await handle({request:new Request(url),env});
+ assert.equal((await response.json()).enabled,false);
+ env.INQUIRY_OPEN_DAYS='FRI';
+ response=await handle({request:new Request(url),env});
+ const data=await response.json();
+ assert.equal(data.enabled,true);
+ assert.deepEqual(data.days,['fri']);
+});
 test('payment-less request intake is disabled unless actively opted in',async()=>{
  const r=await handle({request:new Request('https://example.com/api/v1/inquiries',{
   method:'POST',body:JSON.stringify({name:'نام معتبر'})}),env:{DB:{}}});
@@ -20,7 +31,7 @@ test('payment-less request intake is disabled unless actively opted in',async()=
 });
 test('request settings never reveal secrets or imply stock is reserved',async()=>{
  const env={DB:{},REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'PRIVATE',
-  TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'01234567890123456789012345'};
+  TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'01234567890123456789012345',INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu,fri'};
  const result=await handle({request:new Request('https://example.com/api/v1/inquiries/settings'),env});
  assert.equal(result.status,200);
  const x=await result.json();
