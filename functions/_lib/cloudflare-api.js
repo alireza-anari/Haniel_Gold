@@ -84,7 +84,7 @@ async function route(c){
  if(path==='admin/session'&&method==='GET'){const s=await admin(c);return j(s?{authenticated:true,csrfToken:s.csrf}:{authenticated:false});}
  if(path==='market/gold'&&method==='GET'){
   try{return j(await marketPublic(e));}
-  catch{return j({status:'not_initialized',currency:'TOMAN',karat:18,tomanPerGram:null,pricingReady:false},503);}
+  catch{return j({status:'not_initialized',currency:'TOMAN',karat:18,tomanPerGram:null,priceToman:null,pricingReady:false},503);}
  }
  if(path==='catalog/categories'&&method==='GET'){
  const data=await e.DB.prepare('SELECT slug,title FROM categories WHERE active=1 ORDER BY sort_order,id').all();return j({items:data.results||[]});
