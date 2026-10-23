@@ -74,3 +74,14 @@ test('category title can be corrected without changing product/category identifi
  assert.match(chunk,/method:'PATCH'/);
  assert.match(chunk,/data:\{title:value\}/);
 });
+
+
+test('authenticated market panel displays sanitized D1 Servix error details',()=>{
+ assert.match(html,/id="market-sync-error"/);
+ assert.match(js,/m\.lastError/);
+ assert.match(js,/آخرین خطای دریافت نرخ:/);
+ assert.match(js,/lastAttemptAt/);
+ assert.match(js,/STALE_SOURCE/);
+ assert.match(js,/AUTH/);
+ assert.match(js,/errorPanel\.textContent=/);
+});
