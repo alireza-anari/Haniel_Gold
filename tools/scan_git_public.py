@@ -13,7 +13,7 @@ forbidden=[]
 for path in paths:
     p=Path(path)
     name=p.name.lower()
-    if (name.endswith('.sql') and path != 'cloudflare/schema.sql') or (name=='.env' or name.endswith(('.pem','.p12','.pfx','.key','.sqlite3','.pyc','.dump','.log','.bak','.woff','.woff2','.ttf','.otf'))
+    if (name.endswith('.sql') and path not in ('cloudflare/schema.sql', 'cloudflare/0002_gold_pricing.sql')) or (name=='.env' or name.endswith(('.pem','.p12','.pfx','.key','.sqlite3','.pyc','.dump','.log','.bak','.woff','.woff2','.ttf','.otf'))
         or name.startswith('id_rsa') or name.startswith('id_ed25519')
         or 'private-fonts' in p.parts or 'media' in p.parts or '__pycache__' in p.parts or 'backups' in p.parts or '.git' in p.parts):
         forbidden.append(path)
@@ -25,6 +25,8 @@ for path in paths:
             forbidden.append(path+' [private key content]')
         if path == 'cloudflare/schema.sql' and ('INSERT INTO' in data.upper() or 'PRIVATE KEY' in data.upper()):
             forbidden.append(path+' [schema cannot contain seed data or keys]')
+        if path == 'cloudflare/0002_gold_pricing.sql' and ('PRIVATE KEY' in data.upper() or 'INSERT INTO PRODUCTS' in data.upper() or 'INSERT INTO GOLD_MARKET_STATE(' in data.upper()):
+            forbidden.append(path+' [rate schema must not seed product or market prices]')
         # Owner explicitly requested restoring the four original embedded fonts.
         if path not in ('tools/scan_git_public.py', 'frontend/styles.css') and re.search(r'data:(?:font/|application/(?:x-font|font))[^,]*;base64,', data):
             forbidden.append(path+' [embedded font requires public license review]')
