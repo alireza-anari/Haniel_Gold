@@ -178,7 +178,7 @@ function productLedger(p){
    timeZone:'Asia/Tehran',dateStyle:'medium',timeStyle:'short'
   }).format(new Date(p.priceVerifiedAt)):'نامشخص';
   return '<p>قیمت بر اساس نرخ معتبر طلای ۱۸ عیار و اطلاعات اختصاصی این محصول محاسبه شده است. زمان نرخ (تهران): '+checked+
-   '. قیمت تنها تا پایان اعتبار نرخ قابل نمایش است.</p><div class="price-ledger">'+
+   '. قیمت تنها تا پایان اعتبار نرخ قابل نمایش است. <span class="price-source-credit">منبع نرخ: <a href="https://servix.cc/" target="_blank" rel="noopener noreferrer">Servix</a></span></p><div class="price-ledger">'+
    rows.map(([label,value])=>'<div><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('')+'</div>';
  }
  const note=fresh&&p.priceSource==='manual_staging'
