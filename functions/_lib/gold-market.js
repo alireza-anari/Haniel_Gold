@@ -102,7 +102,7 @@ export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
   await env.DB.prepare('UPDATE gold_market_state SET last_error=?,paused_until=?,version=version+1 WHERE id=1')
     .bind(code,quota?now+24*60*60*1000:null).run();
   await audit(env.DB,quota?'quota':'failed',null,null,now,code);
-  return {status:quota?'quota_exceeded':'failed',message:'نرخ جدید معتبر دریافت نشد.'};
+  return {status:quota?'quota_exceeded':'failed',errorCode:code,message:'نرخ جدید معتبر دریافت نشد.'};
  }
  const cur=await state(env.DB);
  if(cur.rate_rial_per_gram&&q.observedAt<=cur.observed_at){
