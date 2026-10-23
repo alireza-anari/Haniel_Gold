@@ -367,3 +367,9 @@ document.addEventListener('click',e=>{
 
 render();
 hydrateCatalog();
+// Prices have a strict server validity window. Re-read the public D1 catalogue
+// while open, and on returning to the tab, so an expired displayed price disappears.
+if(BACKEND_READY){
+ setInterval(()=>{if(!document.hidden)hydrateCatalog();},60_000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)hydrateCatalog();});
+}
