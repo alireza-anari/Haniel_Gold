@@ -51,8 +51,8 @@ async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0,pricing=nu
  if(!Number.isSafeInteger(r.making_fee_bps))missing.push('درصد اجرت');
  if(!Number.isSafeInteger(r.profit_bps))missing.push('درصد سود');
  const obj={id:r.slug,name:r.name,category:r.category_title,categoryId:r.category_id,style:r.style,description:r.description,weightGrams:r.weight_mg===null?null:r.weight_mg/1000,
- karat:r.karat,makingFeeBps:r.making_fee_bps,profitBps:r.profit_bps,inventoryCount:r.inventory_count,
- inventoryStatus:r.inventory_count===null?'unknown':r.inventory_count>0?'available':'unavailable',
+ karat:r.karat,makingFeeBps:r.making_fee_bps,profitBps:r.profit_bps,inventoryCount:onlyPublic?null:r.inventory_count,
+ inventoryStatus:onlyPublic?'requires_supplier_confirmation':r.inventory_count===null?'unknown':r.inventory_count>0?'available':'unavailable',
  published:!!r.published,imageUrl:images[0]||null,images,
  // Public prices are computed only from fresh, approved Servix rates.
  // Staging manual amounts remain visible to authenticated admins, never shoppers.
