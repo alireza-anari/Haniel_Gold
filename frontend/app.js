@@ -3,11 +3,15 @@
 const A = 'assets/';
 const assetUrl = file => {
  if(!file)return A+'clover-gold.png';
- if(/^https?:\/\//i.test(file)||String(file).startsWith('data:image/'))return file;
+ if(/^https:\/\//i.test(file)||String(file).startsWith('data:image/')||/^\/api\/v1\/media\/products\/[a-f0-9-]{36}\.(?:jpe?g|png|webp)$/i.test(file))return file;
  return (typeof window !== 'undefined' && window.__hanielPreviewAssets && window.__hanielPreviewAssets[file]) || A + file;
 };
 const CONFIG=Object.assign({apiBaseUrl:'',apiTimeout:10000},window.HANIEL_CONFIG||{});
+// Owner-only catalogue preview: opt-in via ?catalog=live before enabling public live mode.
+const CATALOG_PREVIEW=new URLSearchParams(location.search).get('catalog')==='live';
+if(CATALOG_PREVIEW)CONFIG.apiBaseUrl='/api';
 const BACKEND_READY=!!String(CONFIG.apiBaseUrl||'').trim();
+const COMMERCE_READY=false; // No customer login, SMS, checkout or support API in Pages yet.
 let csrfToken='';
 let csrfPromise=null;
 async function refreshCsrf(){
@@ -43,7 +47,7 @@ async function requestAPI(endpoint,options={}){
  } finally {clearTimeout(timeout)}
 }
 const formatMoney=v=>Number.isFinite(Number(v))&&v!==null&&v!==undefined?`${Number(v).toLocaleString('fa-IR')} تومان`:'—';
-const productPrice=p=>Number.isFinite(Number(p?.priceToman))&&p?.priceToman!==null&&p?.priceToman!==undefined?formatMoney(p.priceToman):'پس از تأیید قیمت';
+const productPrice=p=>p?.priceToman!=null&&Number.isFinite(Number(p.priceToman))&&(!p.priceExpiresAt||p.priceExpiresAt>Date.now())?formatMoney(p.priceToman):'نیازمند استعلام قیمت';
 const visiblePhone=v=>String(v||'').replace(/[^0-9۰-۹]/g,'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 const isIranMobile=v=>/^09\d{9}$/.test(visiblePhone(v));
 
@@ -73,7 +77,7 @@ const iconPaths={
 function I(name,size=20){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]||iconPaths.info}</svg>`}
 function esc(s){return String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]))}
 function img(file,alt='',cls='',attrs=''){return `<img src="${esc(assetUrl(file))}" alt="${esc(alt)}" class="${cls}" loading="lazy" decoding="async" ${attrs}>`}
-function art(light,dark,alt='',cls=''){return `<picture class="${cls}"><img src="${esc(assetUrl(state.theme==='dark'?dark:light))}" data-theme-light="${light}" data-theme-dark="${dark}" alt="${esc(alt)}" loading="${cls==='hero-art'?'eager':'lazy'}" decoding="async"></picture>`}
+function art(light,dark,alt='',cls=''){return `<picture class="${cls}"><img src="${esc(assetUrl(state.theme==='dark'?dark:light))}" data-theme-light="${esc(light)}" data-theme-dark="${esc(dark)}" alt="${esc(alt)}" loading="${cls==='hero-art'?'eager':'lazy'}" decoding="async"></picture>`}
 function brand(){return `<a href="#/" class="brand-link" aria-label="صفحه اصلی HANI-EL GOLD">${img('brand-gold.png','HANI-EL GOLD','brand-img')}</a>`}
 function btn(action,icon,label='',cls='',attrs=''){return `<button type="button" class="icon-button ${cls}" data-action="${action}" aria-label="${label}" title="${label}" ${attrs}>${I(icon)}</button>`}
 function linkButton(text,url,secondary=true){return `<a class="${secondary?'link-button':'button-main'}" href="${url}">${esc(text)} ${I('left',16)}</a>`}
@@ -81,12 +85,25 @@ function linkButton(text,url,secondary=true){return `<a class="${secondary?'link
 function normalizeProduct(raw){
  if(!raw||typeof raw!=='object'||!raw.id||!raw.name)return null;
  const safeText=v=>String(v??'').replace(/[<>"'&]/g,'').slice(0,150);
- const safeImg=v=>typeof v==='string'&&(/^https:\/\//i.test(v)||/^[a-z0-9_-]+\.(webp|png|jpe?g)$/i.test(v))?v:null;
+ const safeImg=v=>{
+  if(typeof v!=='string'||v.length>800)return null;
+  if(/^[a-z0-9_-]+\.(webp|png|jpe?g)$/i.test(v))return v;
+  if(/^\/api\/v1\/media\/products\/[a-f0-9-]{36}\.(webp|png|jpe?g)$/i.test(v))return v;
+  if(/^https:\/\//i.test(v)){try{const url=new URL(v);return !url.username&&!url.password?url.href:null;}catch{return null;}}
+  return null;
+ };
  if(!/^[a-zA-Z0-9_-]{1,80}$/.test(String(raw.id)))return null;
  const imgs=Array.isArray(raw.images)?raw.images.map(safeImg).filter(Boolean):[];
- const price=raw.price?.amountToman;
- return {id:String(raw.id),name:safeText(raw.name),category:safeText(raw.category||'سایر'),style:safeText(raw.style||'مینیمال'),light:String(imgs[0]||safeImg(raw.imageUrl)||'gallery-ivory.webp'),dark:String(imgs[0]||safeImg(raw.imageUrl)||'gallery-night.webp'),images:imgs.length?imgs:[String(safeImg(raw.imageUrl)||'gallery-ivory.webp')],alt:safeText(raw.alt||raw.name),priceToman:Number.isFinite(price)&&price>=0?price:null,weightGrams:typeof raw.weightGrams==='number'?raw.weightGrams:null,karat:raw.karat??null,inventoryStatus:String(raw.inventoryStatus||'unknown')};
+ const first=imgs[0]||safeImg(raw.imageUrl)||'gallery-ivory.webp';
+ const price=raw.price?.amountToman,expiresAt=Date.parse(raw.price?.validUntil||''),verifiedAt=Date.parse(raw.price?.updatedAt||'');
+ const validPrice=Number.isSafeInteger(price)&&price>0&&Number.isFinite(expiresAt)&&expiresAt>Date.now()&&Number.isFinite(verifiedAt)&&verifiedAt<=Date.now();
+ return {id:String(raw.id),name:safeText(raw.name),category:safeText(raw.category||'سایر'),
+  style:safeText(raw.style||'مینیمال'),light:first,dark:first,images:imgs.length?imgs:[first],
+  alt:safeText(raw.alt||raw.name),priceToman:validPrice?price:null,priceExpiresAt:validPrice?expiresAt:null,
+  priceVerifiedAt:validPrice?verifiedAt:null,weightGrams:typeof raw.weightGrams==='number'?raw.weightGrams:null,
+  karat:raw.karat??null,inventoryStatus:String(raw.inventoryStatus||'unknown')};
 }
+
 async function hydrateCatalog(){
  if(!BACKEND_READY)return;
  try{
@@ -127,16 +144,17 @@ function pImage(p,cls=''){return art(p.light,p.dark,p.alt,cls)}
 function productRow(p){const liked=state.favorites.includes(p.id);return `<article class="product-row"><a href="#/product/${p.id}" class="product-row-media">${pImage(p,'row-photo')}</a><div class="product-row-copy"><span class="eyebrow">${p.category} / ${p.style}</span><h2><a href="#/product/${p.id}">${p.name}</a></h2><p class="product-row-note">${BACKEND_READY?'برای مشخصات کامل وارد صفحه محصول شوید':'نمونه نمایشی · جزئیات واقعی ثبت نشده'}</p><div class="row-meta"><span>وزن و عیار: ${p.weightGrams!=null&&p.karat?`${esc(p.weightGrams)} گرم · ${esc(p.karat)} عیار`:'—'}</span><span>قیمت: ${productPrice(p)}</span></div><div class="row-actions">${linkButton('مشاهده جزئیات',`#/product/${p.id}`)}<button data-action="favorite" data-id="${p.id}" class="favorite-btn ${liked?'liked':''}" aria-label="${liked?'حذف از علاقه‌مندی':'افزودن به علاقه‌مندی'}">${I('heart',18)}</button></div></div></article>`}
 function getParams(){return new URLSearchParams((location.hash.split('?')[1]||''))}
 function collection(){const params=getParams();let cat=params.get('category')||'همه'; let sty=params.get('style')||'همه';state.category=cat;const q=params.get('q')||'';let list=products.filter(p=>(cat==='همه'||p.category===cat)&&(sty==='همه'||p.style===sty)&&(!q||(p.name+' '+p.category+' '+p.style).includes(q)));if(state.sort==='alpha')list=[...list].sort((a,b)=>a.name.localeCompare(b.name,'fa'));if(state.sort==='reverse')list=[...list].sort((a,b)=>b.name.localeCompare(a.name,'fa'));
+const displayCategories=BACKEND_READY?['همه',...new Set(products.map(p=>p.category))]:categories;
 const title=cat==='همه'?(sty==='همه'?'مجموعه محصولات':`سبک ${sty}`):`مجموعه ${cat}`;return `<main class="inner-main"><div class="collection-intro"><div class="breadcrumb"><a href="#/">صفحه اصلی</a>${I('left',12)} <span>مجموعه‌ها</span></div><span class="eyebrow">THE HANI-EL EDIT</span><h1>${esc(title)}</h1><p>جست‌وجویی آرام میان طرح‌هایی ظریف.</p></div>
-<div class="catalog-toolbar"><button data-action="filter-open" class="toolbar-button">${I('filter',17)} فیلترها</button><button data-action="sort-toggle" class="toolbar-button">${I('sliders',17)} مرتب‌سازی</button><span class="results-label">${list.length.toLocaleString('fa-IR')} نمونه</span></div>
+<div class="catalog-toolbar"><button data-action="filter-open" class="toolbar-button">${I('filter',17)} فیلترها</button><button data-action="sort-toggle" class="toolbar-button">${I('sliders',17)} مرتب‌سازی</button><span class="results-label">${list.length.toLocaleString('fa-IR')} ${BACKEND_READY?'محصول':'نمونه'}</span></div>
 ${state.sortMenu?`<div class="sort-popup"><button data-action="sort-set" data-sort="default">ترتیب پیش‌فرض</button><button data-action="sort-set" data-sort="alpha">نام: الف تا ی</button><button data-action="sort-set" data-sort="reverse">نام: ی تا الف</button><small>مرتب‌سازی بر اساس قیمت پس از دریافت قیمت واقعی فعال می‌شود.</small></div>`:''}
-<div class="category-chips">${categories.map(c=>{const sp=new URLSearchParams();if(c!=='همه')sp.set('category',c);if(sty!=='همه')sp.set('style',sty);if(q)sp.set('q',q);return `<a href="#/collection${sp.size?'?'+sp.toString():''}" class="chip ${cat===c?'active':''}">${c}</a>`}).join('')}</div>${cat!=='همه'||sty!=='همه'?`<div class="applied-filters"><span>فیلترهای فعال</span>${cat!=='همه'?`<a href="#/collection${sty!=='همه'?'?style='+encodeURIComponent(sty):''}">${cat} ${I('close',13)}</a>`:''}${sty!=='همه'?`<a href="#/collection${cat!=='همه'?'?category='+encodeURIComponent(cat):''}">${sty} ${I('close',13)}</a>`:''}<a class="clear-filters" href="#/collection">پاک کردن همه</a></div>`:''}
-${list.length?`<div class="catalog-list">${list.map(productRow).join('')}</div>`:`<div class="empty-state">${I('search',28)}<h2>محصولی در این گروه ثبت نشده است</h2><p>این دسته در نسخه آزمایشی هنوز نمونه‌ای ندارد.</p>${linkButton('دیدن همه محصولات','#/collection')}</div>`}
+<div class="category-chips">${displayCategories.map(c=>{const sp=new URLSearchParams();if(c!=='همه')sp.set('category',c);if(sty!=='همه')sp.set('style',sty);if(q)sp.set('q',q);return `<a href="#/collection${sp.size?'?'+sp.toString():''}" class="chip ${cat===c?'active':''}">${c}</a>`}).join('')}</div>${cat!=='همه'||sty!=='همه'?`<div class="applied-filters"><span>فیلترهای فعال</span>${cat!=='همه'?`<a href="#/collection${sty!=='همه'?'?style='+encodeURIComponent(sty):''}">${cat} ${I('close',13)}</a>`:''}${sty!=='همه'?`<a href="#/collection${cat!=='همه'?'?category='+encodeURIComponent(cat):''}">${sty} ${I('close',13)}</a>`:''}<a class="clear-filters" href="#/collection">پاک کردن همه</a></div>`:''}
+${list.length?`<div class="catalog-list">${list.map(productRow).join('')}</div>`:`<div class="empty-state">${I('search',28)}<h2>محصولی در این گروه ثبت نشده است</h2><p>${BACKEND_READY?'در این دسته هنوز محصولی منتشر نشده است.':'این دسته در نسخه آزمایشی هنوز نمونه‌ای ندارد.'}</p>${linkButton('دیدن همه محصولات','#/collection')}</div>`}
 ${state.catalogStatus==='error'?`<div class="catalog-error" role="alert">${I('info',18)} دریافت محصولات از سرور ناموفق بود. <button type="button" data-action="catalog-retry">تلاش مجدد</button></div>`:''}<p class="catalog-disclaimer">${state.catalogStatus==='demo'?PLACEHOLDER_NOTICE:''}</p></main>`}
 function productPage(id){const p=products.find(x=>x.id===id);if(!p)return notFound();const imgs=p.images||[p.light];let shown=imgs[state.productImage%imgs.length]||p.light;const liked=state.favorites.includes(p.id);return `<main class="inner-main product-page"><div class="breadcrumb"><a href="#/">خانه</a>${I('left',12)}<a href="#/collection?category=${encodeURIComponent(p.category)}">${p.category}</a>${I('left',12)}<span>${p.name}</span></div>
 <div class="detail-grid"><div class="detail-media"><button type="button" class="detail-main-art" data-action="lightbox-open" aria-label="بزرگنمایی تصویر محصول">${img(state.theme==='dark'&&(shown===p.light||shown===p.images[0])?p.dark:shown,p.alt)}${!BACKEND_READY?'<span class="demo-label">تصویر مفهومی</span>':''}<span class="image-zoom-indicator">${I('search',16)} مشاهده بزرگ‌تر</span></button><div class="detail-thumbs">${imgs.map((src,i)=>`<button class="detail-thumb ${i===state.productImage?'active':''}" data-action="product-img" data-index="${i}">${img(src,`نمای ${i+1} از محصول`)}</button>`).join('')}</div></div>
 <div class="detail-info"><span class="eyebrow">HANI-EL / THE COLLECTION</span><h1>${p.name}</h1><p class="detail-subtitle">${BACKEND_READY?'مشخصات این محصول را پیش از انتخاب بررسی کنید.':'پیش‌نمایش یک زیور با نقش شبدر'}</p><div class="price-missing"><strong>${p.priceToman!=null?productPrice(p):'اطلاعات قیمت در حال تکمیل'}</strong><span>${p.priceToman!=null?'قیمت دریافتی از فروشگاه، مشروط به تأیید نهایی هنگام خرید.':'قیمت نهایی و موجودی تنها پس از اتصال داده‌های واقعی نمایش داده می‌شوند.'}</span></div>
-<div class="detail-spec-list"><div><span>دسته‌بندی</span><strong>${p.category}</strong></div><div><span>سبک</span><strong>${p.style} <small>(نمونه)</small></strong></div><div><span>وزن و عیار</span><strong>${p.weightGrams!=null&&p.karat?`${esc(p.weightGrams)} گرم · عیار ${esc(p.karat)}`:'ثبت نشده'}</strong></div><div><span>قیمت نهایی</span><strong>${productPrice(p)}</strong></div></div>
+<div class="detail-spec-list"><div><span>دسته‌بندی</span><strong>${p.category}</strong></div><div><span>سبک</span><strong>${p.style} ${BACKEND_READY?'':'<small>(نمونه)</small>'}</strong></div><div><span>وزن و عیار</span><strong>${p.weightGrams!=null&&p.karat?`${esc(p.weightGrams)} گرم · عیار ${esc(p.karat)}`:'ثبت نشده'}</strong></div><div><span>قیمت نهایی</span><strong>${productPrice(p)}</strong></div></div>
 <div class="product-buttons"><button class="primary-action" data-action="cart-add" data-id="${p.id}">${I('bag',19)} افزودن به سبد</button><button class="outline-action" data-action="favorite" data-id="${p.id}">${I('heart',18)} ${liked?'حذف از علاقه‌مندی':'افزودن به علاقه‌مندی'}</button></div>
 <div class="detail-trust-note">${I('shield',18)} پیش از سفارش واقعی، وزن، عیار، مبلغ نهایی و شرایط خرید باید قابل بررسی باشند.</div><div class="detail-accordions"><details><summary>مشخصات دقیق محصول ${I('down',16)}</summary><p>وزن، عیار، طول یا ابعاد و سایر مشخصات باید از اطلاعات ثبت‌شده واقعی همین قطعه دریافت شوند.</p></details><details class="price-details"><summary>ریز اجزای قیمت ${I('down',16)}</summary><p>این جدول فقط ساختار نمایش قیمت است و هیچ عددی را تخمین نمی‌زند.</p><div class="price-ledger">${[['نرخ مبنای طلا','—'],['وزن دقیق محصول','—'],['اجرت و سود','—'],['سایر هزینه‌های قابل اعمال','—'],['مبلغ نهایی','—']].map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('')}</div></details><details><summary>راهنمای خرید ${I('down',16)}</summary><p>در این پیش‌نمایش می‌توانید مراحل انتخاب و سبد خرید را امتحان کنید، اما ثبت سفارش و پرداخت فعال نیست.</p></details></div>
 </div></div><div class="mobile-buy-dock"><div><small>قیمت و موجودی</small><strong>${productPrice(p)}</strong></div><button type="button" data-action="cart-add" data-id="${p.id}" class="primary-action">${I('bag',17)} سبد خرید</button></div></main>`}
@@ -203,7 +221,7 @@ case 'filter-apply':{const v=new URLSearchParams();if(state.filterCategory!=='ه
 case 'filter-reset':state.filterCategory='همه';state.filterStyle='همه';break;
 case 'sort-toggle':state.sortMenu=!state.sortMenu;break;case 'sort-set':state.sort=a.dataset.sort;state.sortMenu=false;break;
 case 'product-img':state.productImage=ix;break;case 'lightbox-open':state.lightbox=true;break;case 'lightbox-close':state.lightbox=false;break;case 'lightbox-next':state.productImage++;break;case 'lightbox-prev':{const pr=products.find(p=>p.id===routeInfo().id);state.productImage+=(pr?.images?.length||1)-1;break}
-case 'cart-add':if(BACKEND_READY&&products.find(p=>p.id===id)?.inventoryStatus!=='available'){toast('امکان افزودن این محصول به سبد هنوز تأیید نشده است');return;}state.cart[id]=(state.cart[id]||0)+1;save();toast('به سبد خرید اضافه شد');return;
+case 'cart-add':if(BACKEND_READY){toast('خرید آنلاین در این ویترین هنوز فعال نشده است.');return;}state.cart[id]=(state.cart[id]||0)+1;save();toast('به سبد خرید اضافه شد');return;
 case 'cart-plus':state.cart[id]=(state.cart[id]||0)+1;save();break;case 'cart-minus':state.cart[id]=Math.max(0,(state.cart[id]||0)-1);save();break;case 'cart-remove':delete state.cart[id];save();break;
 case 'favorite':{const wasSaved=state.favorites.includes(id);state.favorites=wasSaved?state.favorites.filter(t=>t!==id):[...state.favorites,id];save();state.notice=wasSaved?'از علاقه‌مندی‌ها حذف شد':'در انتخاب‌های تو ذخیره شد';setTimeout(()=>{state.notice=false;const notice=document.querySelector('.toast');if(notice)notice.remove()},2200);break;}
 case 'search-term':state.query=a.dataset.term;break;case 'catalog-retry':state.catalogStatus='loading';hydrateCatalog();break;case 'checkout-edit':state.checkoutStep=1;break;case 'account-edit':state.accountStep='phone';state.accountMessage='';break;case 'address-new':state.addressFormOpen=true;break;case 'address-edit':state.addressDraft={...state.addressPreview};state.addressFormOpen=true;break;case 'address-clear':state.addressPreview=null;state.addressDraft={};state.addressFormOpen=false;break;case 'address-cancel':state.addressFormOpen=false;break;
@@ -242,7 +260,7 @@ document.addEventListener('submit',async e=>{
   if((d.message||'').trim().length<10)er.push('متن پیام باید حداقل ده نویسه باشد.');
   if(er.length){const note=form.querySelector('[data-form-error]');note.hidden=false;note.textContent=er.join(' ');return;}
   state.contactDraft={...d};
-  if(!BACKEND_READY){state.contactFeedback='پیام ارسال نشده است؛ اتصال سامانه پشتیبانی هنوز انجام نشده.';render();return;}
+  if(!COMMERCE_READY){state.contactFeedback='فرم پشتیبانی هنوز فعال نیست؛ پیام ارسال نشد.';render();return;}
   state.contactBusy=true;render();
   try{await requestAPI('/v1/support/messages',{method:'POST',body:JSON.stringify({name:d.name,mobile:visiblePhone(d.mobile),topic:d.topic,message:d.message})});state.contactFeedback='پیام شما توسط سرویس پشتیبانی دریافت شد.';state.contactDraft={};}
   catch(_){state.contactFeedback='ارسال پیام ناموفق بود؛ دوباره امتحان کن.';}
@@ -252,7 +270,7 @@ document.addEventListener('submit',async e=>{
   e.preventDefault();const mobile=visiblePhone(new FormData(form).get('mobile'));
   if(!isIranMobile(mobile)){state.accountMessage='شماره موبایل معتبر ۱۱ رقمی وارد کن.';render();return;}
   state.accountPhone=mobile;
-  if(!BACKEND_READY){state.accountMessage='فرم ورود آماده است، اما سرویس ارسال پیامک هنوز به بک‌اند متصل نشده است.';render();return;}
+  if(!COMMERCE_READY){state.accountMessage='ارسال پیامک ورود هنوز فعال نشده است.';render();return;}
   state.accountBusy=true;render();
   try{await requestAPI('/v1/auth/otp/request',{method:'POST',body:JSON.stringify({mobile})});state.accountStep='verify';state.accountMessage='کد از طریق سرویس احراز هویت درخواست شد.';}
   catch(_){state.accountMessage='امکان درخواست کد فراهم نشد. کمی بعد دوباره تلاش کن.';}
@@ -261,7 +279,7 @@ document.addEventListener('submit',async e=>{
  if(form.id==='account-verify-form'){
   e.preventDefault();const code=visiblePhone(new FormData(form).get('code')||form.querySelector('input')?.value||'');
   if(!/^\d{4,8}$/.test(code)){state.accountMessage='کد تأیید معتبر وارد کن.';render();return;}
-  if(!BACKEND_READY){state.accountMessage='تأیید پیامکی هنوز متصل نشده است.';render();return;}
+  if(!COMMERCE_READY){state.accountMessage='تأیید پیامکی هنوز فعال نشده است.';render();return;}
   try{await requestAPI('/v1/auth/otp/verify',{method:'POST',body:JSON.stringify({mobile:state.accountPhone,code})});state.accountMessage='کد تأیید شد؛ نمایش پروفایل پس از اتصال سرویس حساب مشتری فعال می‌شود.';}
   catch(_){state.accountMessage='کد نامعتبر است یا منقضی شده؛ دوباره بررسی کن.';}render();return;
  }
