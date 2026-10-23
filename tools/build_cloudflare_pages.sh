@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cloudflare Pages staging: static preview only. Does not modify frontend/runtime-config.js.
+# Cloudflare Pages staging: static assets plus root /functions API. Never exposes secrets in browser.
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="$ROOT_DIR/.cloudflare-pages-dist"
@@ -13,18 +13,18 @@ rm -rf -- "$OUTPUT_DIR"
 mkdir -p -- "$OUTPUT_DIR"
 cp -a "$ROOT_DIR/frontend/." "$OUTPUT_DIR/"
 
-# Intentionally disable Django API for Pages staging. Real API is not hosted here.
-# Cloudflare Pages builds run with STAGING_API_ACTIVE=1 ONLY after a live Django
-# endpoint has been verified and STAGING_BACKEND_ORIGIN has been set as a Pages
-# runtime variable. Without both, Pages remains a safe static demo.
+# Keep the original public preview running until Cloudflare D1 is bound, its
+# schema is applied, and administrator secrets are configured. The Pages
+# Functions API is deployed at /api/v1/ regardless of this frontend feature flag.
+# Switch STAGING_API_ACTIVE=1 only after admin and product API testing succeeds.
 if [[ "${STAGING_API_ACTIVE:-0}" == "1" ]]; then
   cat > "$OUTPUT_DIR/runtime-config.js" <<'CONFIG'
-/* HANI-EL GOLD staging proxy — same-origin /api. No secrets in browser. */
+/* HANI-EL GOLD D1-backed Cloudflare Pages Functions — same-origin /api. */
 window.HANIEL_CONFIG = Object.freeze({apiBaseUrl:'/api',apiTimeout:12000});
 CONFIG
 else
   cat > "$OUTPUT_DIR/runtime-config.js" <<'CONFIG'
-/* HANI-EL GOLD static staging. No live API, prices, checkout or Servix secrets. */
+/* HANI-EL GOLD preview; D1 API stays isolated until explicitly enabled. */
 window.HANIEL_CONFIG = Object.freeze({apiBaseUrl:'',apiTimeout:12000});
 CONFIG
 fi
