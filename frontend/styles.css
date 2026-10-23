@@ -752,3 +752,13 @@ h3{font-size:clamp(1.2rem,1.7vw,1.65rem)}
 
 /* A single authentic product photo needs no duplicated thumbnail. */
 .detail-thumbs.single-image{display:none!important}
+
+/* Supplier-confirmation request UX: activated only by server-side feature flag. */
+.showcase-only.inquiry-active .cart-icon{display:inline-flex!important}
+.showcase-only.inquiry-active .product-buttons .primary-action{display:inline-flex}
+.inquiry-active .cart-page .order-summary{border-radius:18px}
+.inquiry-active .cart-page #inquiry-form{display:grid;gap:16px;margin-top:16px}
+.inquiry-active .cart-page #inquiry-form label{display:flex;flex-direction:column;gap:7px;font-size:12px}
+.inquiry-active .cart-page #inquiry-form input{width:100%;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:12px 14px}
+.inquiry-active .cart-page #inquiry-form .primary-action{min-height:49px;justify-content:center}
+.inquiry-active .cart-page #inquiry-challenge{min-height:65px;direction:ltr;display:flex;justify-content:flex-end}
