@@ -739,3 +739,13 @@ h3{font-size:clamp(1.2rem,1.7vw,1.65rem)}
 .contact-form-panel .elegant-form input,.contact-form-panel .elegant-form select,.contact-form-panel .elegant-form textarea{background:var(--surface)}
 .contact-form-panel .pending-information{margin-top:20px}
 @media(max-width:570px){.address-actions{flex-direction:column;align-items:stretch}.address-preview{padding:22px}.address-form-card .form-grid{grid-template-columns:1fr}.address-form-card .span-all{grid-column:auto}.address-form-card .form-actions{flex-wrap:wrap}}
+
+/* Live D1 showcase: do not advertise account, bag, or checkout before these are enabled. */
+.showcase-only .header-account,.showcase-only .cart-icon,
+.showcase-only .menu-secondary a[href="#/account"],
+.showcase-only .menu-secondary a[href="#/orders"],
+.showcase-only .footer-links a[href="#/account"],
+.showcase-only .footer-links a[href="#/orders"]{display:none!important}
+.showcase-only .product-buttons .primary-action,
+.showcase-only .mobile-buy-dock .primary-action{border-radius:12px}
+.showcase-only .price-missing{background:var(--soft);border-radius:16px}
