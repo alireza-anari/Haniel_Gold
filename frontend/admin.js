@@ -157,6 +157,12 @@ async function uploadImage(){
   note('تصویر آپلود شد و آدرس آن در فرم قرار گرفت. حالا می‌توانی محصول را ذخیره کنی.');
  }catch(x){note(x.message,true);}finally{button.disabled=false;}
 }
+// Never permit manual acceptance of missing, future-dated or expired gold observations.
+function pendingRateIsStale(iso,now=Date.now()){
+ const at=typeof iso==='string'&&iso?Date.parse(iso):NaN;
+ const age=now-at;
+ return !Number.isFinite(at)||age>40*60_000||age< -120_000;
+}
 async function refreshMarket(){
  const headline=$('#market-status'),detail=$('#market-detail'),approve=$('#approve-gold'),pending=$('#market-pending-note');
  if(!headline)return;
@@ -169,9 +175,7 @@ async function refreshMarket(){
    if(!iso||!Number.isFinite(Date.parse(iso)))return 'نامشخص';
    return new Intl.DateTimeFormat('fa-IR',{timeZone:'Asia/Tehran',dateStyle:'medium',timeStyle:'short'}).format(new Date(iso));
   };
-  const pendingAt=m.pendingObservedAt?Date.parse(m.pendingObservedAt):NaN;
-  const pendingAge=Date.now()-pendingAt;
-  const pendingExpired=!Number.isFinite(pendingAt)||pendingAge>40*60_000||pendingAge< -120_000;
+  const pendingExpired=pendingRateIsStale(m.pendingObservedAt);
   const hasPending=m.pendingTomanPerGram!=null;
   detail.textContent='آخرین نرخ تأییدشده: '+rate+' | اعتبار تا (تهران): '+tehranTime(m.validUntil)+
    ' | نرخ در انتظار بررسی: '+proposed+' | زمان ثبت منبع (تهران): '+tehranTime(m.pendingObservedAt)+
