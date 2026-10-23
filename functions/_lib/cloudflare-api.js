@@ -20,6 +20,7 @@ function validate(o){
  const w=o.weightGrams===''||o.weightGrams==null?null:Number(o.weightGrams);
  if(w!==null&&(!Number.isFinite(w)||w<0||w>10000||Math.abs(w*1000-Math.round(w*1000))>0.00001))throw Error('وزن باید دقیق و حداکثر سه رقم اعشار باشد.');
  if(!Array.isArray(o.images)||o.images.length>8||o.images.some(s=>!validImage(s)))throw Error('آدرس تصاویر باید معتبر و HTTPS باشد.');
+ if(o.published===true && !o.images.length)throw Error('انتشار محصول بدون تصویر واقعی مجاز نیست.');
  if(typeof o.description!=='string'||o.description.length>4000||typeof o.style!=='string'||o.style.length>40)throw Error('متن محصول نامعتبر است.');
  const p={slug:o.slug,name:o.name.trim(),categoryId:Number(o.categoryId),style:o.style||'مینیمال',description:o.description,weightMg:w===null?null:Math.round(w*1000),karat:number(o.karat,1,24),
  makingFeeBps:number(o.makingFeeBps,0,10000),profitBps:number(o.profitBps,0,10000),inventory:number(o.inventoryCount,0,1000000),published:o.published===true,images:o.images};
@@ -40,13 +41,15 @@ async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0}={}){
  const pics=(await db.prepare('SELECT product_slug,url FROM product_images WHERE product_slug IN ('+rows.map(()=>'?').join(',')+') ORDER BY sort_order,id').bind(...rows.map(r=>r.slug)).all()).results||[];
  const map=new Map(rows.map(r=>[r.slug,[]]));for(const p of pics)map.get(p.product_slug)?.push(p.url);
  return rows.map(r=>{const images=map.get(r.slug)||[];const fresh=r.price_toman!==null&&r.price_toman>0&&r.price_valid_until>Date.now();
- return {id:r.slug,name:r.name,category:r.category_title,categoryId:r.category_id,style:r.style,description:r.description,weightGrams:r.weight_mg===null?null:r.weight_mg/1000,
+ const obj={id:r.slug,name:r.name,category:r.category_title,categoryId:r.category_id,style:r.style,description:r.description,weightGrams:r.weight_mg===null?null:r.weight_mg/1000,
  karat:r.karat,makingFeeBps:r.making_fee_bps,profitBps:r.profit_bps,inventoryCount:r.inventory_count,
  inventoryStatus:r.inventory_count===null?'unknown':r.inventory_count>0?'available':'unavailable',
  published:!!r.published,imageUrl:images[0]||null,images,
  price:{amountToman:fresh?r.price_toman:null,updatedAt:fresh?new Date(r.price_verified_at).toISOString():null,
  validUntil:fresh?new Date(r.price_valid_until).toISOString():null},
  priceToman:r.price_toman,priceValidUntil:r.price_valid_until?new Date(r.price_valid_until).toISOString():null};
+ if(onlyPublic){delete obj.priceToman;delete obj.priceValidUntil;}
+ return obj;
  });
 }
 async function saveImages(db,id,images){await db.batch([db.prepare('DELETE FROM product_images WHERE product_slug=?').bind(id),...images.map((url,n)=>db.prepare('INSERT INTO product_images(product_slug,url,alt,sort_order) VALUES(?,?,?,?)').bind(id,url,'',n))]);}
