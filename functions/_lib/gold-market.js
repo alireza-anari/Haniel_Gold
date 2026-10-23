@@ -84,6 +84,8 @@ export async function marketAdmin(env,now=nowMs()){
 }
 export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
  if(!env.DB)throw new MarketError('DB_SETUP','D1 متصل نیست.');
+ if(!env.SERVIX_API_KEY||String(env.SERVIX_API_KEY).trim().length<8)
+  throw new MarketError('NOT_CONFIGURED','کلید Servix هنوز در Secrets تنظیم نشده است.');
  const old=await state(env.DB);
  if(!old)throw new MarketError('DB_SETUP','مهاجرت نرخ روی D1 اجرا نشده است.');
  if(old.paused_until>now)return {status:'paused',message:'ارسال درخواست به‌خاطر سهمیه متوقف است.'};
