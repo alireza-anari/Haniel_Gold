@@ -84,6 +84,8 @@ test('price details are rendered only for independently verified, unexpired Serv
  assert.match(html,/مبلغ اجرت/);
  assert.match(html,/مبلغ سود/);
  assert.match(html,/زمان نرخ/);
+ assert.match(html,/منبع نرخ/);
+ assert.match(html,/https:\/\/servix\.cc\//);
  const old=vm.runInNewContext(ledger+'\nproductLedger(prod)',{
   prod:{...prod,priceExpiresAt:Date.now()-1000},Date,Intl,Number,formatMoney,esc
  });
