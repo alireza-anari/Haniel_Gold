@@ -1,0 +1,212 @@
+/* HANI-EL GOLD — editorial interactive detail room.
+   Feature-scoped overrides; original V5 styles and embedded fonts stay untouched. */
+.macro-section{padding-top:94px;padding-bottom:108px}
+.macro-section .macro-layout{
+  display:block;
+  width:100%;
+  max-width:1080px;
+  margin-inline:auto;
+  background:transparent;
+  border-radius:14px;
+  min-height:0;
+  overflow:visible;
+}
+.macro-section .macro-photo{
+  position:relative;
+  isolation:isolate;
+  display:block;
+  width:100%;
+  height:570px;
+  overflow:hidden;
+  border-radius:14px;
+  background:#ebe6dc;
+  box-shadow:none;
+}
+.macro-section .macro-art,
+.macro-section .macro-art img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:50% 47%;
+  transform:none !important;
+  animation:none !important;
+}
+.macro-section .macro-photo::after{
+  content:'';
+  pointer-events:none;
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background:linear-gradient(180deg,rgba(16,17,13,.20),transparent 23%,transparent 60%,rgba(20,19,15,.07));
+}
+.droom-overline{
+  position:absolute;
+  top:23px;
+  right:28px;
+  left:28px;
+  z-index:2;
+  display:flex;
+  justify-content:space-between;
+  direction:ltr;
+  color:#fffaf0;
+  font-size:10px;
+  font-weight:500;
+  letter-spacing:.18em;
+  text-shadow:0 1px 7px rgba(0,0,0,.30);
+  pointer-events:none;
+}
+.macro-section .macro-photo .droom-point{
+  position:absolute;
+  z-index:4;
+  width:46px;
+  height:46px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border-radius:50%;
+  border:1px solid rgba(255,250,236,.88);
+  background:rgba(39,41,31,.50);
+  color:#fffdf3;
+  font-size:14px;
+  font-weight:500;
+  box-shadow:0 0 0 7px rgba(255,250,236,.19);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+  cursor:pointer;
+  transform:none;
+  transition:background .25s ease,box-shadow .25s ease,transform .25s ease;
+}
+.macro-section .macro-photo .droom-point:hover,
+.macro-section .macro-photo .droom-point.active{
+  background:#9b7b48;
+  color:white;
+  transform:scale(1.06);
+  box-shadow:0 0 0 9px rgba(255,250,236,.29);
+}
+.macro-section .macro-photo .droom-point:focus-visible,
+.droom-product-link:focus-visible{
+  outline:3px solid #8e8b73;
+  outline-offset:4px;
+}
+.macro-section .macro-photo .hotspot-1{top:15%;left:46%}
+.macro-section .macro-photo .hotspot-2{top:32%;left:60%}
+.macro-section .macro-photo .hotspot-3{top:54%;left:75%}
+.macro-section .macro-details.droom-bottom-bar{
+  box-sizing:border-box;
+  position:absolute;
+  z-index:5;
+  inset:auto 0 0;
+  width:100%;
+  min-height:146px;
+  padding:22px 32px 24px;
+  display:grid;
+  grid-template-columns:175px minmax(0,1fr) auto;
+  align-items:center;
+  column-gap:30px;
+  direction:rtl;
+  background:rgba(249,247,241,.975);
+  border:0;
+  border-top:1px solid rgba(181,150,91,.30);
+  border-radius:0;
+  color:#2c2e27;
+}
+.droom-meta{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:13px;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.16em;
+  color:#8d7a59;
+  direction:ltr;
+  text-align:left;
+}
+.droom-meta [data-droom-count]{font-size:12px;letter-spacing:.05em;color:#777667}
+.droom-copy{min-width:0}
+.droom-panel[hidden]{display:none !important}
+.droom-panel{display:block;animation:droom-swap .23s ease both}
+.macro-section .droom-panel h3{margin:0 0 9px;font-size:20px;line-height:1.5;font-weight:600;color:inherit}
+.macro-section .droom-panel p{margin:0;max-width:430px;font-size:13px;line-height:2;color:#706e62}
+.droom-product-link{
+  display:inline-flex;
+  align-items:center;
+  gap:19px;
+  white-space:nowrap;
+  padding:12px 0;
+  border-bottom:1px solid #b5965b;
+  text-decoration:none;
+  color:#383a31;
+  font-size:13px;
+  font-weight:600;
+  transition:gap .25s ease,color .25s ease;
+}
+.droom-product-link:hover{gap:25px;color:#957544}
+.droom-demo-note{
+  position:absolute;
+  z-index:3;
+  left:20px;
+  bottom:161px;
+  font-size:10px;
+  color:#fffaf2;
+  text-shadow:0 1px 5px rgba(0,0,0,.5);
+  pointer-events:none;
+}
+.macro-section .macro-caption{display:none}
+html[data-theme='dark'] .macro-section .macro-details.droom-bottom-bar{
+  background:rgba(26,30,24,.978);
+  color:#f3eee5;
+  border-top-color:rgba(181,150,91,.40);
+}
+html[data-theme='dark'] .droom-meta{color:#c4a36d}
+html[data-theme='dark'] .droom-meta [data-droom-count]{color:#c8c3b5}
+html[data-theme='dark'] .macro-section .droom-panel p{color:#b3b2a5}
+html[data-theme='dark'] .droom-product-link{color:#f1ede2}
+@keyframes droom-swap{from{opacity:.25;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){
+  .macro-section .macro-photo{height:540px}
+  .macro-section .macro-details.droom-bottom-bar{grid-template-columns:108px minmax(0,1fr) auto;gap:16px;padding:19px 24px}
+  .macro-section .droom-panel h3{font-size:18px}
+  .macro-section .droom-panel p{font-size:12px}
+  .droom-product-link{font-size:12px}
+}
+@media(max-width:620px){
+  .macro-section{padding-top:65px;padding-bottom:80px}
+  .macro-section .macro-layout{border-radius:10px}
+  .macro-section .macro-photo{height:auto;border-radius:10px}
+  .macro-section .macro-art,.macro-section .macro-art img{height:395px;object-position:50% 42%}
+  .macro-section .macro-photo::after{inset:0 0 auto;height:395px}
+  .droom-overline{top:17px;right:17px;left:17px;font-size:9px;letter-spacing:.10em}
+  .macro-section .macro-photo .droom-point{width:44px;height:44px;font-size:13px;box-shadow:0 0 0 6px rgba(255,250,236,.22)}
+  .macro-section .macro-photo .hotspot-1{top:17%;left:56%}
+  .macro-section .macro-photo .hotspot-2{top:33%;left:69%}
+  .macro-section .macro-photo .hotspot-3{top:54%;left:76%}
+  .macro-section .macro-details.droom-bottom-bar{
+    position:relative;
+    inset:auto;
+    min-height:178px;
+    padding:15px 17px 17px;
+    grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:'meta meta' 'copy link';
+    align-content:center;
+    align-items:end;
+    column-gap:12px;
+    row-gap:12px;
+    background:rgba(249,247,241,.985);
+  }
+  .droom-meta{grid-area:meta;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;font-size:9px}
+  .droom-copy{grid-area:copy}
+  .macro-section .droom-panel h3{font-size:16px;margin-bottom:5px}
+  .macro-section .droom-panel p{font-size:11px;line-height:1.75}
+  .droom-product-link{grid-area:link;gap:5px;padding:7px 0;font-size:10px;border-bottom-width:1px}
+  .droom-demo-note{left:13px;bottom:190px;font-size:9px}
+}
+@media(max-width:350px){
+  .macro-section .macro-details.droom-bottom-bar{grid-template-columns:1fr;grid-template-areas:'meta' 'copy' 'link';gap:8px}
+  .droom-product-link{justify-self:start}
+}
+@media(prefers-reduced-motion:reduce){
+  .droom-panel{animation:none}
+  .macro-section .macro-photo .droom-point,.droom-product-link{transition:none}
+}
