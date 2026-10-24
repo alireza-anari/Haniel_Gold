@@ -85,6 +85,20 @@ test('Telegram webhook refuses unauthorized traffic and another channel',async()
  const r=await make(sample,'sample_secret_DO_NOT_USE_LIVE');
  assert.equal(r.status,200);assert.equal((await r.json()).ignored,'not_expected_channel');
 });
+test('only the supplied haniellgold channel username can create a draft',async()=>{
+ const url='https://example.com/api/v1/integrations/telegram';
+ const env={TELEGRAM_IMPORT_ENABLED:'1',TELEGRAM_WEBHOOK_SECRET:'test-secret',TELEGRAM_CHANNEL_USERNAME:'haniellgold',
+  DB:{prepare(){return {bind(){return this;},async run(){return {meta:{changes:1}};}};}}};
+ const send=async username=>{
+  const res=await handle({request:new Request(url,{method:'POST',
+   headers:{'X-Telegram-Bot-Api-Secret-Token':'test-secret'},
+   body:JSON.stringify({update_id:345,channel_post:{message_id:11,chat:{id:-10022,username},
+    caption:'#HANIEL_SITE\nنام: گردنبند واقعی'}}) }),env});
+  return res.json();
+ };
+ assert.equal((await send('not_haniellgold')).ignored,'not_expected_channel');
+ assert.equal((await send('haniellgold')).queuedForReview,true);
+});
 test('tagged messages go to moderation queue, duplicate delivery updates only pending draft',async()=>{
  const queries=[];
  const db={prepare(sql){const q={bind(...args){queries.push({sql,args});return this;},
