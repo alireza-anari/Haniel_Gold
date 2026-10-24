@@ -885,3 +885,31 @@ h3{font-size:clamp(1.2rem,1.7vw,1.65rem)}
 @media(prefers-reduced-motion:reduce){
  .macro-photo .hotspot,.macro-art img{transition:none!important}
 }
+
+/* Hotspots use clean product photographs, not flattened UI concept exports. */
+.macro-photo .macro-art img{
+ object-fit:cover;
+ object-position:50% 65%;
+ transform:scale(1.015);
+}
+.macro-photo.detail-focus-0 .macro-art img,
+.macro-photo.detail-focus-1 .macro-art img,
+.macro-photo.detail-focus-2 .macro-art img{
+ object-position:50% 65%;
+ transform:scale(1.015);
+}
+.macro-photo .hotspot-1{left:40%;top:17%}
+.macro-photo .hotspot-2{left:57%;top:53%}
+.macro-photo .hotspot-3{left:77%;top:78%}
+:root[data-theme="dark"] .macro-photo .macro-art img{object-position:50% 72%}
+:root[data-theme="dark"] .macro-photo.detail-focus-0 .macro-art img,
+:root[data-theme="dark"] .macro-photo.detail-focus-1 .macro-art img,
+:root[data-theme="dark"] .macro-photo.detail-focus-2 .macro-art img{object-position:50% 72%}
+:root[data-theme="dark"] .macro-photo .hotspot-1{left:48%;top:26%}
+:root[data-theme="dark"] .macro-photo .hotspot-2{left:48%;top:61%}
+:root[data-theme="dark"] .macro-photo .hotspot-3{left:63%;top:79%}
+@media(max-width:520px){
+ .macro-photo .hotspot-1{left:39%;top:20%}
+ .macro-photo .hotspot-2{left:55%;top:55%}
+ .macro-photo .hotspot-3{left:76%;top:80%}
+}
