@@ -232,7 +232,7 @@ function macroSection(){
     <p data-macro-body>${macroSteps[n].body}</p>
    </div>
    <div class="macro-bottom-action">
-    ${linkButton('مشاهده این محصول',`#/product/${products[0]?.id||'sample-necklace'}`)}
+    ${linkButton('کشف مجموعه‌ها','#/collection')}
    </div>
   </div>
  </div></section>`;
