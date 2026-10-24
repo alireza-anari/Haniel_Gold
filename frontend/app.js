@@ -211,9 +211,54 @@ function featured(){const choices=[products[1],products[0],products[2]].filter(B
 <div class="featured-frame"><div class="featured-image">${art(p.light,p.dark,p.alt,'feature-art')}</div><div class="featured-info"><span class="eyebrow muted">۰${state.featured+1} / ۰۳</span><div><h3>${p.name}</h3>${linkButton('مشاهده جزئیات',`#/product/${p.id}`)}</div></div></div></section>`}
 function stylesSection(){const s=state.selectedStyle;const list=products.filter(p=>p.style===s);if(!list.length){return `<section class="section styles-section"><div class="section-heading"><h2>سبک تو، انتخاب تو</h2><p>این سبک فعلاً محصولی برای نمایش ندارد.</p></div><div class="style-tabs">${styles.map(st=>`<button data-action="style-set" data-style="${st}" class="${s===st?'selected':''}">${st}</button>`).join('')}</div></section>`;}const p=list[state.styleIndex%list.length];return `<section class="section styles-section"><div class="section-heading"><span class="eyebrow">FIND YOUR STYLE</span><h2>سبک تو، انتخاب تو</h2><p>کدام ظرافت به تو نزدیک‌تر است؟</p></div><div class="style-tabs" role="tablist" aria-label="انتخاب سبک">${styles.map(st=>`<button type="button" role="tab" aria-selected="${s===st}" class="${s===st?'selected':''}" data-action="style-set" data-style="${st}">${st}</button>`).join('')}</div>
 <div class="style-showcase"><div class="style-photo">${art(p.light,p.dark,p.alt,'style-art')}<div class="on-photo-note">${s}</div></div><div class="style-description"><span class="eyebrow">A PERSONAL SELECTION</span><h3>${s==='مینیمال'?'زیبایی در سادگی':s==='کلاسیک'?'ظرافت ماندگار':'جلوه‌ای متفاوت'}</h3><p>${s==='مینیمال'?'جزئیاتی ظریف، برای هر روز.':s==='کلاسیک'?'انتخاب‌هایی آرام و همیشگی.':'زیورآلاتی با حضور چشمگیر.'}</p><div class="style-arrows">${btn('style-prev','right','تصویر قبل')}${btn('style-next','left','تصویر بعد')} <small>${(state.styleIndex%list.length+1).toLocaleString('fa-IR')} / ${list.length.toLocaleString('fa-IR')}</small></div>${linkButton('مشاهده همه محصولات این سبک',`#/collection?style=${encodeURIComponent(s)}`)}</div></div><div class="style-rail" aria-label="محصولات سبک انتخاب‌شده">${list.map((item,i)=>`<button type="button" data-action="style-thumbnail" data-index="${i}" aria-pressed="${i===state.styleIndex%list.length}" class="style-rail-item ${i===state.styleIndex%list.length?'active':''}">${pImage(item,'style-rail-art')}<span>${item.name}</span></button>`).join('')}</div></section>`}
-function macroSection(){let steps=[{title:'پیوند زنجیر',body:'نمای نزدیک از اتصال زنجیر به آویز.'},{title:'فرم شبدر',body:'نمای نزدیک از لبه‌ها و فرم آویز.'},{title:'جزئیات اتصال',body:'نمای نزدیک از قطعات متصل به زیور.'}]; const n=state.macroIndex;return `<section class="section macro-section"><div class="section-heading"><span class="eyebrow">A CLOSER LOOK</span><h2>زیبایی در جزئیات</h2><p>ظرافتی که در هر نگاه دیده می‌شود</p></div>
-<div class="macro-layout"><div class="macro-photo detail-focus-${n}">${art('macro-ivory.webp','macro-night.webp','بزرگ‌نمایی آویز شبدر و جزئیات زنجیر','macro-art')}<span class="macro-caption">نمای مفهومی برای بررسی جزئیات</span>${[0,1,2].map((k)=>`<button type="button" class="hotspot hotspot-${k+1} ${n===k?'active':''}" data-action="macro" data-index="${k}" aria-label="دیدن ${steps[k].title}">${k+1}</button>`).join('')}</div>
-<div class="macro-details"><span class="eyebrow">THE DETAIL ROOM / ۰${n+1}</span><h3>${steps[n].title}</h3><p>${steps[n].body}</p><div class="macro-thumbs">${[0,1,2].map((k)=>`<button type="button" class="macro-thumb ${n===k?'active':''}" data-action="macro" data-index="${k}" aria-label="${steps[k].title}"><span class="thumb-photo thumb-${k+1}">${img(state.theme==='dark'?'macro-night.webp':'macro-ivory.webp',steps[k].title)}</span><small>۰${k+1}</small></button>`).join('')}</div>${linkButton('مشاهده این محصول',`#/product/${products[0]?.id||'sample-necklace'}`)}</div></div></section>`}
+const macroSteps=[
+  {number:'۰۱',title:'پیوند زنجیر',body:'نمای نزدیک از اتصال زنجیر به آویز.'},
+  {number:'۰۲',title:'فرم شبدر',body:'نمای نزدیک از لبه‌ها و فرم آویز.'},
+  {number:'۰۳',title:'جزئیات اتصال',body:'نمای نزدیک از قطعات متصل به زیور.'}
+];
+function macroSection(){
+ const n=state.macroIndex;
+ return `<section class="section macro-section"><div class="section-heading"><span class="eyebrow">A CLOSER LOOK</span><h2>زیبایی در جزئیات</h2><p>ظرافتی که در هر نگاه دیده می‌شود</p></div>
+ <div class="macro-layout">
+  <div class="macro-photo detail-focus-${n}">
+   ${art('necklace-ivory.webp','necklace-night.webp','نمای مفهومی از جزئیات آویز و زنجیر','macro-art')}
+   <span class="macro-caption">تصویر مفهومی · برای مشاهده جزئیات نقاط را انتخاب کنید</span>
+   ${macroSteps.map((step,k)=>`<button type="button" class="hotspot hotspot-${k+1} ${n===k?'active':''}" data-action="macro" data-index="${k}" aria-pressed="${n===k}" aria-label="نمایش ${step.title}">${k+1}</button>`).join('')}
+  </div>
+  <div class="macro-bottom-bar" aria-label="جزئیات بخش انتخاب‌شده">
+   <div class="macro-bottom-copy" aria-live="polite" aria-atomic="true">
+    <span class="eyebrow">THE DETAIL ROOM / <span data-macro-number>${macroSteps[n].number} — ۰۳</span></span>
+    <h3 data-macro-title>${macroSteps[n].title}</h3>
+    <p data-macro-body>${macroSteps[n].body}</p>
+   </div>
+   <div class="macro-bottom-action">
+    ${linkButton('کشف مجموعه‌ها','#/collection')}
+   </div>
+  </div>
+ </div></section>`;
+}
+function selectMacroStep(index){
+ if(!Number.isInteger(index)||index<0||index>=macroSteps.length)return;
+ state.macroIndex=index;
+ const section=document.querySelector('.macro-section');
+ if(!section)return;
+ const photo=section.querySelector('.macro-photo');
+ if(photo){
+  photo.classList.remove('detail-focus-0','detail-focus-1','detail-focus-2');
+  photo.classList.add('detail-focus-'+index);
+ }
+ section.querySelectorAll('[data-action="macro"]').forEach(button=>{
+  const selected=Number(button.dataset.index)===index;
+  button.classList.toggle('active',selected);
+  button.setAttribute('aria-pressed',String(selected));
+ });
+ const number=section.querySelector('[data-macro-number]');
+ const title=section.querySelector('[data-macro-title]');
+ const body=section.querySelector('[data-macro-body]');
+ if(number)number.textContent=macroSteps[index].number+' — ۰۳';
+ if(title)title.textContent=macroSteps[index].title;
+ if(body)body.textContent=macroSteps[index].body;
+}
 function storySection(){return `<section class="section story-section"><div class="story-picture">${art('story-ivory.webp','story-night.webp','گردنبند شبدر در صحنه‌ای ادیتوریال','story-art')}</div><div class="story-copy"><span class="eyebrow">OUR POINT OF VIEW</span><h2>داستان هانی‌ال</h2><p class="story-tagline">زیبایی، از نگاه ما</p><p>برای ما، زیبایی در انتخاب‌هایی‌ست که با سلیقه و شخصیت هر فرد هماهنگ‌اند.</p>${linkButton('آشنایی با هانی‌ال','#/about')}</div></section>`}
 function home(){return `${hero()}<main>${trust()}${featured()}${stylesSection()}${macroSection()}${storySection()}</main>`}
 function pImage(p,cls=''){return art(p.light,p.dark,p.alt,cls)}
@@ -339,7 +384,7 @@ case 'search':state.menu=false;state.filter=false;go('#/search');break;case 'car
 case 'trust':state.trust=state.trust===a.dataset.key?null:a.dataset.key;break;
 case 'hero-set':state.hero=ix;break;case 'featured-next':state.featured=(state.featured+1)%Math.min(3,products.length);break;case 'featured-prev':state.featured=(state.featured+Math.min(3,products.length)-1)%Math.min(3,products.length);break;
 case 'style-set':state.selectedStyle=a.dataset.style;state.styleIndex=0;break;case 'style-thumbnail':state.styleIndex=ix;break;case 'style-next':state.styleIndex+=1;break;case 'style-prev':state.styleIndex+=products.filter(p=>p.style===state.selectedStyle).length-1;break;
-case 'macro':state.macroIndex=ix;break;
+case 'macro':selectMacroStep(ix);return;
 case 'filter-open':{const params=getParams();state.filterCategory=params.get('category')||'همه';state.filterStyle=params.get('style')||'همه';state.filter=true;break}
 case 'filter-close':state.filter=false;break;case 'filter-cat':state.filterCategory=a.dataset.category;break;case 'filter-style':state.filterStyle=a.dataset.style;break;
 case 'filter-apply':{const v=new URLSearchParams();if(state.filterCategory!=='همه')v.set('category',state.filterCategory);if(state.filterStyle!=='همه')v.set('style',state.filterStyle);state.filter=false;go('#/collection'+(v.size?'?'+v.toString():''));break}
