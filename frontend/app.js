@@ -64,7 +64,7 @@ const categories=['همه','گردنبند','دستبند','گوشواره','ا�
 const styles=['مینیمال','کلاسیک','چشمگیر'];
 const getStore=(key,def)=>{try{let t=localStorage.getItem(key);return t===null?def:JSON.parse(t)}catch{return def}};
 const state={catalogStatus:BACKEND_READY?'loading':'demo',apiError:'',addressFormOpen:false,addressPreview:null,addressDraft:{},contactDraft:{},contactFeedback:'',contactBusy:false,accountPhone:'',accountStep:'phone',accountBusy:false,accountMessage:'',checkoutStep:1,checkoutErrors:{},checkoutDraft:{},trackingCode:'',theme:getStore('haniel-theme','light'),menu:false,searchOverlay:false,filter:false,cartOpen:false,trust:null,hero:0,featured:0,selectedStyle:'مینیمال',styleIndex:0,macroIndex:0,productImage:0,query:'',category:'همه',sort:'default',filterCategory:'همه',filterStyle:'همه',cart:getStore('haniel-cart',{}),favorites:getStore('haniel-favorites',[]),notice:false,lightbox:false};
-state.inquiry={enabled:false,accepting:false,siteKey:null,turnstileToken:'',submitting:false,error:'',receipt:null,contactName:'',contactPhone:''};
+state.inquiry={enabled:false,accepting:false,siteKey:null,todayClose:null,turnstileToken:'',submitting:false,error:'',receipt:null,contactName:'',contactPhone:''};
 if(state.theme!=='dark')state.theme='light';
 const iconPaths={
  menu:'<path d="M4 7h16M4 12h16M4 17h16"/>', close:'<path d="M18 6 6 18M6 6l12 12"/>', search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>', bag:'<path d="M4 8h16l-1 13H5L4 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/>',
@@ -135,6 +135,7 @@ async function hydrateInquiryConfig(){
   state.inquiry.enabled=enabled;
   state.inquiry.accepting=accepting;
   state.inquiry.siteKey=enabled?result.turnstileSiteKey:null;
+  state.inquiry.todayClose=typeof result?.close==='string'?result.close:null;
   if(!enabled)state.inquiry.turnstileToken='';
   if(changed)render();
  }catch{
@@ -263,22 +264,22 @@ function inquiryCartPage(){
  .map(([slug,n])=>({...products.find(x=>x.id===slug),qty:Math.min(5,n)})).filter(p=>p.id);
  if(state.inquiry.receipt){
   const receipt=state.inquiry.receipt;
-  return `<main class="inner-main cart-page"><div class="page-simple-head"><span class="eyebrow">REQUEST RECEIVED</span><h1>درخواست بررسی ثبت شد</h1><p>شناسه پیگیری: <b dir="ltr">${esc(receipt.inquiryId)}</b></p></div><div class="empty-state"><h2>پرداختی انجام نشده است</h2><p>مدیر هانی‌ال موجودی بنکداری و قیمت قطعی را بررسی می‌کند. تا پیش از اعلام رسمی، هیچ مبلغی واریز نکن.</p>${linkButton('بازگشت به محصولات','#/collection')}</div></main>`;
+  return `<main class="inner-main cart-page"><div class="page-simple-head"><span class="eyebrow">REQUEST RECEIVED</span><h1>درخواست بررسی ثبت شد</h1><p>شناسه پیگیری: <b dir="ltr">${esc(receipt.inquiryId)}</b></p></div><div class="empty-state"><h2>پرداختی انجام نشده است</h2><p>تیم هانی‌ال درخواست شما را بررسی می‌کند و نتیجه قیمت و امکان ثبت نهایی سفارش را اطلاع می‌دهد. تا پیش از دریافت تأیید رسمی، مبلغی واریز نکنید.</p>${linkButton('بازگشت به محصولات','#/collection')}</div></main>`;
  }
  return `<main class="inner-main cart-page">
  <div class="page-simple-head"><span class="eyebrow">YOUR SELECTION</span><h1>سبد درخواست بررسی</h1><p>این مرحله خرید قطعی نیست و نیازی به پرداخت ندارد.</p></div>
  ${chosen.length?`<div class="cart-layout"><div class="cart-items">
  ${chosen.map(p=>`<article class="cart-line">${pImage(p,'cart-line-photo')}<div class="cart-line-info"><h2>${esc(p.name)}</h2><p>قیمت فعلی ویترین: ${productPrice(p)} · تأیید نهایی توسط مدیر</p><div class="quantity-controls"><button data-action="cart-minus" data-id="${p.id}" aria-label="کاهش تعداد">${I('minus',15)}</button><span>${p.qty.toLocaleString('fa-IR')}</span><button data-action="cart-plus" data-id="${p.id}" aria-label="افزودن تعداد">${I('plus',15)}</button></div></div><button class="remove-line" data-action="cart-remove" data-id="${p.id}" aria-label="حذف">${I('trash',17)}</button></article>`).join('')}
- </div><section class="order-summary"><h2>درخواست بررسی موجودی</h2>
- <p>مبالغ نمایش‌داده‌شده پیش از استعلام بنکداری قطعی نیستند. برای ثبت درخواست هیچ پرداختی انجام نمی‌شود.</p>
+ </div><section class="order-summary"><h2>ثبت درخواست خرید</h2>
+ <p>قیمت نمایش‌داده‌شده در زمان ثبت درخواست، نهایی یا تضمین‌شده نیست. پس از بررسی هانی‌ال، مبلغ نهایی اعلام می‌شود؛ در این مرحله پرداختی انجام نمی‌دهید.</p>
  <div><span>تعداد انتخاب‌ها</span><span>${countCart().toLocaleString('fa-IR')}</span></div>
- <p class="summary-notice">پذیرش درخواست: ۱۰:۰۰ تا ۱۷:۰۰ به وقت تهران؛ ویترین شبانه‌روز قابل مشاهده است.</p>
+ <p class="summary-notice">پذیرش درخواست: شنبه تا چهارشنبه ۱۰–۱۷، پنجشنبه ۱۰–۱۴ (تهران)؛ جمعه و تعطیلات رسمی بسته. مشاهده محصولات در تمام ساعات امکان‌پذیر است.</p>
  ${state.inquiry.accepting?`<form id="inquiry-form" class="field-stack">
  <label>نام و نام خانوادگی<input name="name" maxlength="80" autocomplete="name" required placeholder="نام برای تماس" value="${esc(state.inquiry.contactName)}"></label>
  <label>شماره موبایل<input name="phone" inputmode="tel" autocomplete="tel-national" pattern="09[0-9]{9}" required placeholder="09xxxxxxxxx" value="${esc(state.inquiry.contactPhone)}"></label>
  <div id="inquiry-challenge" aria-label="تأیید امنیتی"></div>
- <button class="primary-action" type="submit" ${state.inquiry.submitting?'disabled':''}>ثبت درخواست بررسی · بدون پرداخت</button>
- </form>`:`<p class="summary-notice" role="status">درخواست جدید خارج از ساعات کاری پذیرفته نمی‌شود؛ انتخاب‌های تو در سبد باقی می‌مانند.</p>`}
+ <button class="primary-action" type="submit" ${state.inquiry.submitting?'disabled':''}>ارسال درخواست خرید · بدون پرداخت</button>
+ </form>`:`<p class="summary-notice" role="status">در حال حاضر پذیرش درخواست جدید بسته است. انتخاب‌های شما در سبد باقی می‌مانند و در ساعات پذیرش می‌توانید درخواست را تکمیل کنید.</p>`}
  ${state.inquiry.error?`<p class="summary-notice" role="alert">${esc(state.inquiry.error)}</p>`:''}
  </section></div>`:`<div class="empty-state">${I('bag',30)}<h2>هنوز محصولی انتخاب نکرده‌ای</h2><p>می‌توانی محصولات را انتخاب کنی و در ساعات پذیرش درخواست ثبت کنی.</p>${linkButton('مشاهده محصولات','#/collection')}</div>`}
  </main>`;
