@@ -29,7 +29,7 @@ function sameSecret(a,b){
 export async function telegramWebhook(c){
  const {request:r,env:e}=c;
  if(r.method!=='POST')return json({error:'مسیر موجود نیست.'},404);
- if(e.TELEGRAM_IMPORT_ENABLED!=='1'||!e.TELEGRAM_WEBHOOK_SECRET||!e.TELEGRAM_CHANNEL_ID)
+ if(e.TELEGRAM_IMPORT_ENABLED!=='1'||!e.TELEGRAM_WEBHOOK_SECRET||(!e.TELEGRAM_CHANNEL_ID&&!e.TELEGRAM_CHANNEL_USERNAME))
   return json({error:'درگاه واردکردن پست فعال نشده است.'},503);
  if(!sameSecret(r.headers.get('X-Telegram-Bot-Api-Secret-Token'),e.TELEGRAM_WEBHOOK_SECRET))
   return json({error:'مجوز معتبر نیست.'},403);
@@ -37,7 +37,13 @@ export async function telegramWebhook(c){
  const raw=await r.text();if(raw.length>16000)return json({error:'حجم ورودی نامعتبر است.'},413);
  let update;try{update=JSON.parse(raw);}catch{return json({error:'ورودی نامعتبر است.'},400);}
  const msg=update?.channel_post||update?.edited_channel_post;
- if(!msg||String(msg.chat?.id)!==String(e.TELEGRAM_CHANNEL_ID))return json({ok:true,ignored:'not_expected_channel'});
+ // The channel username in its public URL can be used instead of discovering an ID.
+ // Compare against Telegram's signed webhook body only after validating webhook secret.
+ const requiredId=String(e.TELEGRAM_CHANNEL_ID||'').trim();
+ const username=String(e.TELEGRAM_CHANNEL_USERNAME||'').replace(/^@/,'').toLowerCase().trim();
+ const idMatches=!requiredId||String(msg?.chat?.id)===requiredId;
+ const userMatches=!username||String(msg?.chat?.username||'').toLowerCase()===username;
+ if(!msg||!idMatches||!userMatches)return json({ok:true,ignored:'not_expected_channel'});
  if(!Number.isSafeInteger(msg.message_id)||!Number.isSafeInteger(update.update_id))
   return json({error:'شناسه پیام نامعتبر است.'},400);
  const content=msg.caption||msg.text||'';
