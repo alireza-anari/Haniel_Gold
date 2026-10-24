@@ -762,3 +762,126 @@ h3{font-size:clamp(1.2rem,1.7vw,1.65rem)}
 .inquiry-active .cart-page #inquiry-form input{width:100%;min-height:48px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:12px 14px}
 .inquiry-active .cart-page #inquiry-form .primary-action{min-height:49px;justify-content:center}
 .inquiry-active .cart-page #inquiry-challenge{min-height:65px;direction:ltr;display:flex;justify-content:flex-end}
+
+
+/* Detail Room / bottom-strip interaction approved for homepage section five */
+.macro-layout{
+ display:flex;
+ flex-direction:column;
+ max-width:1020px;
+ min-height:0;
+ margin-inline:auto;
+ overflow:hidden;
+ border:1px solid var(--line);
+ border-radius:16px;
+ background:var(--surface);
+ box-shadow:none;
+}
+.macro-photo{
+ width:100%;
+ height:clamp(410px,47vw,550px);
+ min-height:0;
+ border-radius:0;
+ box-shadow:none;
+}
+.macro-art,.macro-art img{height:100%;width:100%;display:block;object-fit:cover}
+.macro-bottom-bar{
+ position:relative;
+ z-index:5;
+ display:flex;
+ direction:rtl;
+ align-items:center;
+ justify-content:space-between;
+ gap:32px;
+ min-height:134px;
+ padding:27px 36px;
+ border-top:1px solid var(--line);
+ background:var(--surface);
+ text-align:right;
+}
+.macro-bottom-copy{flex:1;min-width:0}
+.macro-bottom-copy .eyebrow{
+ display:block;
+ margin:0 0 7px;
+ font-size:10px;
+ letter-spacing:.1em;
+ color:var(--gold-deep);
+ direction:ltr;
+ text-align:right;
+}
+.macro-bottom-copy h3{
+ margin:0 0 6px;
+ color:var(--ink);
+ font-size:22px;
+ font-weight:600;
+ line-height:1.5;
+}
+.macro-bottom-copy p{
+ margin:0;
+ max-width:460px;
+ font-size:13px;
+ line-height:1.85;
+ color:var(--muted);
+}
+.macro-bottom-action{
+ flex-shrink:0;
+ display:flex;
+ justify-content:flex-end;
+ align-items:center;
+}
+.macro-bottom-action .link-button{
+ white-space:nowrap;
+ font-size:12px;
+}
+.macro-photo .hotspot{
+ width:42px;
+ height:42px;
+ padding:0;
+ display:grid;
+ place-items:center;
+ border:1px solid rgba(181,150,91,.88);
+ border-radius:50%;
+ background:rgba(248,246,238,.92);
+ color:#605036;
+ font-family:inherit;
+ font-size:13px;
+ box-shadow:0 0 0 5px rgba(181,150,91,.13);
+ transition:background .25s ease,transform .25s ease,box-shadow .25s ease,color .25s ease;
+}
+.macro-photo .hotspot:hover,.macro-photo .hotspot.active{
+ background:#B5965B;
+ color:#fff;
+ transform:scale(1.055);
+ box-shadow:0 0 0 7px rgba(181,150,91,.2);
+}
+.macro-photo .hotspot:focus-visible{
+ outline:2px solid var(--ink);
+ outline-offset:7px;
+}
+.macro-caption{max-width:80%;text-align:left}
+@media(max-width:760px){
+ .macro-photo{height:clamp(320px,62vw,460px)}
+ .macro-bottom-bar{padding:23px 26px;gap:18px;min-height:124px}
+ .macro-bottom-copy h3{font-size:19px}
+ .macro-bottom-copy p{font-size:12px}
+}
+@media(max-width:520px){
+ .macro-layout{border-radius:13px}
+ .macro-photo{height:330px}
+ .macro-bottom-bar{
+  align-items:flex-start;
+  flex-direction:column;
+  gap:17px;
+  min-height:0;
+  padding:23px 22px 24px;
+ }
+ .macro-bottom-copy .eyebrow{font-size:9px}
+ .macro-bottom-copy h3{font-size:18px;margin-bottom:4px}
+ .macro-bottom-copy p{font-size:12px;line-height:1.8}
+ .macro-bottom-action{align-self:flex-start}
+ .macro-photo .hotspot{width:40px;height:40px;font-size:12px}
+ .macro-caption{max-width:74%;font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){
+ .macro-photo .hotspot,.macro-art img{transition:none!important}
+}
