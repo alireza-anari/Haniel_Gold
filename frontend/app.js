@@ -221,7 +221,7 @@ function macroSection(){
  return `<section class="section macro-section"><div class="section-heading"><span class="eyebrow">A CLOSER LOOK</span><h2>زیبایی در جزئیات</h2><p>ظرافتی که در هر نگاه دیده می‌شود</p></div>
  <div class="macro-layout">
   <div class="macro-photo detail-focus-${n}">
-   ${art('macro-ivory.webp','macro-night.webp','نمای مفهومی از جزئیات آویز و زنجیر','macro-art')}
+   ${art('necklace-ivory.webp','necklace-night.webp','نمای مفهومی از جزئیات آویز و زنجیر','macro-art')}
    <span class="macro-caption">تصویر مفهومی · برای مشاهده جزئیات نقاط را انتخاب کنید</span>
    ${macroSteps.map((step,k)=>`<button type="button" class="hotspot hotspot-${k+1} ${n===k?'active':''}" data-action="macro" data-index="${k}" aria-pressed="${n===k}" aria-label="نمایش ${step.title}">${k+1}</button>`).join('')}
   </div>
