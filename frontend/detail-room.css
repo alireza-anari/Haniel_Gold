@@ -89,9 +89,9 @@
   outline:3px solid #8e8b73;
   outline-offset:4px;
 }
-.macro-section .macro-photo .hotspot-1{top:22%;left:27%}
-.macro-section .macro-photo .hotspot-2{top:35%;left:54%}
-.macro-section .macro-photo .hotspot-3{top:54%;left:71%}
+.macro-section .macro-photo .hotspot-1{top:15%;left:46%}
+.macro-section .macro-photo .hotspot-2{top:32%;left:60%}
+.macro-section .macro-photo .hotspot-3{top:54%;left:75%}
 .macro-section .macro-details.droom-bottom-bar{
   box-sizing:border-box;
   position:absolute;
@@ -174,14 +174,17 @@ html[data-theme='dark'] .droom-product-link{color:#f1ede2}
 @media(max-width:620px){
   .macro-section{padding-top:65px;padding-bottom:80px}
   .macro-section .macro-layout{border-radius:10px}
-  .macro-section .macro-photo{height:515px;border-radius:10px}
-  .macro-section .macro-art img{object-position:51% 35%}
+  .macro-section .macro-photo{height:auto;border-radius:10px}
+  .macro-section .macro-art,.macro-section .macro-art img{height:395px;object-position:50% 42%}
+  .macro-section .macro-photo::after{inset:0 0 auto;height:395px}
   .droom-overline{top:17px;right:17px;left:17px;font-size:9px;letter-spacing:.10em}
   .macro-section .macro-photo .droom-point{width:44px;height:44px;font-size:13px;box-shadow:0 0 0 6px rgba(255,250,236,.22)}
-  .macro-section .macro-photo .hotspot-1{top:20%;left:16%}
-  .macro-section .macro-photo .hotspot-2{top:32%;left:57%}
-  .macro-section .macro-photo .hotspot-3{top:55%;left:73%}
+  .macro-section .macro-photo .hotspot-1{top:17%;left:56%}
+  .macro-section .macro-photo .hotspot-2{top:33%;left:69%}
+  .macro-section .macro-photo .hotspot-3{top:54%;left:76%}
   .macro-section .macro-details.droom-bottom-bar{
+    position:relative;
+    inset:auto;
     min-height:178px;
     padding:15px 17px 17px;
     grid-template-columns:minmax(0,1fr) auto;
@@ -197,7 +200,7 @@ html[data-theme='dark'] .droom-product-link{color:#f1ede2}
   .macro-section .droom-panel h3{font-size:16px;margin-bottom:5px}
   .macro-section .droom-panel p{font-size:11px;line-height:1.75}
   .droom-product-link{grid-area:link;gap:5px;padding:7px 0;font-size:10px;border-bottom-width:1px}
-  .droom-demo-note{left:13px;bottom:193px;font-size:9px}
+  .droom-demo-note{left:13px;bottom:190px;font-size:9px}
 }
 @media(max-width:350px){
   .macro-section .macro-details.droom-bottom-bar{grid-template-columns:1fr;grid-template-areas:'meta' 'copy' 'link';gap:8px}
