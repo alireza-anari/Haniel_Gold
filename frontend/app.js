@@ -222,7 +222,7 @@ function macroSection(){
  return `<section class='section macro-section' id='detail-room' aria-label='زیبایی در جزئیات'>
   <div class='section-heading'><span class='eyebrow'>A CLOSER LOOK</span><h2>زیبایی در جزئیات</h2><p>برای کشف ظرافت‌های هر قطعه، نقاط را لمس کن.</p></div>
   <div class='macro-layout'><div class='macro-photo detail-focus-${n}'>
-   ${art('macro-ivory.webp','macro-night.webp','نمای مفهومی بزرگ‌نمایی زیورآلات','macro-art')}
+   ${art('hero-silk.webp','necklace-night.webp','نمای مفهومی گردنبند روی پارچه','macro-art')}
    <div class='droom-overline' aria-hidden='true'><span>HANI-EL / DETAIL STUDY</span><span>05</span></div>
    ${steps.map((step,k)=>`<button type='button' class='hotspot hotspot-${k+1} droom-point ${n===k?'active':''}' data-action='macro' data-index='${k}' aria-label='نمایش جزئیات: ${step.title}' aria-controls='droom-information' aria-pressed='${n===k}'><span aria-hidden='true'>${(k+1).toLocaleString('fa-IR')}</span></button>`).join('')}
    <div class='macro-details droom-bottom-bar' id='droom-information'>
