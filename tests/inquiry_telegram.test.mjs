@@ -32,7 +32,7 @@ test('calendar expiry, explicitly closed holiday and emergency switch prevent ne
  assert.equal(inquiryAvailability(baseEnv,t('2026-12-01T06:30:00Z')).accepting,false);
  assert.equal(inquiryAvailability({...baseEnv,INQUIRY_EMERGENCY_CLOSED:'1'},t('2026-10-24T06:30:00Z')).accepting,false);
  assert.equal(inquiryAvailability({...baseEnv,INQUIRY_CALENDAR_VERIFIED_UNTIL:''},t('2026-10-24T06:30:00Z')).enabled,false);
- assert.equal(inquiryAvailability({...baseEnv,INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu',INQUIRY_CALENDAR_VERIFIED_UNTIL:'2026-12-31'},t('2026-10-24T06:30:00Z')).enabled,false);
+ assert.equal(inquiryAvailability({...baseEnv,INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu,fri'},t('2026-10-24T06:30:00Z')).enabled,false);
 });
 test('supplier schedule must be explicitly configured before intake can activate',async()=>{
  const env={DB:{},REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'test',TURNSTILE_SITE_KEY:'public-test',
@@ -55,14 +55,14 @@ test('payment-less request intake is disabled unless actively opted in',async()=
 });
 test('request settings never reveal secrets or imply stock is reserved',async()=>{
  const env={DB:{},REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'PRIVATE',
-  TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'01234567890123456789012345',INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu,fri'};
+  TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'01234567890123456789012345',INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu',INQUIRY_CALENDAR_VERIFIED_UNTIL:'2099-12-31'};
  const result=await handle({request:new Request('https://example.com/api/v1/inquiries/settings'),env});
  assert.equal(result.status,200);
  const x=await result.json();
  assert.equal(x.enabled,true);assert.equal(x.timezone,'Asia/Tehran');assert.equal(x.close===null||x.close==='17:00'||x.close==='14:00',true);
  assert.equal(x.turnstileSiteKey,'public-test-site-key');
  assert.equal(JSON.stringify(x).includes('PRIVATE'),false);
- assert.match(x.notice,/قطعی نیست/);
+ assert.match(x.notice,/پس از تأیید هانی‌ال/);
 });
 test('Telegram requires deliberate opt-in marker with explicit product fields',()=>{
  assert.equal(parseTelegramCandidate('یک دستبند زیبا امروز رسید'),null);
