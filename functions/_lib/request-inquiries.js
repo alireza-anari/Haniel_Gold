@@ -6,13 +6,13 @@ const json=(data,status=200)=>new Response(JSON.stringify(data),{
  'X-Robots-Tag':'noindex, nofollow','X-Content-Type-Options':'nosniff'}});
 const closed=data=>json({error:'این بخش هنوز برای ثبت درخواست فعال نشده است.',...data},503);
 const digits=s=>String(s||'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
-function telegramRecipients(env){
+export function telegramRecipients(env){
  const raw=String(env.TELEGRAM_ADMIN_CHAT_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
  if(raw.length<1||raw.length>5||raw.some(x=>!/^[-]?\\d{5,20}$/.test(x)))return [];
  const unique=[...new Set(raw)];
  return unique.length===raw.length?unique:[];
 }
-function telegramConfigured(env){
+export function telegramConfigured(env){
  return /^\\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(String(env.TELEGRAM_BOT_TOKEN||''))&&telegramRecipients(env).length>0;
 }
 function inquiryAdminUrl(env){
@@ -32,7 +32,7 @@ async function deliverTelegram(env,chatId,message){
   return data?.ok===true?{ok:true}:{ok:false,code:'telegram_rejected'};
  }catch{return {ok:false,code:'telegram_unreachable'};}
 }
-async function dispatchInquiryNotifications(env,inquiryId){
+export async function dispatchInquiryNotifications(env,inquiryId){
  const recipients=telegramRecipients(env);
  if(!telegramConfigured(env)||!recipients.length)return {sent:0,failed:0};
  const query=await env.DB.prepare("SELECT n.id,n.recipient_chat_id,i.items_json FROM purchase_inquiry_notifications n JOIN purchase_inquiries i ON i.id=n.inquiry_id WHERE n.inquiry_id=? AND n.status IN ('pending','failed') ORDER BY n.created_at").bind(inquiryId).all();
