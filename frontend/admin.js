@@ -317,10 +317,11 @@ function pendingRateIsStale(iso,now=Date.now()){
  return !Number.isFinite(at)||age>40*60_000||age< -120_000;
 }
 async function refreshMarket(){
- const headline=$('#market-status'),detail=$('#market-detail'),approve=$('#approve-gold'),pending=$('#market-pending-note');
+ const headline=$('#market-status'),detail=$('#market-detail'),approve=$('#approve-gold'),pending=$('#market-pending-note'),statusBox=$('.market-status-box');
  if(!headline)return;
  try{
   const data=await api('/admin/market'),m=data.market,p=data.policy;
+  if(statusBox){statusBox.classList.remove('is-ready','is-pending','is-offline');statusBox.classList.add(m.status==='ready'?'is-ready':m.status==='blocked'?'is-pending':'is-offline');}
   headline.textContent=m.status==='ready'?'نرخ تأییدشده موقتاً معتبر است':m.status==='blocked'?'نرخ جدید منتظر بررسی مدیر است':'نرخ معتبر در دسترس نیست';
   const rate=m.rateTomanPerGram==null?'—':fa(m.rateTomanPerGram)+' تومان / گرم ۱۸ عیار';
   const proposed=m.pendingTomanPerGram==null?'—':fa(m.pendingTomanPerGram)+' تومان / گرم ۱۸ عیار';
@@ -374,6 +375,7 @@ async function refreshMarket(){
    }
   }
  }catch(e){
+  if(statusBox){statusBox.classList.remove('is-ready','is-pending');statusBox.classList.add('is-offline');}
   headline.textContent='بخش نرخ هنوز فعال نشده است.';
   detail.textContent=e.message||'پس از اجرای SQL و اتصال کلید Servix فعال می‌شود.';
   const errorPanel=$('#market-sync-error');if(errorPanel)errorPanel.hidden=true;
