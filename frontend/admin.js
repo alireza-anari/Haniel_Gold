@@ -4,7 +4,7 @@ const $=s=>document.querySelector(s);
 const store={csrf:'',products:[],categories:[],inquiries:null,editing:null,pricingReady:false,photoPreviewUrl:''};
 const views=['#login-view','#offline-view','#dashboard'];
 function view(id){for(const s of views)$(s).hidden=s!==id;}
-function note(message,error=false){const n=$('#message');n.hidden=false;n.classList.toggle('error',error);n.textContent=message;n.scrollIntoView({block:'nearest',behavior:'smooth'});}
+function note(message,error=false){const n=$('#message');n.hidden=false;n.classList.toggle('error',error);n.textContent=message;}
 function clearNote(){$('#message').hidden=true;}
 async function api(path,{method='GET',data,upload}={}){
  const h={Accept:'application/json'};
