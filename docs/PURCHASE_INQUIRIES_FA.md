@@ -52,6 +52,5 @@
 - شنبه تا چهارشنبه ۱۰–۱۷ و پنجشنبه ۱۰–۱۴ در کد تنظیم شده‌اند؛ جمعه و تاریخ‌های تعطیل مسدود هستند. تقویم تعطیلات باید به‌طور منظم بازبینی شود.
 
 مراجع:
-- https://core.telegram.org/bots/api
 - https://developers.cloudflare.com/pages/functions/bindings/
 - https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
