@@ -153,9 +153,32 @@ function drawProducts(){
    for(const [label,value] of rows)summary.append(make('p',label+' — '+fa(value)+' تومان'));
    name.append(summary);
   }
+  const controls=make('div',null,'catalogue-actions');
   const edit=make('button','ویرایش','secondary edit-product');edit.type='button';edit.addEventListener('click',()=>editProduct(p.id));
-  row.append(thumb,name,edit);list.append(row);
+  controls.append(edit);
+  if(p.published){
+   const unpublish=make('button','برداشتن از ویترین','text-button unpublish-product');
+   unpublish.type='button';
+   unpublish.setAttribute('aria-label','برداشتن «'+p.name+'» از ویترین، بدون حذف اطلاعات محصول');
+   unpublish.addEventListener('click',()=>unpublishProduct(p.id,unpublish));
+   controls.append(unpublish);
+  }
+  row.append(thumb,name,controls);list.append(row);
  }
+}
+async function unpublishProduct(id,button){
+ const current=store.products.find(x=>x.id===id);
+ if(!current||!current.published)return;
+ if(!window.confirm('آیا محصول «'+current.name+'» از ویترین عمومی برداشته شود؟\\n\\nاطلاعات و تصاویر محصول حذف نمی‌شوند و محصول به پیش‌نویس تبدیل می‌شود.'))return;
+ button.disabled=true;
+ try{
+  await api('/admin/products/'+encodeURIComponent(id),{method:'DELETE'});
+  await reload();
+  const updated=store.products.find(x=>x.id===id);
+  if(!updated||updated.published)throw Error('تغییر وضعیت در پنل تأیید نشد؛ وضعیت محصول را بررسی کن.');
+  note('محصول «'+current.name+'» از ویترین برداشته شد و اطلاعات و تصاویر آن حفظ شدند.');
+ }catch(e){note('بررسی توقف نمایش محصول: '+e.message,true);}
+ finally{button.disabled=false;}
 }
 const inquiryStateLabels={
  submitted:'درخواست جدید',reviewing:'در حال استعلام',supplier_confirmed:'تأمین‌کننده بررسی شد',
@@ -235,6 +258,9 @@ async function submitProduct(e){
   const makingFeeBps=percentToBps(f,'makingFeeBps');
   const profitBps=percentToBps(f,'profitBps');
   const published=field(f,'published').checked;
+  const wasPublished=!!(store.editing&&store.products.find(p=>p.id===store.editing)?.published);
+  // Publishing is a separate, deliberate action: never silently publish a new draft.
+  if(published&&!wasPublished&&!window.confirm('انتشار عمومی محصول «'+val(f,'name')+'»؟\\n\\nتصویر و تمام مشخصات را بررسی کرده‌ام و تأیید می‌کنم محصول برای مشتریان قابل مشاهده شود.'))return;
   const priceToman=nullable(f,'priceToman');
   const priceValidUntil=val(f,'priceValidUntil')?new Date(val(f,'priceValidUntil')).toISOString():null;
   if(priceToman!=null&&!priceValidUntil)throw Error('برای قیمت تأییدشده زمان اعتبار تعیین کن.');
