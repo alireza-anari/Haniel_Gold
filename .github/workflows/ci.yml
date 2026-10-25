@@ -24,13 +24,12 @@ jobs:
           node --check frontend/admin.js
           node --check functions/_lib/cloudflare-api.js
           node --check functions/_lib/request-inquiries.js
-          node --check functions/_lib/telegram-drafts.js
           node --check functions/_lib/gold-market.js
           node --check cloudflare/gold-scheduler.js
           node --check cloudflare/gold-scheduler-dashboard.js
           node tools/build_gold_scheduler.mjs --check
           node --check 'functions/api/[[path]].js'
-          node --test tests/cloudflare_api.test.mjs tests/frontend_catalog.test.mjs tests/admin_form.test.mjs tests/gold_market.test.mjs tests/showcase_detail.test.mjs tests/inquiry_telegram.test.mjs
+          node --test tests/cloudflare_api.test.mjs tests/frontend_catalog.test.mjs tests/admin_form.test.mjs tests/gold_market.test.mjs tests/showcase_detail.test.mjs tests/request_inquiries.test.mjs
       - name: Verify real Cloudflare Pages staging build
         run: |
           bash tools/build_cloudflare_pages.sh
