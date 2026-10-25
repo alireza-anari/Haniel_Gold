@@ -426,6 +426,11 @@ async function boot(){
  $('#product-form').addEventListener('submit',submitProduct);
  $('#category-form').addEventListener('submit',submitCategory);
  $('#reset-product').addEventListener('click',resetForm);
+ $('#new-product-top').addEventListener('click',()=>{resetForm();$('#product-panel').scrollIntoView({behavior:'smooth',block:'start'});field($('#product-form'),'slug').focus({preventScroll:true});});
+ $('#product-search').addEventListener('input',drawProducts);
+ $('#product-filter').addEventListener('change',drawProducts);
+ $('#photo-file').addEventListener('change',previewSelectedPhoto);
+ $('#clear-photo').addEventListener('click',clearPhotoPreview);
  $('#refresh').addEventListener('click',async()=>{try{await reload();note('محصولات به‌روزرسانی شدند.');}catch(x){note(x.message,true);}});
  $('#upload-image').addEventListener('click',uploadImage);
  $('#refresh-inquiries').addEventListener('click',refreshInquiries);
