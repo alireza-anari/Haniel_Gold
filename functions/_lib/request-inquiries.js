@@ -8,12 +8,12 @@ const closed=data=>json({error:'این بخش هنوز برای ثبت درخو�
 const digits=s=>String(s||'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 export function telegramRecipients(env){
  const raw=String(env.TELEGRAM_ADMIN_CHAT_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
- if(raw.length<1||raw.length>5||raw.some(x=>!/^[-]?\\d{5,20}$/.test(x)))return [];
+ if(raw.length<1||raw.length>5||raw.some(x=>!/^[-]?\d{5,20}$/.test(x)))return [];
  const unique=[...new Set(raw)];
  return unique.length===raw.length?unique:[];
 }
 export function telegramConfigured(env){
- return /^\\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(String(env.TELEGRAM_BOT_TOKEN||''))&&telegramRecipients(env).length>0;
+ return /^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(String(env.TELEGRAM_BOT_TOKEN||''))&&telegramRecipients(env).length>0;
 }
 function inquiryAdminUrl(env){
  try{const u=new URL(String(env.ADMIN_PANEL_URL||''));return u.protocol==='https:'?u.href:null;}catch{return null;}
@@ -38,9 +38,9 @@ export async function dispatchInquiryNotifications(env,inquiryId){
  const query=await env.DB.prepare("SELECT n.id,n.recipient_chat_id,i.items_json FROM purchase_inquiry_notifications n JOIN purchase_inquiries i ON i.id=n.inquiry_id WHERE n.inquiry_id=? AND n.status IN ('pending','failed') ORDER BY n.created_at").bind(inquiryId).all();
  let sent=0,failed=0,items=[];
  try{items=JSON.parse(query.results?.[0]?.items_json||'[]');}catch{}
- const lines=items.slice(0,8).map(x=>'• '+String(x.name||x.slug||'محصول')+' — '+String(x.quantity||1)+' عدد').join('\\n');
+ const lines=items.slice(0,8).map(x=>'• '+String(x.name||x.slug||'محصول')+' — '+String(x.quantity||1)+' عدد').join('\n');
  const adminUrl=inquiryAdminUrl(env);
- const message=['🛍️ HANI-EL GOLD | استعلام موجودی جدید','شناسه: '+inquiryId,'محصولات:',lines||'برای مشاهده اقلام وارد پنل مدیریت شوید.','برای مشاهده نام و شماره مشتری، فقط از پنل مدیریت وارد شوید.',...(adminUrl?['پنل مدیریت: '+adminUrl]:[])].join('\\n');
+ const message=['🛍️ HANI-EL GOLD | استعلام موجودی جدید','شناسه: '+inquiryId,'محصولات:',lines||'برای مشاهده اقلام وارد پنل مدیریت شوید.','برای مشاهده نام و شماره مشتری، فقط از پنل مدیریت وارد شوید.',...(adminUrl?['پنل مدیریت: '+adminUrl]:[])].join('\n');
  for(const row of query.results||[]){
   const now=Date.now();
   await env.DB.prepare("UPDATE purchase_inquiry_notifications SET attempts=attempts+1,status='pending',last_error_code='',updated_at=? WHERE id=?").bind(now,row.id).run();
