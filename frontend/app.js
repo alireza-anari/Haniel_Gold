@@ -254,7 +254,7 @@ function inquiryCartPage(){
  const estimatedTotal=hasCurrentPrices?chosen.reduce((sum,p)=>sum+p.priceToman*p.qty,0):null;
  if(state.inquiry.receipt){
   const receipt=state.inquiry.receipt;
-  return `<main class="inner-main cart-page"><div class="page-simple-head"><span class="eyebrow">INQUIRY RECEIVED</span><h1>استعلام شما ثبت شد</h1><p>شناسه پیگیری: <b dir="ltr">${esc(receipt.inquiryId)}</b></p></div><div class="empty-state"><h2>هنوز خرید یا پرداختی انجام نشده است</h2><p>هانی‌ال موجودی و قیمت را بررسی می‌کند. فقط پس از دریافت تأیید رسمی و لینک پرداخت معتبر، خرید را ادامه بده.</p>${linkButton('بازگشت به محصولات','#/collection')}</div></main>`;
+  return `<main class="inner-main cart-page"><div class="page-simple-head"><span class="eyebrow">INQUIRY RECEIVED</span><h1>استعلام شما ثبت شد</h1><p>شناسه پیگیری: <b dir="ltr">${esc(receipt.inquiryId)}</b></p></div><div class="empty-state"><h2>هنوز خرید یا پرداختی انجام نشده است</h2><p>هانی‌ال موجودی، قیمت نهایی و امکان ثبت سفارش را بررسی می‌کند. پس از دریافت پیشنهاد معتبر، روش‌های پرداختِ واقعاً فعال برای شما اعلام می‌شوند. فعلاً پرداختی انجام ندهید.</p>${linkButton('بازگشت به محصولات','#/collection')}</div></main>`;
  }
  return `<main class="inner-main cart-page">
  <div class="page-simple-head"><span class="eyebrow">YOUR CART</span><h1>سبد خرید</h1><p>ابتدا انتخاب‌هایت را مرور کن؛ استعلام موجودی، خرید قطعی یا پرداخت نیست.</p></div>
@@ -264,13 +264,13 @@ function inquiryCartPage(){
  <div><span>تعداد اقلام</span><span>${countCart().toLocaleString('fa-IR')}</span></div>
  <div><span>جمع تقریبی ویترین</span><span>${estimatedTotal!=null?formatMoney(estimatedTotal):'پس از استعلام'}</span></div>
  <p class="summary-notice">این مبلغ تضمین‌شده نیست. موجودی، قیمت، اجرت و شرایط نهایی باید توسط هانی‌ال تأیید شوند.</p>
- <p class="summary-notice">پس از ثبت استعلام، درخواست برای بررسی مدیر ارسال می‌شود؛ هیچ پرداختی در این مرحله انجام نمی‌شود.</p>
+ <p class="summary-notice">پس از ثبت استعلام، مدیر درخواست را بررسی می‌کند. انتخاب روش پرداخت نقدی یا اقساطی، فقط بعد از تأیید قیمت و در صورت فعال‌بودن سرویس مربوط امکان‌پذیر خواهد بود.</p>
  ${state.inquiry.enabled&&state.inquiry.accepting?`<form id="inquiry-form" class="field-stack">
  <label>نام و نام خانوادگی<input name="name" maxlength="80" autocomplete="name" required placeholder="نام برای تماس" value="${esc(state.inquiry.contactName)}"></label>
  <label>شماره موبایل<input name="phone" inputmode="tel" autocomplete="tel-national" pattern="09[0-9]{9}" required placeholder="09xxxxxxxxx" value="${esc(state.inquiry.contactPhone)}"></label>
  <label class="inquiry-consent"><input name="consent" type="checkbox" required> با استفاده از شماره همراه من برای پیگیری همین استعلام توسط هانی‌ال موافقم. اطلاعات تماس در پیام ربات ارسال نمی‌شود و فقط در پنل مدیریت نمایش داده می‌شود.</label>
  <div id="inquiry-challenge" aria-label="تأیید امنیتی"></div>
- <button class="primary-action" type="submit" ${state.inquiry.submitting?'disabled':''}>استعلام موجودی و قیمت · بدون پرداخت</button>
+ <button class="primary-action" type="submit" ${state.inquiry.submitting?'disabled':''}>استعلام موجودی · بدون پرداخت</button>
  </form>`:`<p class="summary-notice" role="status">${state.inquiry.enabled?'در حال حاضر پذیرش استعلام بسته است. سبد خرید شما حفظ می‌شود؛ در ساعات پذیرش دوباره اقدام کن.':'ثبت استعلام هنوز فعال نشده است. سبد خرید در مرورگر تو باقی می‌ماند و هیچ اطلاعات شخصی ارسال نمی‌شود.'}</p>`}
  ${state.inquiry.error?`<p class="summary-notice" role="alert">${esc(state.inquiry.error)}</p>`:''}
  </section></div>`:`<div class="empty-state">${I('bag',30)}<h2>سبد خریدت هنوز خالی است</h2><p>محصولات موردعلاقه‌ات را اضافه کن و بعد موجودی و قیمت را استعلام بگیر.</p>${linkButton('مشاهده محصولات','#/collection')}</div>`}
