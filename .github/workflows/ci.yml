@@ -24,6 +24,7 @@ jobs:
           node --check frontend/admin.js
           node --check functions/_lib/cloudflare-api.js
           node --check functions/_lib/request-inquiries.js
+          node --check functions/_lib/purchase-quotes.js
           node --check functions/_lib/gold-market.js
           node --check cloudflare/gold-scheduler.js
           node --check cloudflare/gold-scheduler-dashboard.js
