@@ -68,7 +68,7 @@ test('live cart remains usable when inquiry intake is disabled and collects no c
  const ctx={products:[product],state:{cart:{threehearth:1},inquiry:{enabled:false,accepting:false,receipt:null,error:'',contactName:'',contactPhone:'',submitting:false}},
   pImage:()=>'<img>',esc:x=>String(x),productPrice:()=> 'قیمت معتبر',formatMoney:x=>String(x),
   countCart:()=>1,I:()=>'',linkButton:()=>'<a>محصولات</a>',BACKEND_READY:true};
- const html=vm.runInNewContext(cartCode+'\\ninquiryCartPage()',ctx);
+ const html=vm.runInNewContext(cartCode+'\ninquiryCartPage()',ctx);
  assert.match(html,/سبد خرید/);
  assert.match(html,/استعلام موجودی و قیمت/);
  assert.match(html,/ثبت استعلام هنوز فعال نشده است/);
