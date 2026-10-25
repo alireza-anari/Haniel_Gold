@@ -149,48 +149,11 @@ async function refreshInquiries(){
   }
  }catch(err){target.append(make('p','بخش درخواست‌ها هنوز آماده نیست: '+err.message,'muted'));}
 }
-async function refreshTelegramDrafts(){
- const target=$('#telegram-draft-list');if(!target)return;target.replaceChildren();
- try{
-  const result=await api('/admin/telegram/drafts'),items=result.items||[];
-  if(!items.length){target.append(make('p','پست نشانه‌گذاری‌شده‌ای ثبت نشده است.','muted'));return;}
-  for(const row of items){
-   const box=make('div',null,'catalogue-item'),detail=make('div',null,'catalogue-item-details');
-   const p=row.parsed||{};
-   detail.append(make('strong',(p.name||'عنوان نامشخص')+' · '+(row.review_status==='pending'?'نیازمند بررسی':'بررسی‌شده')),
-    make('small','شناسه پست تلگرام: '+row.message_id+' | شناسه محصول: '+(p.slug||'ثبت نشده')),
-    make('small','وزن: '+(p.weightGrams||'نامشخص')+' · اجرت: '+(p.makingFeePercent||'نامشخص')+' · سود: '+(p.profitPercent||'نامشخص')),
-    make('small',row.photo_file_id?'عکس در پیام وجود دارد اما هنوز در KV بارگذاری نشده است.':'عکس محصول ضمیمه نشده است.'));
-   if(row.review_status==='pending'){
-    const load=make('button','انتقال اطلاعات به فرم محصول','secondary');load.type='button';
-    load.addEventListener('click',()=>{
-     resetForm();const form=$('#product-form');
-     const fields={slug:p.slug,name:p.name,description:p.description,weightGrams:p.weightGrams,
-      karat:p.karat,makingFeeBps:p.makingFeePercent,profitBps:p.profitPercent};
-     for(const [key,value] of Object.entries(fields))if(value!=null&&field(form,key))field(form,key).value=value;
-     const cat=store.categories.find(c=>c.title===p.category);
-     if(cat)field(form,'categoryId').value=cat.id;
-     field(form,'published').checked=false;
-     note('اطلاعات در فرم قرار گرفت؛ مشخصات، دسته‌بندی، تصاویر و وزن را بررسی و دستی ذخیره کن. محصول منتشر نمی‌شود.');
-     window.scrollTo({top:0,behavior:'smooth'});
-    });
-    const reject=make('button','بایگانی پیش‌نویس','text-button');reject.type='button';
-    reject.addEventListener('click',async()=>{
-     if(!confirm('این پیش‌نویس رد شود؟'))return;
-     try{await api('/admin/telegram/drafts/'+row.id,{method:'PATCH',data:{status:'rejected'}});await refreshTelegramDrafts();}
-     catch(e){note(e.message,true);}
-    });
-    detail.append(load,reject);
-   }
-   box.append(detail);target.append(box);
-  }
- }catch(err){target.append(make('p','اتصال پیش‌نویس‌های تلگرام هنوز آماده نیست: '+err.message,'muted'));}
-}
 async function reload(){
  const [cats,products]=await Promise.all([api('/admin/categories'),api('/admin/products')]);
  store.categories=cats.items||[];store.products=products.items||[];store.pricingReady=products.marketAndPolicyReady===true;drawCategories();drawProducts();
  await refreshMarket();
- await Promise.allSettled([refreshInquiries(),refreshTelegramDrafts()]);
+ await refreshInquiries();
 }
 function editProduct(id){
  const p=store.products.find(x=>x.id===id);if(!p)return;
@@ -407,7 +370,6 @@ async function boot(){
  $('#refresh').addEventListener('click',async()=>{try{await reload();note('محصولات به‌روزرسانی شدند.');}catch(x){note(x.message,true);}});
  $('#upload-image').addEventListener('click',uploadImage);
  $('#refresh-inquiries').addEventListener('click',refreshInquiries);
- $('#refresh-telegram').addEventListener('click',refreshTelegramDrafts);
  $('#logout').addEventListener('click',logout);
  $('#sync-gold').addEventListener('click',syncGold);
  $('#approve-gold').addEventListener('click',approveGold);
