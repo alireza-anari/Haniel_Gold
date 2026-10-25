@@ -38,9 +38,9 @@ export async function dispatchInquiryNotifications(env,inquiryId){
  const query=await env.DB.prepare("SELECT n.id,n.recipient_chat_id,i.items_json FROM purchase_inquiry_notifications n JOIN purchase_inquiries i ON i.id=n.inquiry_id WHERE n.inquiry_id=? AND n.status IN ('pending','failed') ORDER BY n.created_at").bind(inquiryId).all();
  let items=[];
  try{items=JSON.parse(query.results?.[0]?.items_json||'[]');}catch{}
- const lines=items.slice(0,8).map(x=>'• '+String(x.name||x.slug||'محصول')+' — '+String(x.quantity||1)+' عدد').join('\\n');
+ const lines=items.slice(0,8).map(x=>'• '+String(x.name||x.slug||'محصول')+' — '+String(x.quantity||1)+' عدد').join('\n');
  const adminUrl=inquiryAdminUrl(env);
- const message=['🛍️ HANI-EL GOLD | استعلام موجودی جدید','شناسه: '+inquiryId,'محصولات:',lines||'برای مشاهده اقلام وارد پنل مدیریت شوید.','برای مشاهده نام و شماره مشتری، فقط از پنل مدیریت وارد شوید.',...(adminUrl?['پنل مدیریت: '+adminUrl]:[])].join('\\n');
+ const message=['🛍️ HANI-EL GOLD | استعلام موجودی جدید','شناسه: '+inquiryId,'محصولات:',lines||'برای مشاهده اقلام وارد پنل مدیریت شوید.','برای مشاهده نام و شماره مشتری، فقط از پنل مدیریت وارد شوید.',...(adminUrl?['پنل مدیریت: '+adminUrl]:[])].join('\n');
  // Deliver in parallel so five configured admins cannot multiply the request timeout.
  const outcomes=await Promise.all((query.results||[]).map(async row=>{
   const now=Date.now();
