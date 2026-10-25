@@ -49,19 +49,23 @@ async function listing(db,{onlyPublic=true,id=null,limit=100,offset=0,pricing=nu
  if(!Number.isSafeInteger(r.weight_mg)||r.weight_mg<=0)missing.push('وزن');
  if(!Number.isSafeInteger(r.making_fee_bps))missing.push('درصد اجرت');
  if(!Number.isSafeInteger(r.profit_bps))missing.push('درصد سود');
- const obj={id:r.slug,name:r.name,category:r.category_title,categoryId:r.category_id,style:r.style,description:r.description,weightGrams:r.weight_mg===null?null:r.weight_mg/1000,
- karat:r.karat,makingFeeBps:r.making_fee_bps,profitBps:r.profit_bps,inventoryCount:onlyPublic?null:r.inventory_count,
- inventoryStatus:onlyPublic?'requires_supplier_confirmation':r.inventory_count===null?'unknown':r.inventory_count>0?'available':'unavailable',
- published:!!r.published,imageUrl:images[0]||null,images,
- // Public prices are computed only from fresh, approved Servix rates.
- // Staging manual amounts remain visible to authenticated admins, never shoppers.
- price:auto?{...auto,updatedAt:pricing.observedAt,validUntil:pricing.validUntil}
-  :onlyPublic?{amountToman:null,updatedAt:null,validUntil:null,source:null}
+ // Public response is an explicit allowlist. Never expose owner-only margin,
+ // making fee, stock count or the cost/profit/tax ledger in an anonymous response.
+ const publicPrice=auto?{amountToman:auto.amountToman,currency:auto.currency,source:auto.source,
+  updatedAt:pricing.observedAt,validUntil:pricing.validUntil}
+  :{amountToman:null,updatedAt:null,validUntil:null,source:null};
+ const adminPrice=auto?{...auto,updatedAt:pricing.observedAt,validUntil:pricing.validUntil}
   :{amountToman:fresh?r.price_toman:null,updatedAt:fresh?new Date(r.price_verified_at).toISOString():null,
-    validUntil:fresh?new Date(r.price_valid_until).toISOString():null,source:fresh?'manual_staging':null},
- priceToman:r.price_toman,priceValidUntil:r.price_valid_until?new Date(r.price_valid_until).toISOString():null};
- if(onlyPublic){delete obj.priceToman;delete obj.priceValidUntil;}
- else obj.pricingReadiness={productComplete:missing.length===0,missing,validMarketAndPolicy:!!pricing,autoPriceAvailable:!!auto};
+    validUntil:fresh?new Date(r.price_valid_until).toISOString():null,source:fresh?'manual_staging':null};
+ const obj={id:r.slug,name:r.name,category:r.category_title,categoryId:r.category_id,
+  style:r.style,description:r.description,weightGrams:r.weight_mg===null?null:r.weight_mg/1000,
+  karat:r.karat,inventoryStatus:onlyPublic?'requires_supplier_confirmation':r.inventory_count===null?'unknown':r.inventory_count>0?'available':'unavailable',
+  published:!!r.published,imageUrl:images[0]||null,images,price:onlyPublic?publicPrice:adminPrice};
+ if(!onlyPublic)Object.assign(obj,{
+  makingFeeBps:r.making_fee_bps,profitBps:r.profit_bps,inventoryCount:r.inventory_count,
+  priceToman:r.price_toman,priceValidUntil:r.price_valid_until?new Date(r.price_valid_until).toISOString():null,
+  pricingReadiness:{productComplete:missing.length===0,missing,validMarketAndPolicy:!!pricing,autoPriceAvailable:!!auto}
+ });
  return obj;
  });
 }
