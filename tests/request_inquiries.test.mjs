@@ -159,6 +159,32 @@ test('new inquiry Telegram alerts exclude customer contact details and track eac
  }
  assert.equal(updates.filter(x=>x.sql.includes("status='sent'")).length,2);
 });
+test('missing consent is rejected before Turnstile or database writes',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse('2026-10-24T06:30:00Z'));
+ const response=await handle({request:new Request('https://example.com/api/v1/inquiries',{
+  method:'POST',headers:{'cf-connecting-ip':'203.0.113.10','content-type':'application/json'},
+  body:JSON.stringify({name:'نام معتبر',phone:'09123456789',items:[{slug:'gold-bracelet',quantity:1}],turnstileToken:'not-a-real-token'})
+ }),env:{...baseEnv,DB:readyDb}});
+ assert.equal(response.status,400);
+ assert.match((await response.json()).error,/تأیید استفاده از اطلاعات تماس/);
+});
+test('failed Telegram sends remain retryable and store only a generic error code',async t=>{
+ const updates=[];
+ t.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({ok:false}),{status:200,headers:{'content-type':'application/json'}}));
+ const DB={prepare(sql){
+  let args=[];
+  return {bind(...values){args=values;return this;},
+   async all(){return {results:[{id:'n-failed',recipient_chat_id:'12345678',items_json:JSON.stringify([{name:'گوشواره شبدر',quantity:1}])}]}},
+   async run(){updates.push({sql,args});return {meta:{changes:1}};}
+  };
+ }};
+ const result=await dispatchInquiryNotifications({...baseEnv,DB,TELEGRAM_ADMIN_CHAT_IDS:'12345678'},'123e4567-e89b-12d3-a456-426614174000');
+ assert.deepEqual(result,{sent:0,failed:1});
+ const failure=updates.find(x=>x.sql.includes("status='failed'"));
+ assert.ok(failure);
+ assert.equal(failure.args[0],'telegram_rejected');
+ assert.doesNotMatch(failure.args.join(' '),/09123456789|PRIVATE|customer_name/i);
+});
 test('new migration creates retryable Telegram notification delivery records',()=>{
  const sql=readFileSync(new URL('../cloudflare/0005_inquiry_notifications.sql',import.meta.url),'utf8');
  assert.match(sql,/CREATE TABLE IF NOT EXISTS purchase_inquiry_notifications/);
