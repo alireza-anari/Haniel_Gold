@@ -24,12 +24,12 @@ function detail(backend,price){
  };
  return vm.runInNewContext(detailCode+'\nproductPage("threehearth")',ctx);
 }
-test('real showcase does not show a nonfunctional purchase button',()=>{
+test('live showcase keeps the cart available for stock inquiry without enabling checkout',()=>{
  const html=detail(true,1234567);
- assert.match(html,/data-action="collection-open"/);
- assert.doesNotMatch(html,/data-action="cart-add"/);
- assert.doesNotMatch(html,/افزودن به سبد/);
- assert.match(html,/مشاهده مجموعه محصولات/);
+ assert.match(html,/data-action="cart-add"/);
+ assert.doesNotMatch(html,/data-action="collection-open"/);
+ assert.match(html,/افزودن به سبد خرید/);
+ assert.doesNotMatch(html,/ثبت سفارش و پرداخت/);
  assert.match(html,/۰٫۲۴۴ گرم/);
  assert.match(html,/عیار: 18/);
  assert.match(html,/مشخصات ثبت‌نشده را حدس نمی‌زنیم/);
@@ -58,4 +58,26 @@ test('live category menu uses categories from D1 and hides inactive controls',()
  assert.match(source,/document\.body\.classList\.toggle\('showcase-only',BACKEND_READY\)/);
  const css=readFileSync(new URL('../frontend/styles.css',import.meta.url),'utf8');
  assert.match(css,/\.showcase-only \.cart-icon/);
+});
+
+test('live cart remains usable when inquiry intake is disabled and collects no customer data',()=>{
+ const cartCode=snippet('function inquiryCartPage(){','function cartPage(){');
+ const product={id:'threehearth',name:'سه قلب',category:'دستبند',style:'مینیمال',
+  weightGrams:0.244,karat:18,light:'same.webp',dark:'same.webp',images:['same.webp'],
+  priceToman:1234567,priceExpiresAt:Date.now()+10000};
+ const ctx={products:[product],state:{cart:{threehearth:1},inquiry:{enabled:false,accepting:false,receipt:null,error:'',contactName:'',contactPhone:'',submitting:false}},
+  pImage:()=>'<img>',esc:x=>String(x),productPrice:()=> 'قیمت معتبر',formatMoney:x=>String(x),
+  countCart:()=>1,I:()=>'',linkButton:()=>'<a>محصولات</a>',BACKEND_READY:true};
+ const html=vm.runInNewContext(cartCode+'\\ninquiryCartPage()',ctx);
+ assert.match(html,/سبد خرید/);
+ assert.match(html,/استعلام موجودی و قیمت/);
+ assert.match(html,/ثبت استعلام هنوز فعال نشده است/);
+ assert.doesNotMatch(html,/id="inquiry-form"/);
+ assert.doesNotMatch(html,/checkout-form|نشانی دقیق|کد پستی/);
+});
+test('enabled inquiry requires explicit privacy consent and does not silently drop cart items',()=>{
+ assert.match(source,/name="consent" type="checkbox" required/);
+ assert.match(source,/consent:form\.elements\.consent\?\.checked===true/);
+ assert.match(source,/if\(lines\.length>8\)/);
+ assert.match(source,/استعلام موجودی و قیمت · بدون پرداخت/);
 });
