@@ -1,102 +1,322 @@
 <!doctype html>
-<html lang="fa" dir="rtl"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f8f7f3">
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#f7f6f1">
 <title>مدیریت ویترین | HANI-EL GOLD</title>
 <link rel="icon" type="image/png" href="/assets/clover-gold.png">
+<link rel="stylesheet" href="/brand-fonts.css">
 <link rel="stylesheet" href="/admin.css">
 <script defer src="/admin.js"></script>
-</head><body>
-<header class="mast"><div class="wrap mast-inner">
-<a href="/#/" aria-label="بازگشت به سایت"><img src="/assets/brand-gold.png" alt="HANI-EL GOLD" class="logo"></a>
-<div class="mast-right"><span class="eyebrow">ATELIER / CONTROL</span><span>مدیریت ویترین</span><a class="site-link" href="/?catalog=live#/collection" target="_blank" rel="noopener">پیش‌نمایش محصولات واقعی ←</a></div>
-</div></header>
+</head>
+<body>
+<header class="mast">
+  <div class="wrap mast-inner">
+    <a class="brand-link" href="/#/" aria-label="بازگشت به ویترین HANI-EL GOLD">
+      <img src="/assets/brand-gold.png" alt="HANI-EL GOLD" class="logo">
+    </a>
+    <div class="mast-tools">
+      <span class="secure-label"><span class="status-dot" aria-hidden="true"></span>پنل خصوصی مدیریت</span>
+      <a class="site-link" href="/?catalog=live#/collection" target="_blank" rel="noopener">مشاهده ویترین <span aria-hidden="true">↗</span></a>
+    </div>
+  </div>
+</header>
+
 <main class="wrap">
-<div id="message" class="message" role="status" aria-live="polite" hidden></div>
-<section id="login-view" class="login-view" hidden>
-<div class="eyebrow">PRIVATE ACCESS</div><h1>ورود مدیر</h1>
-<p class="muted">محصولات، تصاویر و قیمت‌های تأییدشده فقط برای مدیر قابل تغییر هستند.</p>
-<form id="login-form" class="field-stack">
-<label>نام کاربری<input name="username" autocomplete="username" required></label>
-<label>رمز عبور<input name="password" type="password" autocomplete="current-password" minlength="16" required></label>
-<button class="primary" type="submit">ورود به پنل</button>
-</form>
-</section>
-<section id="offline-view" class="login-view" hidden>
-<div class="eyebrow">STAGING SETUP</div><h1>اتصال دیتابیس تکمیل نشده است</h1>
-<p class="muted">پنل و API آماده‌اند، اما قبل از اولین ورود باید D1 و مقادیر محرمانه مدیریت در پروژه Cloudflare Pages تنظیم شوند.</p>
-<a class="site-link" href="/#/">بازگشت به ویترین</a>
-</section>
-<section id="dashboard" hidden>
-<div class="dash-head"><div><div class="eyebrow">HANI-EL GOLD / STAGING</div><h1>ویترین و محصولات</h1><p class="muted">محصولات واقعی را ثبت کن؛ اطلاعات ساختگی در این پنل ساخته نمی‌شود.</p></div><button id="logout" class="text-button" type="button">خروج امن</button></div>
-<div class="warning">نرخ Servix و قیمت‌های خودکار تنها پس از اجرای مهاجرت D1، تأیید نرخ اول و سیاست مالی معتبر فعال می‌شوند. هیچ سفارش یا پرداخت واقعی در Staging ثبت نمی‌شود.</div>
-<div class="dashboard-grid">
-<section class="panel">
-<div class="section-head"><div><div class="eyebrow">01 / CATALOGUE</div><h2>محصول</h2></div><button type="button" class="text-button" id="reset-product">محصول جدید +</button></div>
-<form id="product-form" class="field-stack">
-<div class="columns"><label>شناسه انگلیسی (Slug)<input name="slug" placeholder="necklace-01" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,79}" required></label>
-<label>نام محصول<input name="name" required maxlength="150" placeholder="نام دقیق محصول"></label></div>
-<div class="columns"><label>دسته‌بندی<select name="categoryId" id="category-select" required><option value="">ابتدا دسته‌بندی ثبت شود</option></select></label>
-<label>سبک<select name="style"><option value="مینیمال">مینیمال</option><option value="کلاسیک">کلاسیک</option><option value="چشمگیر">چشمگیر</option></select></label></div>
-<label>توضیحات واقعی<textarea name="description" rows="3" maxlength="4000" placeholder="توصیف دقیق، بدون ادعای تأییدنشده"></textarea></label>
-<div class="columns"><label>وزن دقیق به گرم (تا ۳ اعشار)<input name="weightGrams" type="number" inputmode="decimal" min="0" step="0.001" placeholder="مثلاً 0.244"></label>
-<label>عیار<input name="karat" type="number" inputmode="numeric" min="1" max="24" step="1" placeholder="—"></label></div>
-<p class="hint">اگر وزن محصول ۲۴۴ سوت است، مقدار 0.244 گرم وارد کن؛ عدد 244 یعنی ۲۴۴ گرم.</p>
-<div class="columns"><label>اجرت (درصد ٪، اختیاری)<input name="makingFeeBps" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="مثلاً 10 برای ۱۰٪"></label>
-<label>سود (درصد ٪، اختیاری)<input name="profitBps" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="مثلاً 8 برای ۸٪"></label></div>
-<p class="hint">درصدها را مستقیم وارد کن؛ تبدیل دقیق برای ذخیره در دیتابیس به‌صورت خودکار انجام می‌شود.</p>
-<div class="columns"><label>موجودی قطعی در اختیار هانی‌ال (برای نمونه بنکداری خالی بگذار)<input name="inventoryCount" type="number" min="0" step="1" placeholder="نامشخص"></label>
-<label>مبلغ تأییدشده دستی (تومان)<input name="priceToman" type="number" inputmode="numeric" min="1" step="1" placeholder="در صورت تأیید دستی"></label></div>
-<label>اعتبار قیمت (حداکثر ۴۵ دقیقه آینده)<input name="priceValidUntil" type="datetime-local"></label>
-<label>آدرس تصاویر محصول، هر خط یک URL
-<textarea name="images" rows="3" dir="ltr" placeholder="https://…"></textarea></label>
-<div class="upload-row"><label for="photo-file">بارگذاری تصویر محصول (Workers KV رایگان)</label><input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp"><button id="upload-image" type="button" class="text-button">آپلود عکس</button></div>
-<p class="hint">اگر عکس را انتخاب کنی، هنگام «ذخیره محصول» به‌طور خودکار آپلود می‌شود. امکان آپلود جداگانه هم وجود دارد. پس از اتصال MEDIA_KV فعال است؛ از تصویر واقعی همان محصول استفاده کن.</p>
-<label class="switch-label"><input name="published" type="checkbox"><span>نمایش در ویترین (انتشار محصول)</span></label>
-<div class="actions"><button class="primary" type="submit">ذخیره محصول</button><span class="muted" id="edit-status">ثبت محصول جدید</span></div>
-</form>
-</section>
-<div class="side-stack">
-<section class="panel" id="market-panel">
-<div class="eyebrow">04 / LIVE GOLD RATE</div><h2>نرخ طلا و سیاست قیمت‌گذاری</h2>
-<p class="muted" id="market-status" role="status">در حال بررسی وضعیت سرویس نرخ…</p>
-<p class="hint" id="market-detail">فقط نرخ یک گرم طلای ۱۸ عیار با واحد دقیق و زمان منبع معتبر خواهد بود.</p>
-<p class="warning" id="market-sync-error" role="status" hidden></p>
-<div class="actions" style="margin:15px 0">
-<button type="button" id="sync-gold" class="secondary">دریافت نرخ Servix</button>
-<button type="button" id="approve-gold" class="primary" hidden>تأیید نرخ بررسی‌شده</button>
-</div>
-<div class="warning" id="market-pending-note" hidden>تأیید نرخ تنها پس از مقایسه مستقل با منبع معتبر مجاز است. ممکن است پس از ۴۰ دقیقه نیاز به دریافت مجدد باشد.</div>
-<form id="pricing-policy-form" class="field-stack compact">
-<label>درصد مالیات تأییدشده روی اجرت و سود (٪)
-<input type="number" name="taxPercent" inputmode="decimal" min="0" max="100" step="0.01" placeholder="بدون مقدار پیش‌فرض" required></label>
-<label>حداکثر تغییر خودکار نرخ نسبت به نرخ تأییدشده (٪)
-<input type="number" name="maxRateChangePercent" inputmode="decimal" min="0.01" max="100" step="0.01" placeholder="پس از بررسی میزان نوسان" required></label>
-<p class="hint">فرمول: طلای خام + اجرت + سود روی (طلای خام + اجرت) + مالیات تأییدشده بر (اجرت + سود). محاسبه تنها برای محصولات ۱۸ عیار با مشخصات کامل انجام می‌شود.</p>
-<label class="switch-label"><input type="checkbox" name="confirmReviewed" required> <span>نرخ مالیات، مبنای مالیات و سقف تغییر را مستقلاً بررسی و برای Staging تأیید کرده‌ام.</span></label>
-<button type="submit" class="secondary">ذخیره و تأیید سیاست آزمایشی</button>
-</form>
-<p class="hint" style="margin-top:16px">کلید Servix فقط از Cloudflare Secret با نام SERVIX_API_KEY خوانده می‌شود؛ هرگز آن را در این فرم وارد نکن.</p>
-</section>
-<section class="panel">
-<div class="eyebrow">02 / ORGANISE</div><h2>دسته‌بندی‌ها</h2>
-<form id="category-form" class="field-stack compact">
-<label>شناسه انگلیسی<input name="slug" placeholder="necklaces" required pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,79}"></label>
-<label>عنوان فارسی<input name="title" placeholder="گردنبند" required></label>
-<button class="secondary" type="submit">افزودن دسته‌بندی</button>
-</form><div id="category-list" class="chips"></div>
-</section>
-<section class="panel">
-<div class="section-head"><div><div class="eyebrow">03 / PRODUCTS</div><h2>محصولات ثبت‌شده</h2></div><button id="refresh" class="text-button" type="button">به‌روزرسانی</button></div>
-<div id="product-list" class="catalogue-list"><p class="muted">هنوز محصولی ثبت نشده است.</p></div>
-</section>
-</div>
-</div>
-<section class="panel" id="inquiries-panel" style="margin-top:24px">
-<div class="section-head"><div><div class="eyebrow">05 / INQUIRIES</div><h2>درخواست‌های بررسی تأمین</h2></div><button id="refresh-inquiries" type="button" class="text-button">به‌روزرسانی</button></div>
-<p class="hint">این‌ها درخواست استعلام‌اند، نه فروش قطعی. هیچ پرداختی به‌صورت خودکار دریافت نمی‌شود. تأیید موجودی و قیمت با مدیر است.</p>
-<div id="inquiry-list" class="catalogue-list"><p class="muted">پس از اجرای مهاجرت D1 و فعال‌سازی کنترل‌شده نمایش داده می‌شود.</p></div>
-</section>
-</section>
-</main><footer class="foot">HANI-EL GOLD — PRIVATE STAGING • NO LIVE PAYMENTS</footer>
-</body></html>
+  <div id="message" class="message" role="status" aria-live="polite" hidden></div>
+
+  <section id="login-view" class="login-view" hidden>
+    <div class="login-card">
+      <div class="login-mark"><img src="/assets/clover-gold.png" alt="" aria-hidden="true"></div>
+      <div class="eyebrow">PRIVATE ACCESS</div>
+      <h1>ورود به پنل مدیریت</h1>
+      <p class="muted">محصولات، تصاویر و قیمت‌های تأییدشده فقط توسط مدیر قابل تغییر هستند.</p>
+      <form id="login-form" class="field-stack">
+        <label>نام کاربری
+          <input name="username" autocomplete="username" required>
+        </label>
+        <label>رمز عبور
+          <input name="password" type="password" autocomplete="current-password" minlength="16" required>
+        </label>
+        <button class="primary" type="submit">ورود امن <span aria-hidden="true">←</span></button>
+      </form>
+      <p class="login-foot">HANI-EL GOLD <span>•</span> PRIVATE ADMIN</p>
+    </div>
+  </section>
+
+  <section id="offline-view" class="login-view offline-view" hidden>
+    <div class="login-card">
+      <div class="eyebrow">STAGING SETUP</div>
+      <h1>اتصال مدیریت آماده نیست</h1>
+      <p class="muted">پنل و API آماده‌اند؛ برای ورود، اتصال D1 و متغیرهای محرمانه مدیریت باید در پروژه Cloudflare Pages تنظیم شده باشند.</p>
+      <a class="secondary link-button" href="/#/">بازگشت به ویترین</a>
+    </div>
+  </section>
+
+  <section id="dashboard" hidden>
+    <div class="dash-head">
+      <div class="dash-title">
+        <div class="eyebrow">HANI-EL GOLD / ADMIN STUDIO</div>
+        <h1>مدیریت ویترین</h1>
+        <p class="muted">کاتالوگ، قیمت‌گذاری و درخواست‌های مشتری را از یک فضای واحد مدیریت کن.</p>
+      </div>
+      <div class="dash-actions">
+        <span class="admin-status"><span class="status-dot" aria-hidden="true"></span>دسترسی مدیر فعال</span>
+        <button id="new-product-top" class="primary" type="button"><span aria-hidden="true">＋</span> محصول جدید</button>
+        <button id="logout" class="quiet-button" type="button">خروج امن</button>
+      </div>
+    </div>
+
+    <div class="stats-grid" aria-label="خلاصه وضعیت ویترین">
+      <article class="stat-card">
+        <div class="stat-top"><span class="stat-label">کل محصولات</span><span class="stat-mark" aria-hidden="true">01</span></div>
+        <strong id="stat-products" class="stat-value">—</strong>
+        <span class="stat-foot">ثبت‌شده در کاتالوگ</span>
+      </article>
+      <article class="stat-card">
+        <div class="stat-top"><span class="stat-label">منتشرشده</span><span class="stat-mark" aria-hidden="true">02</span></div>
+        <strong id="stat-published" class="stat-value">—</strong>
+        <span class="stat-foot">قابل مشاهده در ویترین</span>
+      </article>
+      <article class="stat-card">
+        <div class="stat-top"><span class="stat-label">دسته‌بندی‌ها</span><span class="stat-mark" aria-hidden="true">03</span></div>
+        <strong id="stat-categories" class="stat-value">—</strong>
+        <span class="stat-foot">گروه‌بندی محصولات</span>
+      </article>
+      <article class="stat-card stat-card-accent">
+        <div class="stat-top"><span class="stat-label">درخواست‌ها</span><span class="stat-mark" aria-hidden="true">04</span></div>
+        <strong id="stat-inquiries" class="stat-value">—</strong>
+        <span class="stat-foot">درخواست‌های ثبت‌شده برای بررسی</span>
+      </article>
+    </div>
+
+    <nav class="section-nav" aria-label="دسترسی سریع پنل">
+      <a href="#product-panel">ثبت محصول</a>
+      <a href="#products-panel">کاتالوگ</a>
+      <a href="#categories-panel">دسته‌بندی‌ها</a>
+      <a href="#market-panel">قیمت‌گذاری</a>
+      <a href="#inquiries-panel">درخواست‌های مشتری</a>
+    </nav>
+
+    <div class="warning release-note" role="note">
+      <span class="warning-mark" aria-hidden="true">!</span>
+      <p><strong>محیط آزمایشی</strong> — قیمت خودکار فقط پس از تأیید نرخ معتبر و سیاست مالی نمایش داده می‌شود. این نسخه پرداخت آنلاین یا ثبت سفارش قطعی ندارد؛ موجودی و قیمت نهایی باید توسط مدیر بررسی شوند.</p>
+    </div>
+
+    <div class="dashboard-grid">
+      <section class="panel product-panel" id="product-panel">
+        <div class="panel-heading">
+          <div class="heading-copy">
+            <div class="eyebrow">PRODUCT STUDIO / 01</div>
+            <h2>اطلاعات محصول</h2>
+            <p class="muted">اطلاعات دقیق و تصویر واقعی محصول را ثبت کن.</p>
+          </div>
+          <button type="button" class="text-button" id="reset-product">پاک‌کردن فرم <span aria-hidden="true">↺</span></button>
+        </div>
+
+        <form id="product-form" class="field-stack product-form">
+          <section class="form-section">
+            <div class="form-section-heading">
+              <span class="form-step">01</span>
+              <div><h3>اطلاعات پایه</h3><p>نام و جایگاه محصول در کاتالوگ</p></div>
+            </div>
+            <div class="field-stack">
+              <div class="columns">
+                <label>شناسه انگلیسی (Slug)
+                  <input name="slug" placeholder="necklace-01" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,79}" required>
+                </label>
+                <label>نام محصول
+                  <input name="name" required maxlength="150" placeholder="نام دقیق محصول">
+                </label>
+              </div>
+              <div class="columns">
+                <label>دسته‌بندی
+                  <select name="categoryId" id="category-select" required><option value="">ابتدا دسته‌بندی ثبت شود</option></select>
+                </label>
+                <label>سبک طراحی
+                  <select name="style"><option value="مینیمال">مینیمال</option><option value="کلاسیک">کلاسیک</option><option value="چشمگیر">چشمگیر</option></select>
+                </label>
+              </div>
+              <label>توضیحات واقعی
+                <textarea name="description" rows="3" maxlength="4000" placeholder="توصیف دقیق محصول، بدون ادعای تأییدنشده"></textarea>
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="form-section-heading">
+              <span class="form-step">02</span>
+              <div><h3>مشخصات و موجودی</h3><p>فقط بر اساس اطلاعات تأییدشده</p></div>
+            </div>
+            <div class="field-stack">
+              <div class="columns">
+                <label>وزن دقیق به گرم
+                  <input name="weightGrams" type="number" inputmode="decimal" min="0" step="0.001" placeholder="مثلاً 0.244">
+                </label>
+                <label>عیار
+                  <input name="karat" type="number" inputmode="numeric" min="1" max="24" step="1" placeholder="مثلاً 18">
+                </label>
+              </div>
+              <p class="hint">اگر وزن محصول ۲۴۴ سوت است، مقدار 0.244 گرم وارد کن؛ عدد 244 یعنی ۲۴۴ گرم.</p>
+              <div class="columns">
+                <label>اجرت محصول (درصد ٪)
+                  <input name="makingFeeBps" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="مثلاً 10 برای ۱۰٪">
+                </label>
+                <label>سود محصول (درصد ٪)
+                  <input name="profitBps" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="مثلاً 8 برای ۸٪">
+                </label>
+              </div>
+              <p class="hint">درصدها را مستقیم وارد کن؛ تبدیل دقیق برای ذخیره در دیتابیس خودکار انجام می‌شود.</p>
+              <label>موجودی قطعی در اختیار هانی‌ال
+                <input name="inventoryCount" type="number" min="0" step="1" placeholder="خالی بگذار اگر موجودی مشخص نیست">
+              </label>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="form-section-heading">
+              <span class="form-step">03</span>
+              <div><h3>قیمت و اعتبار</h3><p>قیمت دستی تنها با تأیید مدیر</p></div>
+            </div>
+            <div class="field-stack">
+              <label>مبلغ تأییدشده دستی (تومان)
+                <input name="priceToman" type="number" inputmode="numeric" min="1" step="1" placeholder="در صورت تأیید دستی">
+              </label>
+              <label>اعتبار قیمت
+                <input name="priceValidUntil" type="datetime-local">
+              </label>
+              <p class="hint">قیمت دستی بدون زمان اعتبار ذخیره نمی‌شود. نرخ منقضی یا تأییدنشده جایگزین‌سازی یا حدس زده نمی‌شود.</p>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <div class="form-section-heading">
+              <span class="form-step">04</span>
+              <div><h3>تصویر و انتشار</h3><p>تصویر واضح، واقعی و مطابق محصول</p></div>
+            </div>
+            <div class="field-stack">
+              <label>آدرس تصاویر محصول، هر خط یک URL
+                <textarea name="images" rows="3" dir="ltr" placeholder="https://…"></textarea>
+              </label>
+              <div class="upload-box">
+                <div class="upload-copy"><strong>بارگذاری تصویر محصول</strong><span>JPG، PNG یا WebP · تا ۱۶ مگابایت قبل از فشرده‌سازی</span></div>
+                <input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp" aria-label="انتخاب تصویر محصول">
+                <button id="upload-image" type="button" class="secondary">آپلود تصویر</button>
+                <div id="photo-preview" class="photo-preview" hidden>
+                  <img id="photo-preview-img" alt="پیش‌نمایش تصویر انتخاب‌شده">
+                  <div><strong id="photo-preview-name"></strong><span id="photo-preview-size" class="muted"></span></div>
+                  <button id="clear-photo" class="text-button" type="button">حذف انتخاب</button>
+                </div>
+              </div>
+              <p class="hint">با ذخیره محصول، تصویر انتخاب‌شده به‌طور خودکار در Cloudflare بارگذاری می‌شود. برای انتشار، تصویر واقعی همان محصول الزامی است.</p>
+              <label class="switch-label"><input name="published" type="checkbox"><span><strong>نمایش در ویترین</strong><small>فقط پس از بررسی مشخصات، تصویر و قیمت فعال کن.</small></span></label>
+              <div class="form-submit-row">
+                <button class="primary" type="submit">ذخیره محصول <span aria-hidden="true">←</span></button>
+                <span class="muted" id="edit-status">ثبت محصول جدید</span>
+              </div>
+            </div>
+          </section>
+        </form>
+      </section>
+
+      <div class="side-stack">
+        <section class="panel market-panel" id="market-panel">
+          <div class="panel-heading">
+            <div class="heading-copy">
+              <div class="eyebrow">PRICING / 04</div>
+              <h2>نرخ طلا و سیاست قیمت‌گذاری</h2>
+            </div>
+            <span class="panel-symbol" aria-hidden="true">₮</span>
+          </div>
+          <div class="market-status-box">
+            <span class="status-dot" aria-hidden="true"></span>
+            <p class="muted" id="market-status" role="status">در حال بررسی وضعیت سرویس نرخ…</p>
+          </div>
+          <p class="market-detail" id="market-detail">فقط نرخ یک گرم طلای ۱۸ عیار با واحد دقیق و زمان منبع معتبر خواهد بود.</p>
+          <p class="warning compact-warning" id="market-sync-error" role="status" hidden></p>
+          <div class="actions market-actions">
+            <button type="button" id="sync-gold" class="secondary">دریافت نرخ Servix</button>
+            <button type="button" id="approve-gold" class="primary" hidden>تأیید نرخ بررسی‌شده</button>
+          </div>
+          <div class="warning compact-warning" id="market-pending-note" hidden>تأیید نرخ تنها پس از مقایسه مستقل با منبع معتبر مجاز است.</div>
+          <form id="pricing-policy-form" class="field-stack compact pricing-form">
+            <div class="form-section-heading small-heading">
+              <span class="form-step">٪</span>
+              <div><h3>سیاست مالی</h3><p>بدون مقدار پیش‌فرض</p></div>
+            </div>
+            <label>درصد مالیات تأییدشده روی اجرت و سود (٪)
+              <input type="number" name="taxPercent" inputmode="decimal" min="0" max="100" step="0.01" placeholder="مقدار تأییدشده را وارد کن" required>
+            </label>
+            <label>حداکثر تغییر خودکار نرخ نسبت به نرخ تأییدشده (٪)
+              <input type="number" name="maxRateChangePercent" inputmode="decimal" min="0.01" max="100" step="0.01" placeholder="پس از بررسی میزان نوسان" required>
+            </label>
+            <p class="hint">فرمول: طلای خام + اجرت + سود روی (طلای خام + اجرت) + مالیات تأییدشده بر (اجرت + سود). فقط برای محصولات ۱۸ عیار با مشخصات کامل.</p>
+            <label class="switch-label"><input type="checkbox" name="confirmReviewed" required><span>نرخ مالیات، مبنای مالیات و سقف تغییر را مستقلاً بررسی و برای Staging تأیید کرده‌ام.</span></label>
+            <button type="submit" class="secondary full-button">ذخیره و تأیید سیاست آزمایشی</button>
+          </form>
+          <p class="hint market-foot">کلید Servix فقط از Secret با نام SERVIX_API_KEY خوانده می‌شود؛ هرگز آن را در این فرم وارد نکن.</p>
+        </section>
+
+        <section class="panel" id="categories-panel">
+          <div class="panel-heading">
+            <div class="heading-copy">
+              <div class="eyebrow">TAXONOMY / 02</div>
+              <h2>دسته‌بندی‌ها</h2>
+              <p class="muted">ساختار مرتب برای مرور سریع محصولات</p>
+            </div>
+          </div>
+          <form id="category-form" class="field-stack compact category-form">
+            <label>شناسه انگلیسی
+              <input name="slug" placeholder="necklaces" required pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{1,79}">
+            </label>
+            <label>عنوان فارسی
+              <input name="title" placeholder="گردنبند" required>
+            </label>
+            <button class="secondary full-button" type="submit">افزودن دسته‌بندی <span aria-hidden="true">＋</span></button>
+          </form>
+          <div id="category-list" class="chips"></div>
+        </section>
+
+        <section class="panel" id="products-panel">
+          <div class="panel-heading">
+            <div class="heading-copy">
+              <div class="eyebrow">CATALOGUE / 03</div>
+              <h2>محصولات ثبت‌شده</h2>
+              <p class="muted">ویرایش سریع اطلاعات و وضعیت انتشار</p>
+            </div>
+            <button id="refresh" class="text-button" type="button">تازه‌سازی <span aria-hidden="true">↻</span></button>
+          </div>
+          <div class="product-tools">
+            <label class="search-field"><span class="sr-only">جست‌وجوی محصول</span><span aria-hidden="true">⌕</span><input id="product-search" type="search" placeholder="جست‌وجو بر اساس نام یا شناسه"></label>
+            <label class="filter-field"><span class="sr-only">فیلتر وضعیت</span><select id="product-filter"><option value="all">همه محصولات</option><option value="published">منتشرشده</option><option value="draft">پیش‌نویس</option></select></label>
+          </div>
+          <div id="product-count" class="list-count">در حال بارگذاری…</div>
+          <div id="product-list" class="catalogue-list"><p class="muted">هنوز محصولی ثبت نشده است.</p></div>
+        </section>
+      </div>
+    </div>
+
+    <section class="panel inquiries-panel" id="inquiries-panel">
+      <div class="panel-heading">
+        <div class="heading-copy">
+          <div class="eyebrow">CUSTOMER CARE / 05</div>
+          <h2>درخواست‌های بررسی خرید</h2>
+          <p class="muted">پیگیری استعلام‌ها از ثبت درخواست تا آماده‌شدن پیشنهاد قیمت</p>
+        </div>
+        <button id="refresh-inquiries" type="button" class="text-button">تازه‌سازی <span aria-hidden="true">↻</span></button>
+      </div>
+      <div class="inquiry-notice"><span aria-hidden="true">i</span><p>این موارد درخواست بررسی‌اند، نه فروش قطعی. هیچ پرداختی به‌صورت خودکار دریافت نمی‌شود؛ موجودی و قیمت نهایی باید توسط مدیر تأیید شوند.</p></div>
+      <div id="inquiry-list" class="catalogue-list"><p class="muted">پس از اجرای مهاجرت D1 و فعال‌سازی کنترل‌شده نمایش داده می‌شود.</p></div>
+    </section>
+  </section>
+</main>
+
+<footer class="foot">
+  <span class="footer-brand">HANI-EL GOLD</span>
+  <span>پنل مدیریت خصوصی</span>
+  <span class="footer-status"><span class="status-dot" aria-hidden="true"></span>STAGING · NO LIVE PAYMENTS</span>
+</footer>
+</body>
+</html>
