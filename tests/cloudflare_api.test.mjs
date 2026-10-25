@@ -110,7 +110,7 @@ test('admin image upload stores validated binary in KV and returns same-origin r
 });
 
 
-test('Cloudflare catalogue calculates independent fee and profit amounts for each product', async()=>{
+test('public catalogue returns a priced product but redacts internal profit, fee, inventory and breakdown', async()=>{
  const now=Date.now();
  const rows=[
   {slug:'gold-item-one',name:'محصول اول',category_title:'دستبند',category_id:1,
@@ -121,11 +121,12 @@ test('Cloudflare catalogue calculates independent fee and profit amounts for eac
    inventory_count:1,published:1,price_toman:null,price_verified_at:null,price_valid_until:null,updated_at:now}
  ];
  const mock={prepare(query){
-  const statement={
+  const stmt={
    bind(){return this;},
    async first(){
+    if(query.includes('admin_sessions'))return {csrf_token:'unit-csrf',expires_at:now+60_000};
     if(query.includes('gold_market_state'))return {blocked:0,valid_until:now+20*60_000,
-      observed_at:now-60_000,rate_rial_per_gram:100000000};
+     observed_at:now-60_000,rate_rial_per_gram:100000000};
     if(query.includes('pricing_policy'))return {approved:1,tax_basis:'fee_profit',tax_bps:0};
     throw Error('Unexpected SQL first '+query);
    },
@@ -134,22 +135,41 @@ test('Cloudflare catalogue calculates independent fee and profit amounts for eac
     if(query.includes('FROM product_images'))return {results:[]};
     throw Error('Unexpected SQL all '+query);
    }
-  };
-  return statement;
+  };return stmt;
  }};
- const r=await call('/api/v1/catalog/products',{DB:mock});
+ const env={DB:mock,ADMIN_SESSION_SECRET:'local-test-only-strong-secret-is-not-live-abcdef'};
+ const checkPublic=o=>{
+  assert.equal(typeof o.price.amountToman,'number');
+  assert.equal(o.price.source,'servix_18k');
+  assert.equal(o.price.currency,'TOMAN');
+  for(const secret of ['makingFeeBps','profitBps','inventoryCount','priceToman','priceValidUntil','pricingReadiness']){
+   assert.equal(Object.hasOwn(o,secret),false,secret+' leaked');
+  }
+  assert.equal(Object.hasOwn(o.price,'breakdown'),false,'Profit/cost ledger leaked');
+  assert.equal(JSON.stringify(o).includes('profitToman'),false);
+ };
+ const r=await call('/api/v1/catalog/products',env);
  assert.equal(r.status,200);
  const {items}=await r.json();
  assert.equal(items.length,2);
- assert.equal(items[0].price.source,'servix_18k');
- assert.equal(items[1].price.source,'servix_18k');
- assert.equal(items[0].price.breakdown.rawGoldToman,10000000);
- assert.equal(items[1].price.breakdown.rawGoldToman,10000000);
- assert.equal(items[0].price.breakdown.makingFeeToman,1000000);
- assert.equal(items[1].price.breakdown.makingFeeToman,2000000);
- assert.equal(items[0].price.breakdown.profitToman,880000);
- assert.equal(items[1].price.breakdown.profitToman,600000);
+ items.forEach(checkPublic);
  assert.notEqual(items[0].price.amountToman,items[1].price.amountToman);
+ const detail=await call('/api/v1/catalog/products/gold-item-one',env);
+ assert.equal(detail.status,200);
+ checkPublic(await detail.json());
+ const adminRes=await handle({
+  request:new Request('https://haniel-gold.pages.dev/api/v1/admin/products',{
+   headers:{cookie:'haniel_admin_session='+'A'.repeat(43)}
+  }),env
+ });
+ assert.equal(adminRes.status,200);
+ const adminItems=(await adminRes.json()).items;
+ assert.equal(adminItems[0].makingFeeBps,1000);
+ assert.equal(adminItems[0].profitBps,800);
+ assert.equal(adminItems[0].inventoryCount,2);
+ assert.equal(adminItems[0].price.breakdown.makingFeeToman,1000000);
+ assert.equal(adminItems[0].price.breakdown.profitToman,880000);
+ assert.equal(adminItems[1].price.breakdown.profitToman,600000);
 });
 test('no auto calculation is published with an unapproved global tax policy',async()=>{
  const now=Date.now(),item={slug:'gold-item',name:'محصول',category_title:'دستبند',

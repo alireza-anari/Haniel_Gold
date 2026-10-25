@@ -193,8 +193,31 @@ const inquiryTransitions={
  quote_sent:['customer_declined','closed'],
  unavailable:['closed'],customer_declined:['closed'],closed:[]
 };
+async function refreshInquiryReadiness(){
+ const state=$('#inquiry-readiness-state'),target=$('#inquiry-readiness-checks');
+ if(!state||!target)return;
+ target.replaceChildren();state.textContent='در حال دریافت وضعیت سرویس…';
+ try{
+  const report=await api('/admin/inquiries/readiness');
+  state.textContent=report.accepting?'سرویس در حال پذیرش درخواست است'
+   :report.enabled?'زیرساخت آماده است؛ پذیرش در این ساعت یا روز بسته است'
+   :'پذیرش درخواست هنوز فعال نشده است';
+  const checks=Array.isArray(report.checks)?report.checks:[];
+  for(const check of checks){
+   const item=make('div',null,'readiness-item '+(check.ready?'is-ready':'is-pending'));
+   item.setAttribute('role','listitem');
+   const mark=make('span',check.ready?'✓':'—','readiness-mark');
+   mark.setAttribute('aria-hidden','true');
+   item.append(mark,make('span',String(check.label||'')));
+   target.append(item);
+  }
+ }catch(err){
+  state.textContent='بررسی تنظیمات درخواست‌ها ممکن نشد: '+err.message;
+ }
+}
 async function refreshInquiries(){
  const target=$('#inquiry-list');if(!target)return;
+ await refreshInquiryReadiness();
  target.replaceChildren();
  try{
   const data=await api('/admin/inquiries'),items=data.items||[];

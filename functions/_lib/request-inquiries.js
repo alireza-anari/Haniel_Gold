@@ -40,11 +40,18 @@ export function inquiryAvailability(env,now=Date.now()){
  const closedDates=holidayInput?holidayInput.split(',').map(x=>x.trim()):[];
  const calendarValid=isoCalendarDate(verifiedThrough)&&closedDates.every(isoCalendarDate);
  const enabled=env.REQUESTS_ENABLED==='1'&&!!env.TURNSTILE_SECRET&&!!env.TURNSTILE_SITE_KEY
-  &&!!env.INQUIRY_RATE_SALT&&configured&&calendarValid;
+  &&typeof env.INQUIRY_RATE_SALT==='string'&&env.INQUIRY_RATE_SALT.length>=24&&configured&&calendarValid;
  const emergencyClosed=env.INQUIRY_EMERGENCY_CLOSED==='1';
  const accepting=enabled&&verifiedThrough>=clock.date&&clock.withinHours
   &&days.includes(clock.weekday)&&!closedDates.includes(clock.date)&&!emergencyClosed;
  return {...clock,enabled,accepting,days:configured?days:[],verifiedThrough:calendarValid?verifiedThrough:null};
+}
+export async function inquirySchemaReady(env){
+ if(!env.DB?.prepare)return false;
+ try{
+  const row=await env.DB.prepare("SELECT COUNT(*) AS table_count FROM sqlite_master WHERE type='table' AND name IN ('purchase_inquiries','purchase_inquiry_events','inquiry_rate_limits')").first();
+  return Number(row?.table_count)===3;
+ }catch{return false;}
 }
 async function verifyTurnstile(secret,token,ip){
  if(typeof token!=='string'||token.length<8||token.length>2048)return false;
@@ -64,7 +71,9 @@ async function hashIp(ip,salt){
 export async function publicInquiry(c,path){
  const {request:r,env:e}=c,method=r.method.toUpperCase();
  const clock=inquiryAvailability(e);
- const {enabled,accepting}=clock;
+ // Fully configured flags cannot collect personal information until the D1 tables exist.
+ const schemaReady=clock.enabled?await inquirySchemaReady(e):false;
+ const enabled=clock.enabled&&schemaReady,accepting=clock.accepting&&schemaReady;
  if(path==='inquiries/settings'&&method==='GET'){
   return json({enabled,accepting,
    timezone:clock.timezone,open:clock.start,close:clock.end,days:clock.days,
@@ -137,6 +146,21 @@ const NEXT={
 };
 export async function adminInquiry(c,path){
  const {request:r,env:e}=c;
+ if(path==='admin/inquiries/readiness'&&r.method==='GET'){
+  const clock=inquiryAvailability(e);
+  const schemaReady=await inquirySchemaReady(e);
+  const checks=[
+   {id:'schema',label:'جداول درخواست‌ها و محدودیت ارسال در D1',ready:schemaReady},
+   {id:'turnstile',label:'کلید عمومی و Secret ضدربات Turnstile',ready:!!e.TURNSTILE_SITE_KEY&&!!e.TURNSTILE_SECRET},
+   {id:'rate',label:'کلید محرمانه محدودیت درخواست (حداقل ۲۴ کاراکتر)',ready:typeof e.INQUIRY_RATE_SALT==='string'&&e.INQUIRY_RATE_SALT.length>=24},
+   {id:'hours',label:'روزهای کاری شنبه تا پنجشنبه در تهران',ready:clock.days.length===6},
+   {id:'calendar',label:'تقویم تعطیلات معتبر و بازبینی‌شده تا امروز',ready:!!clock.verifiedThrough&&clock.verifiedThrough>=clock.date},
+   {id:'emergency',label:'کلید توقف اضطراری پذیرش غیرفعال است',ready:e.INQUIRY_EMERGENCY_CLOSED!=='1'},
+   {id:'opt_in',label:'مجوز فعال‌سازی کنترل‌شده درخواست‌ها',ready:e.REQUESTS_ENABLED==='1'}
+  ];
+  return json({enabled:clock.enabled&&schemaReady,accepting:clock.accepting&&schemaReady,
+   timezone:clock.timezone,checks});
+ }
  if(path==='admin/inquiries'&&r.method==='GET'){
   const result=await e.DB.prepare("SELECT id,customer_name,customer_phone,items_json,indicative_total_toman,rate_valid_until,status,admin_note,created_at,updated_at FROM purchase_inquiries ORDER BY created_at DESC LIMIT 80").all();
   return json({items:(result.results||[]).map(row=>({...row,items:JSON.parse(row.items_json)}))});

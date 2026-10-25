@@ -100,19 +100,11 @@ function normalizeProduct(raw){
  const validPrice=Number.isSafeInteger(price)&&price>0&&Number.isFinite(expiresAt)&&expiresAt>Date.now()&&Number.isFinite(verifiedAt)&&verifiedAt<=Date.now();
  const source=validPrice&&raw.price?.source==='servix_18k'?'servix_18k'
   :validPrice&&raw.price?.source==='manual_staging'?'manual_staging':null;
- const components=raw.price?.breakdown;
- const amounts=components&&[components.rawGoldToman,components.makingFeeToman,
-  components.profitToman,components.taxToman];
- const verifiedBreakdown=source==='servix_18k'&&amounts&&amounts.every(v=>Number.isSafeInteger(v)&&v>=0)
-  &&amounts.reduce((total,v)=>total+v,0)===price?{
-   rawGoldToman:amounts[0],makingFeeToman:amounts[1],profitToman:amounts[2],taxToman:amounts[3]
-  }:null;
+ // Public client never processes owner-only cost inputs or per-item profit amounts.
  return {id:String(raw.id),name:safeText(raw.name),category:safeText(raw.category||'سایر'),
   style:safeText(raw.style||'مینیمال'),light:first,dark:first,images:imgs.length?imgs:[first],
   alt:safeText(raw.alt||raw.name),priceToman:validPrice?price:null,priceExpiresAt:validPrice?expiresAt:null,
-  priceVerifiedAt:validPrice?verifiedAt:null,priceSource:source,priceBreakdown:verifiedBreakdown,
-  makingFeeBps:Number.isSafeInteger(raw.makingFeeBps)?raw.makingFeeBps:null,
-  profitBps:Number.isSafeInteger(raw.profitBps)?raw.profitBps:null,
+  priceVerifiedAt:validPrice?verifiedAt:null,priceSource:source,
   weightGrams:typeof raw.weightGrams==='number'?raw.weightGrams:null,
   karat:raw.karat??null,inventoryStatus:String(raw.inventoryStatus||'unknown')};
 }
@@ -231,24 +223,19 @@ ${state.catalogStatus==='error'?`<div class="catalog-error" role="alert">${I('in
 function productLedger(p){
  const fresh=p?.priceToman!=null&&p.priceExpiresAt>Date.now();
  const rows=[['وزن محصول',p.weightGrams!=null?Number(p.weightGrams).toLocaleString('fa-IR')+' گرم':'—'],
-  ['اجرت این محصول',p.makingFeeBps!=null?(p.makingFeeBps/100).toLocaleString('fa-IR')+'٪':'—'],
-  ['سود این محصول',p.profitBps!=null?(p.profitBps/100).toLocaleString('fa-IR')+'٪':'—']];
- if(fresh&&p.priceSource==='servix_18k'&&p.priceBreakdown){
-  rows.push(['ارزش طلای خام',formatMoney(p.priceBreakdown.rawGoldToman)],
-   ['مبلغ اجرت',formatMoney(p.priceBreakdown.makingFeeToman)],
-   ['مبلغ سود',formatMoney(p.priceBreakdown.profitToman)],
-   ['مالیات طبق سیاست تأییدشده',formatMoney(p.priceBreakdown.taxToman)],
-   ['قیمت محاسبه‌شده',formatMoney(p.priceToman)]);
+  ['عیار',p.karat!=null?String(p.karat):'—']];
+ if(fresh&&p.priceSource==='servix_18k'){
+  rows.push(['قیمت اعلامی ویترین',formatMoney(p.priceToman)]);
   const checked=p.priceVerifiedAt?new Intl.DateTimeFormat('fa-IR',{
    timeZone:'Asia/Tehran',dateStyle:'medium',timeStyle:'short'
   }).format(new Date(p.priceVerifiedAt)):'نامشخص';
-  return '<p>قیمت بر اساس نرخ معتبر طلای ۱۸ عیار و اطلاعات اختصاصی این محصول محاسبه شده است. زمان نرخ (تهران): '+checked+
-   '. قیمت تنها تا پایان اعتبار نرخ قابل نمایش است. <span class="price-source-credit">منبع نرخ: <a href="https://servix.cc/" target="_blank" rel="noopener noreferrer">Servix</a></span></p><div class="price-ledger">'+
+  return '<p>قیمت نمایش‌داده‌شده از نرخ معتبر طلای ۱۸ عیار و مشخصات این محصول محاسبه شده است. زمان نرخ (تهران): '+checked+
+   '. مبلغ قطعی و جزئیات صورتحساب فقط پس از بررسی و تأیید نهایی اعلام می‌شوند. <span class="price-source-credit">منبع نرخ: <a href="https://servix.cc/" target="_blank" rel="noopener noreferrer">Servix</a></span></p><div class="price-ledger">'+
    rows.map(([label,value])=>'<div><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('')+'</div>';
  }
  const note=fresh&&p.priceSource==='manual_staging'
-  ?'این مبلغ به‌صورت دستی تأیید شده است؛ ریز محاسبه خودکار برای آن وجود ندارد.'
-  :'تا تأیید نرخ تازه و سیاست قیمت‌گذاری، مبلغ و ریز محاسبه محصول نمایش داده نمی‌شود.';
+  ?'این مبلغ به‌صورت دستی تأیید شده است؛ جزئیات نهایی هنگام بررسی درخواست اعلام می‌شوند.'
+  :'تا دریافت نرخ تازه و تأیید سیاست قیمت‌گذاری، مبلغ محصول نمایش داده نمی‌شود.';
  return '<p>'+note+'</p><div class="price-ledger">'+
   rows.map(([label,value])=>'<div><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('')+'</div>';
 }
@@ -257,7 +244,7 @@ function productPage(id){const p=products.find(x=>x.id===id);if(!p)return notFou
 <div class="detail-info"><span class="eyebrow">HANI-EL / THE COLLECTION</span><h1>${p.name}</h1><p class="detail-subtitle">${BACKEND_READY?'اطلاعات واقعی همین قطعه، شفاف و بدون جزئیات حدسی.':'پیش‌نمایش یک زیور با نقش شبدر'}</p><div class="price-missing"><strong>${productPrice(p)}</strong><span>${(p.priceToman!=null&&p.priceExpiresAt>Date.now())?'قیمت محاسبه‌شده از نرخ معتبر طلا؛ تا انقضای نرخ قابل نمایش است.':'نرخ معتبر فعلاً در دسترس نیست؛ قیمت قبلی نمایش داده نمی‌شود.'}</span></div>
 <div class="detail-spec-list"><div><span>دسته‌بندی</span><strong>${p.category}</strong></div><div><span>سبک</span><strong>${p.style} ${BACKEND_READY?'':'<small>(نمونه)</small>'}</strong></div><div><span>وزن و عیار</span><strong>${p.weightGrams!=null&&p.karat?`${esc(p.weightGrams)} گرم · عیار ${esc(p.karat)}`:'ثبت نشده'}</strong></div><div><span>قیمت نهایی</span><strong>${productPrice(p)}</strong></div></div>
 <div class="product-buttons"><button class="primary-action" data-action="${BACKEND_READY&&!state.inquiry.enabled?'collection-open':'cart-add'}" data-id="${p.id}">${I(BACKEND_READY&&!state.inquiry.enabled?'left':'bag',19)} ${BACKEND_READY&&!state.inquiry.enabled?'مشاهده مجموعه محصولات':'افزودن به سبد'}</button><button class="outline-action" data-action="favorite" data-id="${p.id}">${I('heart',18)} ${liked?'حذف از علاقه‌مندی':'افزودن به علاقه‌مندی'}</button></div>
-<div class="detail-trust-note">${I('shield',18)} این بخش صرفاً ویترین محصولات است؛ سفارش و پرداخت اینترنتی فعلاً فعال نیست.</div><div class="detail-accordions"><details><summary>مشخصات دقیق محصول ${I('down',16)}</summary><p>${BACKEND_READY?`وزن ثبت‌شده: ${p.weightGrams!=null?esc(Number(p.weightGrams).toLocaleString('fa-IR'))+' گرم':'اعلام نشده'} · عیار: ${p.karat==null?'اعلام نشده':esc(p.karat)} · دسته‌بندی: ${esc(p.category)}. ابعاد و سایر مشخصات ثبت‌نشده را حدس نمی‌زنیم.`:'وزن، عیار، طول یا ابعاد و سایر مشخصات باید از اطلاعات ثبت‌شده واقعی همین قطعه دریافت شوند.'}</p></details><details class="price-details"><summary>ریز اجزای قیمت ${I('down',16)}</summary>${productLedger(p)}</details><details><summary>راهنمای خرید ${I('down',16)}</summary><p>${BACKEND_READY?'این صفحه فقط ویترین اطلاعات و قیمت معتبر محصولات است. خرید و پرداخت آنلاین هنوز فعال نشده‌اند.':'در این پیش‌نمایش می‌توانید مراحل انتخاب و سبد خرید را امتحان کنید، اما ثبت سفارش و پرداخت فعال نیست.'}</p></details></div>
+<div class="detail-trust-note">${I('shield',18)} این بخش صرفاً ویترین محصولات است؛ سفارش و پرداخت اینترنتی فعلاً فعال نیست.</div><div class="detail-accordions"><details><summary>مشخصات دقیق محصول ${I('down',16)}</summary><p>${BACKEND_READY?`وزن ثبت‌شده: ${p.weightGrams!=null?esc(Number(p.weightGrams).toLocaleString('fa-IR'))+' گرم':'اعلام نشده'} · عیار: ${p.karat==null?'اعلام نشده':esc(p.karat)} · دسته‌بندی: ${esc(p.category)}. ابعاد و سایر مشخصات ثبت‌نشده را حدس نمی‌زنیم.`:'وزن، عیار، طول یا ابعاد و سایر مشخصات باید از اطلاعات ثبت‌شده واقعی همین قطعه دریافت شوند.'}</p></details><details class="price-details"><summary>قیمت و اعتبار نرخ ${I('down',16)}</summary>${productLedger(p)}</details><details><summary>راهنمای خرید ${I('down',16)}</summary><p>${BACKEND_READY?'این صفحه فقط ویترین اطلاعات و قیمت معتبر محصولات است. خرید و پرداخت آنلاین هنوز فعال نشده‌اند.':'در این پیش‌نمایش می‌توانید مراحل انتخاب و سبد خرید را امتحان کنید، اما ثبت سفارش و پرداخت فعال نیست.'}</p></details></div>
 </div></div><div class="mobile-buy-dock"><div><small>${BACKEND_READY?'قیمت محصول':'قیمت و موجودی'}</small><strong>${productPrice(p)}</strong></div><button type="button" data-action="${BACKEND_READY&&!state.inquiry.enabled?'collection-open':'cart-add'}" data-id="${p.id}" class="primary-action">${I(BACKEND_READY&&!state.inquiry.enabled?'left':'bag',17)} ${BACKEND_READY&&!state.inquiry.enabled?'مجموعه‌ها':'سبد درخواست'}</button></div></main>`}
 function inquiryCartPage(){
  const chosen=Object.entries(state.cart).filter(([slug,n])=>n>0)

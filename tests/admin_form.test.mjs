@@ -122,3 +122,12 @@ test('catalogue offers an authenticated, confirmed unpublish action without resa
  assert.match(draw,/api\('\/admin\/products\/'.*method:'DELETE'/);
  assert.doesNotMatch(draw,/method:'PATCH'/);
 });
+
+test('inquiry readiness UI is private and does not expose configuration secrets',()=>{
+ assert.match(html,/id="inquiry-readiness-state"/);
+ assert.match(html,/id="inquiry-readiness-checks"/);
+ assert.match(js,/async function refreshInquiryReadiness\(\)/);
+ assert.match(js,/api\('\/admin\/inquiries\/readiness'/);
+ assert.match(js,/Array\.isArray\(report\.checks\)/);
+ assert.match(js,/state\.textContent=report\.accepting/);
+});
