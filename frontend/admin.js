@@ -232,6 +232,24 @@ async function refreshInquiries(){
     (p.indicativeUnitToman==null?'نامعتبر / در انتظار بررسی':fa(p.indicativeUnitToman)+' تومان')));
    if(row.indicative_total_toman!=null)details.append(make('small','جمع تقریبی هنگام درخواست: '+fa(row.indicative_total_toman)+' تومان (غیرقطعی)'));
    if(row.admin_note)details.append(make('small','یادداشت مدیریت: '+row.admin_note));
+   const notificationTotal=Number(row.notification_total||0),notificationSent=Number(row.notification_sent||0);
+   const notificationFailed=Number(row.notification_failed||0),notificationPending=Number(row.notification_pending||0);
+   if(notificationTotal===0)details.append(make('small','اعلان ربات هنوز ثبت نشده است.','notification-warning'));
+   else if(notificationFailed||notificationPending)details.append(make('small','وضعیت اعلان ربات: '+notificationSent+' ارسال‌شده · '+notificationFailed+' ناموفق · '+notificationPending+' در انتظار','notification-warning'));
+   else details.append(make('small','اعلان ربات به '+notificationSent+' دریافت‌کننده ارسال شد.','notification-ok'));
+   if(notificationTotal===0||notificationFailed||notificationPending){
+    const retry=make('button','ارسال مجدد اعلان به مدیران','secondary retry-notification');retry.type='button';
+    retry.addEventListener('click',async()=>{
+     if(!confirm('اعلان این استعلام از طریق ربات تلگرام دوباره ارسال شود؟'))return;
+     retry.disabled=true;
+     try{
+      const result=await api('/admin/inquiries/'+encodeURIComponent(row.id)+'/notify',{method:'POST'});
+      await refreshInquiries();
+      note('تلاش ارسال اعلان تمام شد: '+Number(result.sent||0)+' موفق، '+Number(result.failed||0)+' ناموفق.');
+     }catch(err){note(err.message,true);retry.disabled=false;}
+    });
+    details.append(retry);
+   }
    const next=inquiryTransitions[row.status]||[];
    if(next.length){
     const controls=make('div',null,'request-controls'),select=make('select');select.setAttribute('aria-label','وضعیت بعدی');
