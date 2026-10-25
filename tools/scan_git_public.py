@@ -13,7 +13,7 @@ forbidden=[]
 for path in paths:
     p=Path(path)
     name=p.name.lower()
-    if (name.endswith('.sql') and path not in ('cloudflare/schema.sql', 'cloudflare/0002_gold_pricing.sql', 'cloudflare/0003_inquiry_telegram.sql', 'cloudflare/0004_remove_telegram.sql', 'cloudflare/0005_inquiry_notifications.sql')) or (name=='.env' or name.endswith(('.pem','.p12','.pfx','.key','.sqlite3','.pyc','.dump','.log','.bak','.woff','.woff2','.ttf','.otf'))
+    if (name.endswith('.sql') and path not in ('cloudflare/schema.sql', 'cloudflare/0002_gold_pricing.sql', 'cloudflare/0003_inquiry_telegram.sql', 'cloudflare/0004_remove_telegram.sql', 'cloudflare/0005_inquiry_notifications.sql', 'cloudflare/0006_inquiry_quotes.sql')) or (name=='.env' or name.endswith(('.pem','.p12','.pfx','.key','.sqlite3','.pyc','.dump','.log','.bak','.woff','.woff2','.ttf','.otf'))
         or name.startswith('id_rsa') or name.startswith('id_ed25519')
         or 'private-fonts' in p.parts or 'media' in p.parts or '__pycache__' in p.parts or 'backups' in p.parts or '.git' in p.parts):
         forbidden.append(path)
@@ -33,6 +33,8 @@ for path in paths:
             forbidden.append(path+' [retirement migration must not include secrets or alter customer inquiry records]')
         if path == 'cloudflare/0005_inquiry_notifications.sql' and any(x in data.upper() for x in ('PRIVATE KEY', 'INSERT INTO PURCHASE_INQUIRIES', 'INSERT INTO PURCHASE_INQUIRY_NOTIFICATIONS', 'INSERT INTO PRODUCTS')):
             forbidden.append(path+' [notification migration must not include secrets or seed customer/notification records]')
+        if path == 'cloudflare/0006_inquiry_quotes.sql' and any(x in data.upper() for x in ('PRIVATE KEY','INSERT INTO','UPDATE PRODUCTS','DELETE FROM PURCHASE_INQUIRIES','DROP TABLE')):
+            forbidden.append(path+' [quote migration must be schema-only]')
         # Owner explicitly requested restoring the four original embedded fonts; they now live in the shared brand-fonts.css.
         if path not in ('tools/scan_git_public.py', 'frontend/styles.css', 'frontend/brand-fonts.css') and re.search(r'data:(?:font/|application/(?:x-font|font))[^,]*;base64,', data):
             forbidden.append(path+' [embedded font requires public license review]')
