@@ -29,7 +29,7 @@ Cloudflare connector متصل‌شده فقط حساب `2e4e0d025c81b9134fd2d19f
 6. برای عکس‌ها بدون کارت بانکی، در Cloudflare به **Storage & databases → KV** برو، روی **Create instance / Create namespace** بزن و نام `haniel-gold-staging-images` را انتخاب کن. از **Workers & Pages → haniel-gold → Settings → Bindings → Add → KV namespace** آن را با **Variable name = `MEDIA_KV`** برای Production متصل کن. حتماً Redeploy انجام بده. اگر KV در حساب فعلی فعال نبود، عکس‌ها را می‌توان به‌صورت فایل‌های ثابت در GitHub → Cloudflare Pages قرار داد؛ هیچ نیازی به R2 نیست.
 7. تست سلامت: `/api/v1/health` باید `"database": true` برگرداند. پنل را از `/admin` یا `/admin.html` باز کن و دسته‌بندی، محصول آزمایشی **غیرمنتشرشده**، تصویر و ویرایش آن را بررسی کن.
 8. برای نرخ و درخواست بررسی، اگر قبلاً اجرا نشده، مهاجرت‌های `cloudflare/0002_gold_pricing.sql` و `cloudflare/0003_inquiry_telegram.sql` را به‌ترتیب اجرا کن. اتصال تلگرام حذف شده است؛ پس از استقرار نسخه جدید، `cloudflare/0004_remove_telegram.sql` را روی همان D1 اجرا کن تا جدول قدیمی پیش‌نویس تلگرام حذف شود.
-8. پس از تست و تأیید محصول واقعی، در تنظیمات **Build environment variable** مقدار `STAGING_API_ACTIVE=1` را تعیین و Build را دوباره اجرا کن. این کار `frontend/runtime-config.js` را در خروجی Pages به `/api` تغییر می‌دهد؛ تا آن زمان ویترین نمونه فعلی حفظ می‌شود.
+9. پس از تست و تأیید محصول واقعی، در تنظیمات **Build environment variable** مقدار `STAGING_API_ACTIVE=1` را تعیین و Build را دوباره اجرا کن. این کار `frontend/runtime-config.js` را در خروجی Pages به `/api` تغییر می‌دهد؛ تا آن زمان ویترین نمونه فعلی حفظ می‌شود.
 
 ### بازگشت سریع به حالت قبلی
 `STAGING_API_ACTIVE` را حذف یا به `0` تغییر بده و Rebuild/Redeploy کن. این تغییر فقط اتصال فرانت به API را خاموش می‌کند و داده‌های D1 را حذف نمی‌کند.
