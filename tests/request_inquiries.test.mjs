@@ -19,7 +19,7 @@ test('Tehran trading schedule: Sat–Wed 10–17, Thu 10–14, Friday closed',()
 });
 const readyDb={prepare(query){
  return {bind(){return this;},async first(){
-  if(query.includes('sqlite_master'))return {table_count:4};
+  if(query.includes('sqlite_master'))return {table_count:5};
   return {csrf_token:'test-csrf',expires_at:Date.now()+60_000};
  }};
 }};
@@ -93,6 +93,14 @@ test('D1 migration 0004 removes the retired Telegram draft table',()=>{
 test('D1 inquiry schema is mandatory even if the user enables every other feature flag',async()=>{
  assert.equal(await inquirySchemaReady({DB:{}}),false);
  assert.equal(await inquirySchemaReady({DB:readyDb}),true);
+ const incompleteDB={prepare(sql){
+  return {async first(){
+   if(sql.includes('sqlite_master'))return {table_count:4};
+   throw Error('unexpected SQL');
+  }};
+ }};
+ assert.equal(await inquirySchemaReady({DB:incompleteDB}),false);
+
  const env={...baseEnv,DB:{},INQUIRY_CLOSED_DATES:''};
  const status=await handle({request:new Request('https://example.com/api/v1/inquiries/settings'),env});
  assert.equal(status.status,200);

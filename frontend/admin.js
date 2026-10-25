@@ -189,8 +189,8 @@ const inquiryTransitions={
  submitted:['reviewing','unavailable','closed'],
  reviewing:['supplier_confirmed','unavailable','closed'],
  supplier_confirmed:['quote_prepared','unavailable','closed'],
- quote_prepared:['quote_sent','unavailable','closed'],
- quote_sent:['customer_declined','closed'],
+ quote_prepared:['quote_sent','supplier_confirmed','unavailable','closed'],
+ quote_sent:['customer_declined','supplier_confirmed','closed'],
  unavailable:['closed'],customer_declined:['closed'],closed:[]
 };
 async function refreshInquiryReadiness(){

@@ -100,8 +100,8 @@ export function inquiryAvailability(env,now=Date.now()){
 export async function inquirySchemaReady(env){
  if(!env.DB?.prepare)return false;
  try{
-  const row=await env.DB.prepare("SELECT COUNT(*) AS table_count FROM sqlite_master WHERE type='table' AND name IN ('purchase_inquiries','purchase_inquiry_events','inquiry_rate_limits','purchase_inquiry_notifications')").first();
-  return Number(row?.table_count)===4;
+  const row=await env.DB.prepare("SELECT COUNT(*) AS table_count FROM sqlite_master WHERE type='table' AND name IN ('purchase_inquiries','purchase_inquiry_events','inquiry_rate_limits','purchase_inquiry_notifications','purchase_inquiry_quotes')").first();
+  return Number(row?.table_count)===5;
  }catch{return false;}
 }
 async function verifyTurnstile(secret,token,ip){
@@ -211,7 +211,7 @@ export async function adminInquiry(c,path){
   const clock=inquiryAvailability(e);
   const schemaReady=await inquirySchemaReady(e);
   const checks=[
-   {id:'schema',label:'جداول درخواست‌ها و محدودیت ارسال در D1',ready:schemaReady},
+   {id:'schema',label:'جداول درخواست، اعلان ربات، محدودیت ارسال و پیشنهاد قیمت در D1',ready:schemaReady},
    {id:'turnstile',label:'کلید عمومی و Secret ضدربات Turnstile',ready:!!e.TURNSTILE_SITE_KEY&&!!e.TURNSTILE_SECRET},
    {id:'telegram',label:'ربات تلگرام و شناسه ادمین‌ها برای اعلان استعلام',ready:telegramConfigured(e)},
    {id:'rate',label:'کلید محرمانه محدودیت درخواست (حداقل ۲۴ کاراکتر)',ready:typeof e.INQUIRY_RATE_SALT==='string'&&e.INQUIRY_RATE_SALT.length>=24},
