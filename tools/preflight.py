@@ -8,7 +8,8 @@ root = Path(__file__).resolve().parent.parent
 errors=[]
 for rel in ['compose.yaml','backend/Dockerfile','backend/config/settings.py',
     'backend/commerce/servix.py','frontend/index.html','frontend/runtime-config.js',
-    'frontend/app.js','frontend/styles.css','deploy/Caddyfile',
+    'frontend/app.js','frontend/styles.css','frontend/brand-fonts.css','frontend/admin.html',
+    'frontend/admin.css','frontend/admin.js','deploy/Caddyfile',
     '.github/workflows/ci.yml','.github/workflows/deploy.yml']:
     if not (root / rel).is_file():
         errors.append(f'Missing: {rel}')
