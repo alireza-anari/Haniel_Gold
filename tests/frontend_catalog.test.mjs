@@ -43,52 +43,37 @@ test('backend request path stays off unless flag or full build enabled',()=>{
 });
 
 
-test('separate product fee and profit rates survive catalog normalization without mixing',()=>{
- const a=normal({...base,makingFeeBps:1000,profitBps:800,price:{
-  amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k',
-  breakdown:{rawGoldToman:1000000,makingFeeToman:100000,profitToman:80000,taxToman:160000}
- }});
- const b=normal({...base,id:'ring-02',makingFeeBps:1800,profitBps:500,price:{
-  amountToman:1480000,updatedAt:now,validUntil:future,source:'servix_18k',
-  breakdown:{rawGoldToman:1000000,makingFeeToman:180000,profitToman:50000,taxToman:250000}
- }});
- assert.equal(a.makingFeeBps,1000);assert.equal(a.profitBps,800);
- assert.equal(b.makingFeeBps,1800);assert.equal(b.profitBps,500);
- assert.equal(a.priceBreakdown.makingFeeToman,100000);
- assert.equal(b.priceBreakdown.makingFeeToman,180000);
- assert.equal(a.priceBreakdown.profitToman,80000);
- assert.equal(b.priceBreakdown.profitToman,50000);
+test('storefront normalizer ignores private margin inputs even in legacy public data',()=>{
+ const p=normal({...base,makingFeeBps:1000,profitBps:800,
+  price:{amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k',
+   breakdown:{rawGoldToman:1000000,makingFeeToman:100000,profitToman:80000,taxToman:160000}}});
+ assert.equal(p.priceToman,1340000);
+ assert.equal(p.priceSource,'servix_18k');
+ assert.equal(Object.hasOwn(p,'makingFeeBps'),false);
+ assert.equal(Object.hasOwn(p,'profitBps'),false);
+ assert.equal(Object.hasOwn(p,'priceBreakdown'),false);
 });
-test('stale price and inconsistent breakdown are not presented as valid priced ledgers',()=>{
- const stale=normal({...base,price:{amountToman:1340000,updatedAt:past,validUntil:past,source:'servix_18k',
-  breakdown:{rawGoldToman:1000000,makingFeeToman:100000,profitToman:80000,taxToman:160000}
- }});
+test('stale prices never appear with rate attribution',()=>{
+ const stale=normal({...base,price:{amountToman:1340000,updatedAt:past,validUntil:past,source:'servix_18k'}});
  assert.equal(stale.priceToman,null);
- assert.equal(stale.priceBreakdown,null);
- const tampered=normal({...base,price:{amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k',
-  breakdown:{rawGoldToman:1,makingFeeToman:2,profitToman:3,taxToman:4}
- }});
- assert.equal(tampered.priceBreakdown,null);
+ assert.equal(stale.priceSource,null);
 });
-test('price details are rendered only for independently verified, unexpired Servix price',()=>{
+test('public price information avoids internal cost, margin and profit',()=>{
  const a=source.indexOf('function productLedger(p){'),b=source.indexOf('function productPage(id){',a);
  assert.ok(a>0&&b>a);
  const ledger=source.slice(a,b);
  const formatMoney=x=>Number.isSafeInteger(x)?x.toLocaleString('fa-IR')+' تومان':'—';
  const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
- const prod=normal({...base,makingFeeBps:1000,profitBps:800,price:{
-  amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k',
-  breakdown:{rawGoldToman:1000000,makingFeeToman:100000,profitToman:80000,taxToman:160000}
- }});
- const html=vm.runInNewContext(ledger+'\nproductLedger(prod)',{prod,Date,Intl,Number,formatMoney,esc});
- assert.match(html,/مبلغ اجرت/);
- assert.match(html,/مبلغ سود/);
+ const prod=normal({...base,price:{amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k'}});
+ const html=vm.runInNewContext(ledger+'\\nproductLedger(prod)',{prod,Date,Intl,Number,formatMoney,esc});
+ assert.match(html,/قیمت اعلامی ویترین/);
  assert.match(html,/زمان نرخ/);
  assert.match(html,/منبع نرخ/);
- assert.match(html,/https:\/\/servix\.cc\//);
- const old=vm.runInNewContext(ledger+'\nproductLedger(prod)',{
+ assert.match(html,/https:\\/\\/servix\\.cc\\//);
+ assert.doesNotMatch(html,/سود این محصول|مبلغ سود|درصد سود|مبلغ اجرت|درصد اجرت|مالیات طبق سیاست/);
+ const old=vm.runInNewContext(ledger+'\\nproductLedger(prod)',{
   prod:{...prod,priceExpiresAt:Date.now()-1000},Date,Intl,Number,formatMoney,esc
  });
- assert.doesNotMatch(old,/مبلغ اجرت/);
- assert.match(old,/تأیید نرخ تازه/);
+ assert.doesNotMatch(old,/قیمت اعلامی ویترین/);
+ assert.match(old,/تأیید سیاست قیمت‌گذاری/);
 });
