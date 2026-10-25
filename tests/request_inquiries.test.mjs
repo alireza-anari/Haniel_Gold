@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {inquiryClock,inquiryAvailability,publicInquiry} from '../functions/_lib/request-inquiries.js';
+import {inquiryClock,inquiryAvailability,publicInquiry,inquirySchemaReady} from '../functions/_lib/request-inquiries.js';
 import {handle} from '../functions/_lib/cloudflare-api.js';
 
 test('Tehran trading schedule: Sat–Wed 10–17, Thu 10–14, Friday closed',()=>{
@@ -16,6 +16,12 @@ test('Tehran trading schedule: Sat–Wed 10–17, Thu 10–14, Friday closed',()
  assert.equal(inquiryClock(time('2026-10-23T06:30:00Z')).start,null);
  assert.equal(inquiryClock().timezone,'Asia/Tehran');
 });
+const readyDb={prepare(query){
+ return {async first(){
+  if(query.includes('sqlite_master'))return {table_count:3};
+  return {csrf_token:'test-csrf',expires_at:Date.now()+60_000};
+ }};
+}};
 const baseEnv={
  DB:{},REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'test',
  TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'abcdefghabcdefghabcdefgh',
@@ -34,7 +40,7 @@ test('calendar expiry, explicitly closed holiday and emergency switch prevent ne
  assert.equal(inquiryAvailability({...baseEnv,INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu,fri'},t('2026-10-24T06:30:00Z')).enabled,false);
 });
 test('supplier schedule must be explicitly configured before intake can activate',async()=>{
- const env={DB:{},REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'test',TURNSTILE_SITE_KEY:'public-test',
+ const env={DB:readyDb,REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'test',TURNSTILE_SITE_KEY:'public-test',
  INQUIRY_RATE_SALT:'abcdefghabcdefghabcdefgh'};
  const url='https://example.com/api/v1/inquiries/settings';
  let response=await handle({request:new Request(url),env});
@@ -53,7 +59,7 @@ test('payment-less request intake is disabled unless actively opted in',async()=
  assert.equal(r.status,503);assert.equal((await r.json()).code,'NOT_ENABLED');
 });
 test('request settings never reveal secrets or imply stock is reserved',async()=>{
- const env={DB:{},REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'PRIVATE',
+ const env={DB:readyDb,REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'PRIVATE',
   TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'01234567890123456789012345',INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu',INQUIRY_CALENDAR_VERIFIED_UNTIL:'2099-12-31'};
  const result=await handle({request:new Request('https://example.com/api/v1/inquiries/settings'),env});
  assert.equal(result.status,200);
@@ -80,4 +86,37 @@ test('D1 migration 0004 removes the retired Telegram draft table',()=>{
  const sql=readFileSync(new URL('../cloudflare/0004_remove_telegram.sql',import.meta.url),'utf8');
  assert.match(sql,/DROP INDEX IF EXISTS idx_telegram_product_drafts_status/i);
  assert.match(sql,/DROP TABLE IF EXISTS telegram_product_drafts/i);
+});
+
+test('D1 inquiry schema is mandatory even if the user enables every other feature flag',async()=>{
+ assert.equal(await inquirySchemaReady({DB:{}}),false);
+ assert.equal(await inquirySchemaReady({DB:readyDb}),true);
+ const env={...baseEnv,DB:{},INQUIRY_CLOSED_DATES:''};
+ const status=await handle({request:new Request('https://example.com/api/v1/inquiries/settings'),env});
+ assert.equal(status.status,200);
+ assert.equal((await status.json()).enabled,false);
+ const request=await handle({request:new Request('https://example.com/api/v1/inquiries',{
+  method:'POST',body:JSON.stringify({name:'نام نمونه',phone:'09123456789'})}),env});
+ assert.equal(request.status,503);
+ assert.equal((await request.json()).code,'NOT_ENABLED');
+});
+test('private readiness checklist is available only to authenticated admin and reveals no secrets',async()=>{
+ const url='https://example.com/api/v1/admin/inquiries/readiness';
+ const env={...baseEnv,DB:readyDb,ADMIN_SESSION_SECRET:'local-test-only-strong-secret-is-not-live-abcdef',
+  REQUESTS_ENABLED:'0',TURNSTILE_SECRET:'PRIVATE-TURNSTILE',INQUIRY_RATE_SALT:'SALT-PRIVATE-LONG-RANDOM-UNIT-TEST'};
+ const anon=await handle({request:new Request(url),env});
+ assert.equal(anon.status,401);
+ const allowed=await handle({request:new Request(url,{
+  headers:{cookie:'haniel_admin_session='+'A'.repeat(43)}}),env});
+ assert.equal(allowed.status,200);
+ const report=await allowed.json();
+ assert.equal(report.enabled,false);
+ assert.equal(report.accepting,false);
+ assert.equal(report.checks.find(c=>c.id==='opt_in').ready,false);
+ assert.equal(report.checks.find(c=>c.id==='schema').ready,true);
+ assert.equal(report.checks.find(c=>c.id==='rate').ready,true);
+ assert.equal(JSON.stringify(report).includes('PRIVATE'),false);
+});
+test('short rate-limiting salt must not enable intake',()=>{
+ assert.equal(inquiryAvailability({...baseEnv,INQUIRY_RATE_SALT:'too-short'},Date.parse('2026-10-24T06:30:00Z')).enabled,false);
 });
