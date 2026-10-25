@@ -50,6 +50,10 @@ Disallow: /
 ROBOTS
 
 test -f "$OUTPUT_DIR/index.html"
+test -f "$OUTPUT_DIR/admin.html"
+test -f "$OUTPUT_DIR/admin.css"
+test -f "$OUTPUT_DIR/admin.js"
+test -f "$OUTPUT_DIR/brand-fonts.css"
 test -f "$OUTPUT_DIR/assets/brand-gold.png"
 if [[ "${STAGING_API_ACTIVE:-0}" != "1" ]] && grep -q "apiBaseUrl:'/api'" "$OUTPUT_DIR/runtime-config.js"; then
   echo 'ERROR: staging API was not disabled' >&2

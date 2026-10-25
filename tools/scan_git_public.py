@@ -31,8 +31,8 @@ for path in paths:
             forbidden.append(path+' [inquiry schema must not contain real customers, imports or seeded products]')
         if path == 'cloudflare/0004_remove_telegram.sql' and any(x in data.upper() for x in ('PRIVATE KEY', 'INSERT INTO', 'UPDATE PRODUCTS', 'DELETE FROM PURCHASE_INQUIRIES')):
             forbidden.append(path+' [retirement migration must not include secrets or alter customer inquiry records]')
-        # Owner explicitly requested restoring the four original embedded fonts.
-        if path not in ('tools/scan_git_public.py', 'frontend/styles.css') and re.search(r'data:(?:font/|application/(?:x-font|font))[^,]*;base64,', data):
+        # Owner explicitly requested restoring the four original embedded fonts; they now live in the shared brand-fonts.css.
+        if path not in ('tools/scan_git_public.py', 'frontend/styles.css', 'frontend/brand-fonts.css') and re.search(r'data:(?:font/|application/(?:x-font|font))[^,]*;base64,', data):
             forbidden.append(path+' [embedded font requires public license review]')
         # Does not reject placeholders, no full secrets scanning claims.
 if forbidden:

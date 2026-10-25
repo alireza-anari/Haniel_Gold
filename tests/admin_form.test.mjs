@@ -85,3 +85,25 @@ test('authenticated market panel displays sanitized D1 Servix error details',()=
  assert.match(js,/AUTH/);
  assert.match(js,/errorPanel\.textContent=/);
 });
+
+
+test('admin dashboard includes live summary, section navigation, product search and image preview',()=>{
+ assert.match(html,/id="stat-products"/);
+ assert.match(html,/id="stat-published"/);
+ assert.match(html,/id="stat-categories"/);
+ assert.match(html,/id="stat-inquiries"/);
+ assert.match(html,/id="product-search"/);
+ assert.match(html,/id="product-filter"/);
+ assert.match(html,/id="photo-preview"/);
+ assert.match(html,/href="#inquiries-panel"/);
+ assert.match(js,/function updateDashboardStats\(\)/);
+ assert.match(js,/function previewSelectedPhoto\(\)/);
+ assert.match(js,/addEventListener\('input',drawProducts\)/);
+});
+test('storefront and admin load the same four original embedded brand fonts',()=>{
+ const fonts=fs.readFileSync(new URL('../frontend/brand-fonts.css',import.meta.url),'utf8');
+ const storefront=fs.readFileSync(new URL('../frontend/index.html',import.meta.url),'utf8');
+ assert.equal((fonts.match(/@font-face/g)||[]).length,4);
+ assert.match(html,/href="\/brand-fonts\.css"/);
+ assert.match(storefront,/href="brand-fonts\.css"/);
+});
