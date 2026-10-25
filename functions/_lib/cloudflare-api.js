@@ -1,5 +1,6 @@
 import { MarketError, marketPublic, marketAdmin, syncRate, approvePendingRate, approvePricingPolicy, dynamicContext, calculatePrice } from './gold-market.js';
 import {publicInquiry,adminInquiry} from './request-inquiries.js';
+import {adminQuote} from './purchase-quotes.js';
 // HANI-EL GOLD — Cloudflare-native catalogue API. No live orders/payments/Servix.
 const C='haniel_admin_session';
 const j=(x,status=200,headers={})=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','x-robots-tag':'noindex, nofollow',...headers}});
@@ -128,6 +129,7 @@ async function route(c){
  if(!path.startsWith('admin/'))return err('مسیر موجود نیست.',404);
  const s=await admin(c);if(!s)return err('ابتدا وارد پنل مدیریت شوید.',401);
  if(method!=='GET'&&(!sameOrigin(r)||!equal(r.headers.get('x-haniel-csrf'),s.csrf)))return err('درخواست امنیتی معتبر نیست.',403);
+ if(/^admin\/inquiries\/[0-9a-f-]{36}\/quote$/.test(path))return adminQuote(c,path);
  if(path.startsWith('admin/inquiries'))return adminInquiry(c,path);
  if(path==='admin/logout'&&method==='POST'){await e.DB.prepare('DELETE FROM admin_sessions WHERE token_hash=?').bind(s.hash).run();return j({authenticated:false},200,{'set-cookie':setCookie(r,'',0)});}
  if(path==='admin/market'&&method==='GET')return j(await marketAdmin(e));

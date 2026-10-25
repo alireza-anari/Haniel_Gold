@@ -250,6 +250,52 @@ async function refreshInquiries(){
     });
     details.append(retry);
    }
+   if(row.status==='supplier_confirmed'){
+    const quoteForm=make('form',null,'commercial-quote-form');
+    quoteForm.setAttribute('aria-label','پیشنهاد قیمت پس از تأیید تأمین');
+    quoteForm.append(make('strong','ثبت پیشنهاد قیمت و مهلت تأمین'),
+     make('small','پیشنهاد تنها پس از تأیید واقعی امکان تأمین ثبت می‌شود؛ این فرم پرداخت یا لینک خرید ایجاد نمی‌کند.'));
+    const numeric=(title,key)=>{
+     const label=make('label',title),input=make('input');
+     input.type='number';input.name=key;input.min=key==='itemsTotalToman'?'1':'0';input.step='1';input.required=true;input.inputMode='numeric';
+     label.append(input);return label;
+    };
+    quoteForm.append(numeric('جمع نهایی اقلام (تومان)','itemsTotalToman'),numeric('هزینه ارسال (تومان)','deliveryToman'));
+    const dateInput=(title,key)=>{
+     const label=make('label',title),input=make('input');
+     input.type='datetime-local';input.name=key;input.required=true;
+     label.append(input);return label;
+    };
+    quoteForm.append(dateInput('اعتبار قیمت — حداکثر ۳۰ دقیقه آینده','validUntilMs'),
+     dateInput('پایان رزرو/تعهد تأمین — نه زودتر از اعتبار قیمت','supplyHoldUntilMs'));
+    const ref=make('label','مرجع داخلی تأیید تأمین'),refField=make('input');
+    refField.name='supplyReference';refField.minLength=3;refField.maxLength=120;refField.required=true;
+    ref.append(refField);quoteForm.append(ref);
+    const consent=make('label',null,'supply-attestation'),check=make('input');
+    check.type='checkbox';check.name='supplySecured';check.required=true;
+    consent.append(check,make('span','تأیید می‌کنم امکان تأمین/رزرو واقعی تا زمان بالا بررسی شده و قیمت نهایی قابل ارائه است.'));
+    quoteForm.append(consent);
+    const save=make('button','ذخیره پیشنهاد · بدون پرداخت','secondary');
+    save.type='submit';quoteForm.append(save);
+    quoteForm.addEventListener('submit',async event=>{
+     event.preventDefault();save.disabled=true;
+     const fm=event.currentTarget;
+     const json={
+      itemsTotalToman:Number(fm.elements.itemsTotalToman.value),
+      deliveryToman:Number(fm.elements.deliveryToman.value),
+      validUntilMs:new Date(fm.elements.validUntilMs.value).getTime(),
+      supplyHoldUntilMs:new Date(fm.elements.supplyHoldUntilMs.value).getTime(),
+      supplyReference:fm.elements.supplyReference.value.trim(),
+      supplySecured:fm.elements.supplySecured.checked
+     };
+     try{
+      const saved=await api('/admin/inquiries/'+row.id+'/quote',{method:'POST',data:json});
+      note('پیشنهاد '+fa(saved.finalTotalToman)+' تومانی ثبت شد. هیچ روش پرداختی فعال نشده است.');
+      await refreshInquiries();
+     }catch(err){note(err.message,true);save.disabled=false;}
+    });
+    details.append(quoteForm);
+   }
    const next=inquiryTransitions[row.status]||[];
    if(next.length){
     const controls=make('div',null,'request-controls'),select=make('select');select.setAttribute('aria-label','وضعیت بعدی');

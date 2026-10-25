@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {inquiryClock,inquiryAvailability,publicInquiry,inquirySchemaReady,telegramConfigured,telegramRecipients,dispatchInquiryNotifications} from '../functions/_lib/request-inquiries.js';
 import {handle} from '../functions/_lib/cloudflare-api.js';
+import {validateQuote,adminQuote} from '../functions/_lib/purchase-quotes.js';
 
 test('Tehran trading schedule: Sat–Wed 10–17, Thu 10–14, Friday closed',()=>{
  const time=t=>new Date(t).getTime();
@@ -191,4 +192,65 @@ test('new migration creates retryable Telegram notification delivery records',()
  assert.match(sql,/recipient_chat_id TEXT NOT NULL/);
  assert.match(sql,/status IN \('pending','sent','failed'\)/);
  assert.match(sql,/UNIQUE\(inquiry_id,channel,recipient_chat_id\)/);
+});
+
+
+test('confirmed quote validates exact tomans, finite hold, expiry and supply reference',()=>{
+ const now=Date.parse('2026-10-24T07:00:00Z');
+ const good={
+  itemsTotalToman:8200000,deliveryToman:100000,
+  validUntilMs:now+5*60_000,supplyHoldUntilMs:now+15*60_000,
+  supplyReference:'confirmed-hold-reference',supplySecured:true
+ };
+ assert.equal(validateQuote(good,now).finalTotalToman,8300000);
+ assert.match(validateQuote({...good,supplySecured:false},now).error,/تأیید واقعی/);
+ assert.match(validateQuote({...good,itemsTotalToman:2.5},now).error,/اعداد صحیح/);
+ assert.match(validateQuote({...good,validUntilMs:now+60*60_000},now).error,/۳۰ دقیقه/);
+ assert.match(validateQuote({...good,supplyHoldUntilMs:now+3*60_000},now).error,/اعتبار تأمین/);
+ assert.match(validateQuote({...good,supplyReference:'x'},now).error,/تأیید واقعی/);
+});
+test('unauthenticated visitors cannot open admin quote API or make provider payment requests',async()=>{
+ const env={DB:{},ADMIN_SESSION_SECRET:'local-test-only-long-secret-string-abcdef'};
+ const id='123e4567-e89b-42d3-a456-426614174000';
+ for(const method of ['GET','POST']){
+  const result=await handle({request:new Request('https://example.com/api/v1/admin/inquiries/'+id+'/quote',{method}),env});
+  assert.equal(result.status,401);
+ }
+ for(const method of ['GET','POST']){
+  const result=await handle({request:new Request('https://example.com/api/v1/payments/snappay',{method}),env});
+  assert.equal(result.status,404);
+ }
+});
+test('quote is admin-only and never creates a payment link or fake paid order',async()=>{
+ const now=Date.now(),queries=[];
+ const DB={prepare(sql){
+  queries.push(sql);
+  return {bind(...params){this.params=params;return this;},
+   async first(){return {status:'supplier_confirmed'};},
+   async run(){return {meta:{changes:1}};}
+  };
+ }};
+ const id='123e4567-e89b-42d3-a456-426614174000';
+ const r=await adminQuote({
+  request:new Request('https://example.com/api/v1/admin/inquiries/'+id+'/quote',{
+   method:'POST',body:JSON.stringify({
+    itemsTotalToman:9500000,deliveryToman:0,
+    validUntilMs:now+5*60_000,supplyHoldUntilMs:now+10*60_000,
+    supplySecured:true,supplyReference:'supplier-hold-test'
+   })
+  }),env:{DB}
+ },'admin/inquiries/'+id+'/quote');
+ assert.equal(r.status,201);
+ const result=await r.json();
+ assert.equal(result.paymentEnabled,false);
+ assert.equal(result.finalTotalToman,9500000);
+ assert.ok(!('paymentUrl' in result));
+ assert.ok(queries.some(q=>q.includes('INSERT INTO purchase_inquiry_quotes')));
+ assert.ok(queries.every(q=>!/\bpayments\b|\borders\b/i.test(q)));
+});
+test('quote preparation D1 migration is schema-only and preserves inquiry rows',()=>{
+ const sql=readFileSync(new URL('../cloudflare/0006_inquiry_quotes.sql',import.meta.url),'utf8');
+ assert.match(sql,/CREATE TABLE IF NOT EXISTS purchase_inquiry_quotes/);
+ assert.match(sql,/inquiry_id TEXT NOT NULL UNIQUE/);
+ assert.doesNotMatch(sql,/\bDELETE FROM\b|\bINSERT INTO\b|\bDROP TABLE\b|\bUPDATE\b/i);
 });

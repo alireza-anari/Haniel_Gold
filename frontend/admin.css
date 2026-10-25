@@ -293,3 +293,16 @@ input[type=checkbox]{accent-color:var(--olive);width:17px;height:17px;flex:0 0 1
 .notification-warning{display:block;margin-top:8px;padding:7px 9px;border:1px solid var(--warning-line);border-radius:8px;background:var(--warning-bg);color:var(--warning);font-size:11px}
 .notification-ok{display:block;margin-top:8px;color:var(--success);font-size:11px}
 .retry-notification{margin-top:8px;min-height:36px;padding:7px 12px;font-size:11px}
+
+/* Confirmed quote editor: operational, not a payment form. */
+.commercial-quote-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+ margin:13px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
+.commercial-quote-form>strong,.commercial-quote-form>small,.commercial-quote-form>.supply-attestation,
+.commercial-quote-form>button{grid-column:1/-1}
+.commercial-quote-form>strong{font-size:12px;font-weight:600}
+.commercial-quote-form>small{font-size:11px;color:var(--muted)}
+.commercial-quote-form label{font-size:11px}
+.commercial-quote-form input[type=number],.commercial-quote-form input[type=datetime-local]{min-width:0}
+.commercial-quote-form .supply-attestation{flex-direction:row;gap:8px;align-items:start}
+.commercial-quote-form .supply-attestation input{margin-top:3px}
+@media(max-width:650px){.commercial-quote-form{grid-template-columns:1fr}}

@@ -201,8 +201,8 @@ const NEXT={
  submitted:['reviewing','unavailable','closed'],
  reviewing:['supplier_confirmed','unavailable','closed'],
  supplier_confirmed:['quote_prepared','unavailable','closed'],
- quote_prepared:['quote_sent','unavailable','closed'],
- quote_sent:['customer_declined','closed'],
+ quote_prepared:['quote_sent','supplier_confirmed','unavailable','closed'],
+ quote_sent:['customer_declined','supplier_confirmed','closed'],
  unavailable:['closed'],customer_declined:['closed'],closed:[]
 };
 export async function adminInquiry(c,path){
@@ -250,6 +250,15 @@ export async function adminInquiry(c,path){
   const old=await e.DB.prepare('SELECT status FROM purchase_inquiries WHERE id=?').bind(match[1]).first();
   if(!old)return json({error:'درخواست یافت نشد.'},404);
   if(!NEXT[old.status]?.includes(next))return json({error:'تغییر وضعیت مجاز نیست.'},409);
+  // An admin confirmation by itself is never sufficient to offer payment.
+  if(next==='quote_prepared'||next==='quote_sent'){
+   let quote;
+   try{quote=await e.DB.prepare("SELECT valid_until,supply_hold_until FROM purchase_inquiry_quotes WHERE inquiry_id=?").bind(match[1]).first();}
+   catch{return json({error:'زیرساخت پیشنهادهای قیمت هنوز آماده نشده است.'},503);}
+   const t=Date.now();
+   if(!quote||quote.valid_until<=t||quote.supply_hold_until<=t)
+    return json({error:'پیشنهاد قیمت یا اعتبار تأمین وجود ندارد یا منقضی شده است.'},409);
+  }
   const now=Date.now();
   const updated=await e.DB.prepare('UPDATE purchase_inquiries SET status=?,admin_note=?,updated_at=? WHERE id=? AND status=?')
    .bind(next,note,now,match[1],old.status).run();

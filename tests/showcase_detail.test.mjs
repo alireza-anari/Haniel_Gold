@@ -79,5 +79,5 @@ test('enabled inquiry requires explicit privacy consent and does not silently dr
  assert.match(source,/name="consent" type="checkbox" required/);
  assert.match(source,/consent:form\.elements\.consent\?\.checked===true/);
  assert.match(source,/if\(lines\.length>8\)/);
- assert.match(source,/استعلام موجودی و قیمت · بدون پرداخت/);
+ assert.match(source,/استعلام موجودی · بدون پرداخت/);
 });
