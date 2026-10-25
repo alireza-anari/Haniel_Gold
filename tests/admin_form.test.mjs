@@ -107,3 +107,18 @@ test('storefront and admin load the same four original embedded brand fonts',()=
  assert.match(html,/href="\/brand-fonts\.css"/);
  assert.match(storefront,/href="brand-fonts\.css"/);
 });
+
+test('publishing a draft requires explicit confirmation before any photo upload',()=>{
+ const save=js.slice(js.indexOf('async function submitProduct(e){'),js.indexOf('async function submitCategory(e){'));
+ assert.match(save,/const wasPublished=/);
+ assert.match(save,/published&&!wasPublished&&!window\.confirm/);
+ assert.ok(save.indexOf('!window.confirm(')<save.indexOf('await storeSelectedPhoto()'));
+});
+test('catalogue offers an authenticated, confirmed unpublish action without resaving the product',()=>{
+ const draw=js.slice(js.indexOf('function drawProducts(){'),js.indexOf('const inquiryStateLabels='));
+ assert.match(draw,/if\(p\.published\)/);
+ assert.match(draw,/make\('button','برداشتن از ویترین'/);
+ assert.match(draw,/window\.confirm\(/);
+ assert.match(draw,/api\('\/admin\/products\/'.*method:'DELETE'/);
+ assert.doesNotMatch(draw,/method:'PATCH'/);
+});

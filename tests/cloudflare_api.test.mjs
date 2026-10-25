@@ -186,3 +186,41 @@ test('fresh manually entered staging price never appears as public price when Se
  assert.equal(out.items[0].price.source,null);
  assert.equal(out.items[0].price.validUntil,null);
 });
+
+test('authorized unpublish route changes only published flag and timestamp, never deletes product data',async()=>{
+ const secret='local-test-only-strong-secret-is-not-live-abcdef';
+ const token='A'.repeat(43),csrf='review-only-csrf';
+ const queries=[],runs=[];
+ const DB={prepare(sql){
+  queries.push(sql);
+  return {
+   bind(...args){this.args=args;return this;},
+   async first(){return {csrf_token:csrf,expires_at:Date.now()+60_000};},
+   async run(){runs.push({sql,args:this.args});return {meta:{changes:1}};}
+  };
+ }};
+ const base='https://haniel-gold.pages.dev';
+ const response=await handle({
+  request:new Request(base+'/api/v1/admin/products/Arrow',{
+   method:'DELETE',
+   headers:{origin:base,cookie:'haniel_admin_session='+token,'x-haniel-csrf':csrf}
+  }),
+  env:{DB,ADMIN_SESSION_SECRET:secret}
+ });
+ assert.equal(response.status,200);
+ assert.deepEqual(await response.json(),{unpublished:true,slug:'Arrow'});
+ assert.equal(runs.length,1);
+ assert.match(runs[0].sql,/^UPDATE products SET published=0,updated_at=\? WHERE slug=\?$/);
+ assert.equal(runs[0].args[1],'Arrow');
+ assert.doesNotMatch(runs[0].sql,/DELETE FROM|price|weight|image|name|description|making|profit/i);
+ assert.ok(queries.some(q=>q.includes('admin_sessions')));
+});
+test('unpublish route refuses anonymous requests without changing data',async()=>{
+ let didWrite=false;
+ const res=await handle({
+  request:new Request('https://haniel-gold.pages.dev/api/v1/admin/products/Arrow',{method:'DELETE'}),
+  env:{DB:{prepare(){didWrite=true;throw Error('unexpected DB access');}},ADMIN_SESSION_SECRET:'local-test-only-strong-secret-is-not-live-abcdef'}
+ });
+ assert.equal(res.status,401);
+ assert.equal(didWrite,false);
+});
