@@ -6,6 +6,55 @@ const json=(data,status=200)=>new Response(JSON.stringify(data),{
  'X-Robots-Tag':'noindex, nofollow','X-Content-Type-Options':'nosniff'}});
 const closed=data=>json({error:'این بخش هنوز برای ثبت درخواست فعال نشده است.',...data},503);
 const digits=s=>String(s||'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+export function telegramRecipients(env){
+ const raw=String(env.TELEGRAM_ADMIN_CHAT_IDS||'').split(',').map(x=>x.trim()).filter(Boolean);
+ if(raw.length<1||raw.length>5||raw.some(x=>!/^[-]?\d{5,20}$/.test(x)))return [];
+ const unique=[...new Set(raw)];
+ return unique.length===raw.length?unique:[];
+}
+export function telegramConfigured(env){
+ return /^\d{5,15}:[A-Za-z0-9_-]{20,}$/.test(String(env.TELEGRAM_BOT_TOKEN||''))&&telegramRecipients(env).length>0;
+}
+function inquiryAdminUrl(env){
+ try{const u=new URL(String(env.ADMIN_PANEL_URL||''));return u.protocol==='https:'?u.href:null;}catch{return null;}
+}
+async function deliverTelegram(env,chatId,message){
+ const token=String(env.TELEGRAM_BOT_TOKEN||'');
+ if(!telegramConfigured(env))return {ok:false,code:'telegram_not_configured'};
+ try{
+  const response=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{
+   method:'POST',headers:{'content-type':'application/json'},
+   body:JSON.stringify({chat_id:chatId,text:message,disable_web_page_preview:true}),
+   signal:AbortSignal.timeout(5000)
+  });
+  if(!response.ok)return {ok:false,code:'telegram_http_'+response.status};
+  const data=await response.json();
+  return data?.ok===true?{ok:true}:{ok:false,code:'telegram_rejected'};
+ }catch{return {ok:false,code:'telegram_unreachable'};}
+}
+export async function dispatchInquiryNotifications(env,inquiryId){
+ const recipients=telegramRecipients(env);
+ if(!telegramConfigured(env)||!recipients.length)return {sent:0,failed:0};
+ const query=await env.DB.prepare("SELECT n.id,n.recipient_chat_id,i.items_json FROM purchase_inquiry_notifications n JOIN purchase_inquiries i ON i.id=n.inquiry_id WHERE n.inquiry_id=? AND n.status IN ('pending','failed') ORDER BY n.created_at").bind(inquiryId).all();
+ let sent=0,failed=0,items=[];
+ try{items=JSON.parse(query.results?.[0]?.items_json||'[]');}catch{}
+ const lines=items.slice(0,8).map(x=>'• '+String(x.name||x.slug||'محصول')+' — '+String(x.quantity||1)+' عدد').join('\n');
+ const adminUrl=inquiryAdminUrl(env);
+ const message=['🛍️ HANI-EL GOLD | استعلام موجودی جدید','شناسه: '+inquiryId,'محصولات:',lines||'برای مشاهده اقلام وارد پنل مدیریت شوید.','برای مشاهده نام و شماره مشتری، فقط از پنل مدیریت وارد شوید.',...(adminUrl?['پنل مدیریت: '+adminUrl]:[])].join('\n');
+ for(const row of query.results||[]){
+  const now=Date.now();
+  await env.DB.prepare("UPDATE purchase_inquiry_notifications SET attempts=attempts+1,status='pending',last_error_code='',updated_at=? WHERE id=?").bind(now,row.id).run();
+  const result=await deliverTelegram(env,row.recipient_chat_id,message);
+  if(result.ok){
+   const sentAt=Date.now();
+   await env.DB.prepare("UPDATE purchase_inquiry_notifications SET status='sent',last_error_code='',sent_at=?,updated_at=? WHERE id=?").bind(sentAt,sentAt,row.id).run();sent++;
+  }else{
+   await env.DB.prepare("UPDATE purchase_inquiry_notifications SET status='failed',last_error_code=?,updated_at=? WHERE id=?").bind(result.code||'telegram_failed',Date.now(),row.id).run();failed++;
+  }
+ }
+ return {sent,failed};
+}
+
 // Store hours are Tehran-local, regardless of browser or Cloudflare region.
 // Any unforeseen closure can be enforced immediately with INQUIRY_EMERGENCY_CLOSED=1.
 const BUSINESS_WINDOWS=Object.freeze({
@@ -40,7 +89,7 @@ export function inquiryAvailability(env,now=Date.now()){
  const closedDates=holidayInput?holidayInput.split(',').map(x=>x.trim()):[];
  const calendarValid=isoCalendarDate(verifiedThrough)&&closedDates.every(isoCalendarDate);
  const enabled=env.REQUESTS_ENABLED==='1'&&!!env.TURNSTILE_SECRET&&!!env.TURNSTILE_SITE_KEY
-  &&typeof env.INQUIRY_RATE_SALT==='string'&&env.INQUIRY_RATE_SALT.length>=24&&configured&&calendarValid;
+  &&typeof env.INQUIRY_RATE_SALT==='string'&&env.INQUIRY_RATE_SALT.length>=24&&configured&&calendarValid&&telegramConfigured(env);
  const emergencyClosed=env.INQUIRY_EMERGENCY_CLOSED==='1';
  const accepting=enabled&&verifiedThrough>=clock.date&&clock.withinHours
   &&days.includes(clock.weekday)&&!closedDates.includes(clock.date)&&!emergencyClosed;
@@ -49,8 +98,8 @@ export function inquiryAvailability(env,now=Date.now()){
 export async function inquirySchemaReady(env){
  if(!env.DB?.prepare)return false;
  try{
-  const row=await env.DB.prepare("SELECT COUNT(*) AS table_count FROM sqlite_master WHERE type='table' AND name IN ('purchase_inquiries','purchase_inquiry_events','inquiry_rate_limits')").first();
-  return Number(row?.table_count)===3;
+  const row=await env.DB.prepare("SELECT COUNT(*) AS table_count FROM sqlite_master WHERE type='table' AND name IN ('purchase_inquiries','purchase_inquiry_events','inquiry_rate_limits','purchase_inquiry_notifications')").first();
+  return Number(row?.table_count)===4;
  }catch{return false;}
 }
 async function verifyTurnstile(secret,token,ip){
@@ -89,6 +138,7 @@ export async function publicInquiry(c,path){
  let data;try{data=JSON.parse(raw);}catch{return json({error:'ساختار درخواست معتبر نیست.'},400);}
  if(!data||typeof data!=='object'||Array.isArray(data))return json({error:'اطلاعات درخواست معتبر نیست.'},400);
  const name=String(data.name||'').trim(),phone=digits(data.phone).trim();
+ if(data.consent!==true)return json({error:'برای پیگیری استعلام، تأیید استفاده از اطلاعات تماس لازم است.'},400);
  if(name.length<2||name.length>80||/[\u0000-\u001F<>]/.test(name)||!/^09[0-9]{9}$/.test(phone))
   return json({error:'نام و شماره موبایل معتبر وارد کن.'},400);
  if(!Array.isArray(data.items)||data.items.length<1||data.items.length>8)
@@ -132,6 +182,15 @@ export async function publicInquiry(c,path){
   .bind(inquiryId,name,phone,values,quoteValid?sum:null,quoteValid?Date.parse(pricing.validUntil):null,now,now).run();
  await e.DB.prepare('INSERT INTO purchase_inquiry_events(inquiry_id,from_status,to_status,created_at) VALUES(?,?,?,?)')
   .bind(inquiryId,null,'submitted',now).run();
+ // Outbound-only Telegram alerts. Customer contact details stay inside the authenticated admin panel.
+ // Delivery failures do not lose the inquiry; the admin panel can retry them.
+ try{
+  for(const recipient of telegramRecipients(e)){
+   await e.DB.prepare("INSERT OR IGNORE INTO purchase_inquiry_notifications(id,inquiry_id,channel,recipient_chat_id,status,attempts,last_error_code,created_at,updated_at) VALUES(?,?,'telegram',?,'pending',0,'',?,?)")
+    .bind(crypto.randomUUID(),inquiryId,recipient,now,now).run();
+  }
+  await dispatchInquiryNotifications(e,inquiryId);
+ }catch{/* Durable inquiry remains available to admins even if notification delivery fails. */}
  // No payment link or supplier stock confirmation is issued from a public request.
  return json({inquiryId,status:'submitted',indicativeTotalToman:quoteValid?sum:null,
   message:'درخواست بررسی ثبت شد. قیمت و موجودی هنوز تأیید نشده‌اند؛ تا اعلام مدیر پرداخت نکنید.'},201);
@@ -152,6 +211,7 @@ export async function adminInquiry(c,path){
   const checks=[
    {id:'schema',label:'جداول درخواست‌ها و محدودیت ارسال در D1',ready:schemaReady},
    {id:'turnstile',label:'کلید عمومی و Secret ضدربات Turnstile',ready:!!e.TURNSTILE_SITE_KEY&&!!e.TURNSTILE_SECRET},
+   {id:'telegram',label:'ربات تلگرام و شناسه ادمین‌ها برای اعلان استعلام',ready:telegramConfigured(e)},
    {id:'rate',label:'کلید محرمانه محدودیت درخواست (حداقل ۲۴ کاراکتر)',ready:typeof e.INQUIRY_RATE_SALT==='string'&&e.INQUIRY_RATE_SALT.length>=24},
    {id:'hours',label:'روزهای کاری شنبه تا پنجشنبه در تهران',ready:clock.days.length===6},
    {id:'calendar',label:'تقویم تعطیلات معتبر و بازبینی‌شده تا امروز',ready:!!clock.verifiedThrough&&clock.verifiedThrough>=clock.date},
@@ -162,8 +222,23 @@ export async function adminInquiry(c,path){
    timezone:clock.timezone,checks});
  }
  if(path==='admin/inquiries'&&r.method==='GET'){
-  const result=await e.DB.prepare("SELECT id,customer_name,customer_phone,items_json,indicative_total_toman,rate_valid_until,status,admin_note,created_at,updated_at FROM purchase_inquiries ORDER BY created_at DESC LIMIT 80").all();
+  const result=await e.DB.prepare("SELECT i.id,i.customer_name,i.customer_phone,i.items_json,i.indicative_total_toman,i.rate_valid_until,i.status,i.admin_note,i.created_at,i.updated_at,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id) notification_total,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='sent') notification_sent,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='failed') notification_failed,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='pending') notification_pending FROM purchase_inquiries i ORDER BY i.created_at DESC LIMIT 80").all();
   return json({items:(result.results||[]).map(row=>({...row,items:JSON.parse(row.items_json)}))});
+ }
+ const notifyMatch=/^admin\/inquiries\/([a-f0-9-]{36})\/notify$/.exec(path);
+ if(notifyMatch&&r.method==='POST'){
+  const inquiryId=notifyMatch[1];
+  const exists=await e.DB.prepare('SELECT id FROM purchase_inquiries WHERE id=?').bind(inquiryId).first();
+  if(!exists)return json({error:'درخواست یافت نشد.'},404);
+  const recipients=telegramRecipients(e);
+  if(!telegramConfigured(e)||!recipients.length)return json({error:'تنظیم ربات تلگرام و شناسه دریافت‌کنندگان کامل نیست.'},503);
+  const now=Date.now();
+  for(const recipient of recipients){
+   await e.DB.prepare("INSERT OR IGNORE INTO purchase_inquiry_notifications(id,inquiry_id,channel,recipient_chat_id,status,attempts,last_error_code,created_at,updated_at) VALUES(?,?,'telegram',?,'pending',0,'',?,?)")
+    .bind(crypto.randomUUID(),inquiryId,recipient,now,now).run();
+  }
+  const result=await dispatchInquiryNotifications(e,inquiryId);
+  return json({updated:true,...result},result.failed?502:200);
  }
  const match=/^admin\/inquiries\/([a-f0-9-]{36})\/status$/.exec(path);
  if(match&&r.method==='PATCH'){
