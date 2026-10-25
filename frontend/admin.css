@@ -174,7 +174,7 @@ input[type=checkbox]{accent-color:var(--olive);width:17px;height:17px;flex:0 0 1
 .request-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) auto;gap:7px;margin-top:11px}
 .request-controls select,.request-controls input{min-width:0;min-height:38px;padding:7px 9px;font-size:10px}
 .request-controls .secondary{min-height:38px;padding:7px 10px;font-size:10px}
-.message{position:relative;z-index:2;margin:18px 0 0;padding:12px 15px;border:1px solid #d7e2ce;border-radius:10px;background:#f0f5eb;color:#365036;font-size:12px;line-height:1.8}
+.message{position:sticky;top:92px;z-index:60;margin:12px 0 16px;padding:12px 15px;border:1px solid #d7e2ce;border-radius:10px;background:#f0f5eb;color:#365036;font-size:12px;line-height:1.8}
 .message.error{background:var(--danger-bg);border-color:var(--danger-line);color:var(--danger)}
 .login-view{max-width:520px;margin:7vh auto 10vh}
 .login-card{position:relative;overflow:hidden;padding:40px clamp(22px,5vw,48px);background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:0 16px 50px rgba(38,49,40,.05)}
@@ -213,6 +213,7 @@ input[type=checkbox]{accent-color:var(--olive);width:17px;height:17px;flex:0 0 1
 }
 @media(max-width:620px){
   html{scroll-padding-top:82px}
+  .message{top:76px;margin:8px 0 12px}
   .wrap{width:calc(100% - 28px)}
   .mast-inner{min-height:68px;gap:12px}
   .logo{width:112px;max-height:48px}
