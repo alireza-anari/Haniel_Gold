@@ -182,6 +182,15 @@ export async function publicInquiry(c,path){
   .bind(inquiryId,name,phone,values,quoteValid?sum:null,quoteValid?Date.parse(pricing.validUntil):null,now,now).run();
  await e.DB.prepare('INSERT INTO purchase_inquiry_events(inquiry_id,from_status,to_status,created_at) VALUES(?,?,?,?)')
   .bind(inquiryId,null,'submitted',now).run();
+ // Outbound-only Telegram alerts. Customer contact details stay inside the authenticated admin panel.
+ // Delivery failures do not lose the inquiry; the admin panel can retry them.
+ try{
+  for(const recipient of telegramRecipients(e)){
+   await e.DB.prepare("INSERT OR IGNORE INTO purchase_inquiry_notifications(id,inquiry_id,channel,recipient_chat_id,status,attempts,last_error_code,created_at,updated_at) VALUES(?,?,'telegram',?,'pending',0,'',?,?)")
+    .bind(crypto.randomUUID(),inquiryId,recipient,now,now).run();
+  }
+  await dispatchInquiryNotifications(e,inquiryId);
+ }catch{/* Durable inquiry remains available to admins even if notification delivery fails. */}
  // No payment link or supplier stock confirmation is issued from a public request.
  return json({inquiryId,status:'submitted',indicativeTotalToman:quoteValid?sum:null,
   message:'درخواست بررسی ثبت شد. قیمت و موجودی هنوز تأیید نشده‌اند؛ تا اعلام مدیر پرداخت نکنید.'},201);
@@ -202,6 +211,7 @@ export async function adminInquiry(c,path){
   const checks=[
    {id:'schema',label:'جداول درخواست‌ها و محدودیت ارسال در D1',ready:schemaReady},
    {id:'turnstile',label:'کلید عمومی و Secret ضدربات Turnstile',ready:!!e.TURNSTILE_SITE_KEY&&!!e.TURNSTILE_SECRET},
+   {id:'telegram',label:'ربات تلگرام و شناسه ادمین‌ها برای اعلان استعلام',ready:telegramConfigured(e)},
    {id:'rate',label:'کلید محرمانه محدودیت درخواست (حداقل ۲۴ کاراکتر)',ready:typeof e.INQUIRY_RATE_SALT==='string'&&e.INQUIRY_RATE_SALT.length>=24},
    {id:'hours',label:'روزهای کاری شنبه تا پنجشنبه در تهران',ready:clock.days.length===6},
    {id:'calendar',label:'تقویم تعطیلات معتبر و بازبینی‌شده تا امروز',ready:!!clock.verifiedThrough&&clock.verifiedThrough>=clock.date},
@@ -212,8 +222,23 @@ export async function adminInquiry(c,path){
    timezone:clock.timezone,checks});
  }
  if(path==='admin/inquiries'&&r.method==='GET'){
-  const result=await e.DB.prepare("SELECT id,customer_name,customer_phone,items_json,indicative_total_toman,rate_valid_until,status,admin_note,created_at,updated_at FROM purchase_inquiries ORDER BY created_at DESC LIMIT 80").all();
+  const result=await e.DB.prepare("SELECT i.id,i.customer_name,i.customer_phone,i.items_json,i.indicative_total_toman,i.rate_valid_until,i.status,i.admin_note,i.created_at,i.updated_at,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id) notification_total,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='sent') notification_sent,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='failed') notification_failed,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='pending') notification_pending FROM purchase_inquiries i ORDER BY i.created_at DESC LIMIT 80").all();
   return json({items:(result.results||[]).map(row=>({...row,items:JSON.parse(row.items_json)}))});
+ }
+ const notifyMatch=/^admin\/inquiries\/([a-f0-9-]{36})\/notify$/.exec(path);
+ if(notifyMatch&&r.method==='POST'){
+  const inquiryId=notifyMatch[1];
+  const exists=await e.DB.prepare('SELECT id FROM purchase_inquiries WHERE id=?').bind(inquiryId).first();
+  if(!exists)return json({error:'درخواست یافت نشد.'},404);
+  const recipients=telegramRecipients(e);
+  if(!telegramConfigured(e)||!recipients.length)return json({error:'تنظیم ربات تلگرام و شناسه دریافت‌کنندگان کامل نیست.'},503);
+  const now=Date.now();
+  for(const recipient of recipients){
+   await e.DB.prepare("INSERT OR IGNORE INTO purchase_inquiry_notifications(id,inquiry_id,channel,recipient_chat_id,status,attempts,last_error_code,created_at,updated_at) VALUES(?,?,'telegram',?,'pending',0,'',?,?)")
+    .bind(crypto.randomUUID(),inquiryId,recipient,now,now).run();
+  }
+  const result=await dispatchInquiryNotifications(e,inquiryId);
+  return json({updated:true,...result},result.failed?502:200);
  }
  const match=/^admin\/inquiries\/([a-f0-9-]{36})\/status$/.exec(path);
  if(match&&r.method==='PATCH'){
