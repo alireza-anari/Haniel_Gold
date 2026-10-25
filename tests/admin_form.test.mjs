@@ -131,3 +131,11 @@ test('inquiry readiness UI is private and does not expose configuration secrets'
  assert.match(js,/Array\.isArray\(report\.checks\)/);
  assert.match(js,/state\.textContent=report\.accepting/);
 });
+
+test('admin inquiry cards expose Telegram delivery status and an authenticated retry action',()=>{
+ assert.match(js,/notification_failed/);
+ assert.match(js,/notification_pending/);
+ assert.match(js,/notificationTotal===0\|\|notificationFailed\|\|notificationPending/);
+ assert.match(js,/admin\/inquiries\/\'\+encodeURIComponent\(row\.id\)\+\'\/notify/);
+ assert.match(js,/ارسال مجدد اعلان به مدیران/);
+});
