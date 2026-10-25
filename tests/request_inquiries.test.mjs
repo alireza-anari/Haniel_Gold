@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {inquiryClock,inquiryAvailability,publicInquiry,inquirySchemaReady} from '../functions/_lib/request-inquiries.js';
+import {inquiryClock,inquiryAvailability,publicInquiry,inquirySchemaReady,telegramConfigured,telegramRecipients,dispatchInquiryNotifications} from '../functions/_lib/request-inquiries.js';
 import {handle} from '../functions/_lib/cloudflare-api.js';
 
 test('Tehran trading schedule: Sat–Wed 10–17, Thu 10–14, Friday closed',()=>{
@@ -18,13 +18,14 @@ test('Tehran trading schedule: Sat–Wed 10–17, Thu 10–14, Friday closed',()
 });
 const readyDb={prepare(query){
  return {bind(){return this;},async first(){
-  if(query.includes('sqlite_master'))return {table_count:3};
+  if(query.includes('sqlite_master'))return {table_count:4};
   return {csrf_token:'test-csrf',expires_at:Date.now()+60_000};
  }};
 }};
 const baseEnv={
  DB:{},REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'test',
  TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'abcdefghabcdefghabcdefgh',
+ TELEGRAM_BOT_TOKEN:'123456:abcdefghijklmnopqrstuvwxyzABCDE123456',TELEGRAM_ADMIN_CHAT_IDS:'12345678,-1001234567890',
  INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu',
  INQUIRY_CALENDAR_VERIFIED_UNTIL:'2026-11-30',
  INQUIRY_CLOSED_DATES:'2026-10-26'
@@ -41,7 +42,7 @@ test('calendar expiry, explicitly closed holiday and emergency switch prevent ne
 });
 test('supplier schedule must be explicitly configured before intake can activate',async()=>{
  const env={DB:readyDb,REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'test',TURNSTILE_SITE_KEY:'public-test',
- INQUIRY_RATE_SALT:'abcdefghabcdefghabcdefgh'};
+ INQUIRY_RATE_SALT:'abcdefghabcdefghabcdefgh',TELEGRAM_BOT_TOKEN:'123456:abcdefghijklmnopqrstuvwxyzABCDE123456',TELEGRAM_ADMIN_CHAT_IDS:'12345678'};
  const url='https://example.com/api/v1/inquiries/settings';
  let response=await handle({request:new Request(url),env});
  assert.equal((await response.json()).enabled,false);
@@ -60,7 +61,7 @@ test('payment-less request intake is disabled unless actively opted in',async()=
 });
 test('request settings never reveal secrets or imply stock is reserved',async()=>{
  const env={DB:readyDb,REQUESTS_ENABLED:'1',TURNSTILE_SECRET:'PRIVATE',
-  TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'01234567890123456789012345',INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu',INQUIRY_CALENDAR_VERIFIED_UNTIL:'2099-12-31'};
+  TURNSTILE_SITE_KEY:'public-test-site-key',INQUIRY_RATE_SALT:'01234567890123456789012345',TELEGRAM_BOT_TOKEN:'123456:abcdefghijklmnopqrstuvwxyzABCDE123456',TELEGRAM_ADMIN_CHAT_IDS:'12345678',INQUIRY_OPEN_DAYS:'sat,sun,mon,tue,wed,thu',INQUIRY_CALENDAR_VERIFIED_UNTIL:'2099-12-31'};
  const result=await handle({request:new Request('https://example.com/api/v1/inquiries/settings'),env});
  assert.equal(result.status,200);
  const x=await result.json();
@@ -119,4 +120,75 @@ test('private readiness checklist is available only to authenticated admin and r
 });
 test('short rate-limiting salt must not enable intake',()=>{
  assert.equal(inquiryAvailability({...baseEnv,INQUIRY_RATE_SALT:'too-short'},Date.parse('2026-10-24T06:30:00Z')).enabled,false);
+});
+
+test('Telegram notification configuration requires a valid token and one to five unique chat IDs',()=>{
+ assert.equal(telegramConfigured(baseEnv),true);
+ assert.deepEqual(telegramRecipients({...baseEnv,TELEGRAM_ADMIN_CHAT_IDS:'12345678,12345678'}),[]);
+ assert.deepEqual(telegramRecipients({...baseEnv,TELEGRAM_ADMIN_CHAT_IDS:'12345678,abc'}),[]);
+ assert.equal(telegramConfigured({...baseEnv,TELEGRAM_BOT_TOKEN:''}),false);
+});
+test('new inquiry Telegram alerts exclude customer contact details and track each admin delivery',async t=>{
+ const deliveries=[],updates=[];
+ t.mock.method(globalThis,'fetch',async(url,options)=>{
+  deliveries.push({url:String(url),payload:JSON.parse(options.body)});
+  return new Response(JSON.stringify({ok:true,result:{message_id:42}}),{status:200,headers:{'content-type':'application/json'}});
+ });
+ const inquiryId='123e4567-e89b-12d3-a456-426614174000';
+ const items=JSON.stringify([{slug:'gold-bracelet',name:'دستبند شبدر',quantity:2}]);
+ const DB={prepare(sql){
+  let args=[];
+  return {bind(...values){args=values;return this;},
+   async all(){return {results:[
+    {id:'n1',recipient_chat_id:'12345678',items_json:items},
+    {id:'n2',recipient_chat_id:'-1001234567890',items_json:items}
+   ]};},
+   async run(){updates.push({sql,args});return {meta:{changes:1}};}
+  };
+ }};
+ const env={...baseEnv,DB,TELEGRAM_ADMIN_CHAT_IDS:'12345678,-1001234567890',ADMIN_PANEL_URL:'https://haniel.example/admin'};
+ const result=await dispatchInquiryNotifications(env,inquiryId);
+ assert.deepEqual(result,{sent:2,failed:0});
+ assert.equal(deliveries.length,2);
+ for(const delivery of deliveries){
+  assert.match(delivery.url,/api\.telegram\.org\/bot123456:/);
+  assert.match(delivery.payload.text,/استعلام موجودی جدید/);
+  assert.match(delivery.payload.text,/دستبند شبدر/);
+  assert.match(delivery.payload.text,/پنل مدیریت/);
+  assert.doesNotMatch(delivery.payload.text,/09123456789|نام مشتری|customer_phone/);
+ }
+ assert.equal(updates.filter(x=>x.sql.includes("status='sent'")).length,2);
+});
+test('missing consent is rejected before Turnstile or database writes',async t=>{
+ t.mock.method(Date,'now',()=>Date.parse('2026-10-24T06:30:00Z'));
+ const response=await handle({request:new Request('https://example.com/api/v1/inquiries',{
+  method:'POST',headers:{'cf-connecting-ip':'203.0.113.10','content-type':'application/json'},
+  body:JSON.stringify({name:'نام معتبر',phone:'09123456789',items:[{slug:'gold-bracelet',quantity:1}],turnstileToken:'not-a-real-token'})
+ }),env:{...baseEnv,DB:readyDb}});
+ assert.equal(response.status,400);
+ assert.match((await response.json()).error,/تأیید استفاده از اطلاعات تماس/);
+});
+test('failed Telegram sends remain retryable and store only a generic error code',async t=>{
+ const updates=[];
+ t.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({ok:false}),{status:200,headers:{'content-type':'application/json'}}));
+ const DB={prepare(sql){
+  let args=[];
+  return {bind(...values){args=values;return this;},
+   async all(){return {results:[{id:'n-failed',recipient_chat_id:'12345678',items_json:JSON.stringify([{name:'گوشواره شبدر',quantity:1}])}]}},
+   async run(){updates.push({sql,args});return {meta:{changes:1}};}
+  };
+ }};
+ const result=await dispatchInquiryNotifications({...baseEnv,DB,TELEGRAM_ADMIN_CHAT_IDS:'12345678'},'123e4567-e89b-12d3-a456-426614174000');
+ assert.deepEqual(result,{sent:0,failed:1});
+ const failure=updates.find(x=>x.sql.includes("status='failed'"));
+ assert.ok(failure);
+ assert.equal(failure.args[0],'telegram_rejected');
+ assert.doesNotMatch(failure.args.join(' '),/09123456789|PRIVATE|customer_name/i);
+});
+test('new migration creates retryable Telegram notification delivery records',()=>{
+ const sql=readFileSync(new URL('../cloudflare/0005_inquiry_notifications.sql',import.meta.url),'utf8');
+ assert.match(sql,/CREATE TABLE IF NOT EXISTS purchase_inquiry_notifications/);
+ assert.match(sql,/recipient_chat_id TEXT NOT NULL/);
+ assert.match(sql,/status IN \('pending','sent','failed'\)/);
+ assert.match(sql,/UNIQUE\(inquiry_id,channel,recipient_chat_id\)/);
 });
