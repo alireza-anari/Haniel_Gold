@@ -36,23 +36,25 @@ export async function dispatchInquiryNotifications(env,inquiryId){
  const recipients=telegramRecipients(env);
  if(!telegramConfigured(env)||!recipients.length)return {sent:0,failed:0};
  const query=await env.DB.prepare("SELECT n.id,n.recipient_chat_id,i.items_json FROM purchase_inquiry_notifications n JOIN purchase_inquiries i ON i.id=n.inquiry_id WHERE n.inquiry_id=? AND n.status IN ('pending','failed') ORDER BY n.created_at").bind(inquiryId).all();
- let sent=0,failed=0,items=[];
+ let items=[];
  try{items=JSON.parse(query.results?.[0]?.items_json||'[]');}catch{}
- const lines=items.slice(0,8).map(x=>'• '+String(x.name||x.slug||'محصول')+' — '+String(x.quantity||1)+' عدد').join('\n');
+ const lines=items.slice(0,8).map(x=>'• '+String(x.name||x.slug||'محصول')+' — '+String(x.quantity||1)+' عدد').join('\\n');
  const adminUrl=inquiryAdminUrl(env);
- const message=['🛍️ HANI-EL GOLD | استعلام موجودی جدید','شناسه: '+inquiryId,'محصولات:',lines||'برای مشاهده اقلام وارد پنل مدیریت شوید.','برای مشاهده نام و شماره مشتری، فقط از پنل مدیریت وارد شوید.',...(adminUrl?['پنل مدیریت: '+adminUrl]:[])].join('\n');
- for(const row of query.results||[]){
+ const message=['🛍️ HANI-EL GOLD | استعلام موجودی جدید','شناسه: '+inquiryId,'محصولات:',lines||'برای مشاهده اقلام وارد پنل مدیریت شوید.','برای مشاهده نام و شماره مشتری، فقط از پنل مدیریت وارد شوید.',...(adminUrl?['پنل مدیریت: '+adminUrl]:[])].join('\\n');
+ // Deliver in parallel so five configured admins cannot multiply the request timeout.
+ const outcomes=await Promise.all((query.results||[]).map(async row=>{
   const now=Date.now();
   await env.DB.prepare("UPDATE purchase_inquiry_notifications SET attempts=attempts+1,status='pending',last_error_code='',updated_at=? WHERE id=?").bind(now,row.id).run();
   const result=await deliverTelegram(env,row.recipient_chat_id,message);
   if(result.ok){
    const sentAt=Date.now();
-   await env.DB.prepare("UPDATE purchase_inquiry_notifications SET status='sent',last_error_code='',sent_at=?,updated_at=? WHERE id=?").bind(sentAt,sentAt,row.id).run();sent++;
-  }else{
-   await env.DB.prepare("UPDATE purchase_inquiry_notifications SET status='failed',last_error_code=?,updated_at=? WHERE id=?").bind(result.code||'telegram_failed',Date.now(),row.id).run();failed++;
+   await env.DB.prepare("UPDATE purchase_inquiry_notifications SET status='sent',last_error_code='',sent_at=?,updated_at=? WHERE id=?").bind(sentAt,sentAt,row.id).run();
+   return 'sent';
   }
- }
- return {sent,failed};
+  await env.DB.prepare("UPDATE purchase_inquiry_notifications SET status='failed',last_error_code=?,updated_at=? WHERE id=?").bind(result.code||'telegram_failed',Date.now(),row.id).run();
+  return 'failed';
+ }));
+ return {sent:outcomes.filter(x=>x==='sent').length,failed:outcomes.filter(x=>x==='failed').length};
 }
 
 // Store hours are Tehran-local, regardless of browser or Cloudflare region.
@@ -238,7 +240,7 @@ export async function adminInquiry(c,path){
     .bind(crypto.randomUUID(),inquiryId,recipient,now,now).run();
   }
   const result=await dispatchInquiryNotifications(e,inquiryId);
-  return json({updated:true,...result},result.failed?502:200);
+  return json({updated:true,...result},200);
  }
  const match=/^admin\/inquiries\/([a-f0-9-]{36})\/status$/.exec(path);
  if(match&&r.method==='PATCH'){
