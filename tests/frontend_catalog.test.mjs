@@ -65,13 +65,13 @@ test('public price information avoids internal cost, margin and profit',()=>{
  const formatMoney=x=>Number.isSafeInteger(x)?x.toLocaleString('fa-IR')+' تومان':'—';
  const esc=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
  const prod=normal({...base,price:{amountToman:1340000,updatedAt:now,validUntil:future,source:'servix_18k'}});
- const html=vm.runInNewContext(ledger+'\\nproductLedger(prod)',{prod,Date,Intl,Number,formatMoney,esc});
+ const html=vm.runInNewContext(ledger+'\nproductLedger(prod)',{prod,Date,Intl,Number,formatMoney,esc});
  assert.match(html,/قیمت اعلامی ویترین/);
  assert.match(html,/زمان نرخ/);
  assert.match(html,/منبع نرخ/);
- assert.match(html,/https:\\/\\/servix\\.cc\\//);
+ assert.ok(html.includes('https://servix.cc/'));
  assert.doesNotMatch(html,/سود این محصول|مبلغ سود|درصد سود|مبلغ اجرت|درصد اجرت|مالیات طبق سیاست/);
- const old=vm.runInNewContext(ledger+'\\nproductLedger(prod)',{
+ const old=vm.runInNewContext(ledger+'\nproductLedger(prod)',{
   prod:{...prod,priceExpiresAt:Date.now()-1000},Date,Intl,Number,formatMoney,esc
  });
  assert.doesNotMatch(old,/قیمت اعلامی ویترین/);
