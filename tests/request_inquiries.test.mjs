@@ -17,7 +17,7 @@ test('Tehran trading schedule: Sat–Wed 10–17, Thu 10–14, Friday closed',()
  assert.equal(inquiryClock().timezone,'Asia/Tehran');
 });
 const readyDb={prepare(query){
- return {async first(){
+ return {bind(){return this;},async first(){
   if(query.includes('sqlite_master'))return {table_count:3};
   return {csrf_token:'test-csrf',expires_at:Date.now()+60_000};
  }};
