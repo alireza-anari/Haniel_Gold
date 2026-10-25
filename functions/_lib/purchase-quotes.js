@@ -31,6 +31,18 @@ export async function adminQuote(c,path){
  const {request:r,env:e}=c;
  const match=/^admin\/inquiries\/([0-9a-f-]{36})\/quote$/.exec(path);
  if(!match||!uuid.test(match[1]))return response({error:'مسیر یافت نشد.'},404);
+ if(r.method==='GET'){
+  try{
+   const row=await e.DB.prepare(
+    "SELECT items_total_toman,delivery_toman,final_total_toman,valid_until,supply_hold_until,created_at FROM purchase_inquiry_quotes WHERE inquiry_id=?")
+    .bind(match[1]).first();
+   return response({quote:row?{
+    itemsTotalToman:row.items_total_toman,deliveryToman:row.delivery_toman,
+    finalTotalToman:row.final_total_toman,validUntilMs:row.valid_until,
+    supplyHoldUntilMs:row.supply_hold_until,createdAt:row.created_at,valid:row.valid_until>Date.now()&&row.supply_hold_until>Date.now()
+   }:null,paymentEnabled:false});
+  }catch{return response({quote:null,paymentEnabled:false,missingMigration:true});}
+ }
  if(r.method!=='POST')return response({error:'روش درخواست مجاز نیست.'},405);
  if(Number(r.headers.get('content-length')||0)>4000)return response({error:'اندازه اطلاعات معتبر نیست.'},413);
  let input;try{const body=await r.text();if(body.length>4000)return response({error:'اندازه اطلاعات معتبر نیست.'},413);input=JSON.parse(body);}
