@@ -1,7 +1,7 @@
 /* HANI-EL GOLD Cloudflare admin; all writes use same-origin credentials + CSRF. */
 'use strict';
 const $=s=>document.querySelector(s);
-const store={csrf:'',products:[],categories:[],editing:null,pricingReady:false};
+const store={csrf:'',products:[],categories:[],inquiries:null,editing:null,pricingReady:false,photoPreviewUrl:''};
 const views=['#login-view','#offline-view','#dashboard'];
 function view(id){for(const s of views)$(s).hidden=s!==id;}
 function note(message,error=false){const n=$('#message');n.hidden=false;n.classList.toggle('error',error);n.textContent=message;n.scrollIntoView({block:'nearest',behavior:'smooth'});}
@@ -29,8 +29,37 @@ function percentToBps(f,name){
   throw Error('درصد اجرت و سود باید بین صفر تا ۱۰۰ با حداکثر دو رقم اعشار باشد.');
  return rounded;
 }
+function clearPhotoPreview(){
+ if(store.photoPreviewUrl){URL.revokeObjectURL(store.photoPreviewUrl);store.photoPreviewUrl='';}
+ const file=$('#photo-file'),preview=$('#photo-preview'),image=$('#photo-preview-img');
+ if(file)file.value='';
+ if(image)image.removeAttribute('src');
+ if(preview)preview.hidden=true;
+ const name=$('#photo-preview-name'),size=$('#photo-preview-size');
+ if(name)name.textContent='';
+ if(size)size.textContent='';
+}
+function previewSelectedPhoto(){
+ const file=$('#photo-file')?.files?.[0];
+ const preview=$('#photo-preview'),image=$('#photo-preview-img');
+ if(!file||!preview||!image){clearPhotoPreview();return;}
+ if(store.photoPreviewUrl)URL.revokeObjectURL(store.photoPreviewUrl);
+ store.photoPreviewUrl=URL.createObjectURL(file);
+ image.src=store.photoPreviewUrl;
+ $('#photo-preview-name').textContent=file.name;
+ $('#photo-preview-size').textContent=fa(Math.max(1,Math.round(file.size/1024)))+' کیلوبایت';
+ preview.hidden=false;
+}
+function updateDashboardStats(){
+ const put=(selector,value)=>{const el=$(selector);if(el)el.textContent=value;};
+ put('#stat-products',fa(store.products.length));
+ put('#stat-published',fa(store.products.filter(p=>p.published).length));
+ put('#stat-categories',fa(store.categories.length));
+ put('#stat-inquiries',store.inquiries===null?'—':fa(store.inquiries.length));
+}
 function resetForm(){
  const f=$('#product-form');f.reset();field(f,'slug').readOnly=false;store.editing=null;
+ clearPhotoPreview();
  $('#edit-status').textContent='ثبت محصول جدید';clearNote();
 }
 function drawCategories(){
@@ -66,11 +95,39 @@ function drawCategories(){
  select.value=chosen||'';
 }
 function drawProducts(){
- const list=$('#product-list');list.replaceChildren();
- if(!store.products.length){list.append(make('p','هنوز محصولی ثبت نشده است.','muted'));return;}
- for(const p of store.products){
-  const row=make('div',null,'catalogue-item'),name=make('div',null,'catalogue-item-details');
+ const list=$('#product-list'),count=$('#product-count');
+ list.replaceChildren();
+ const query=($('#product-search')?.value||'').trim().toLocaleLowerCase('fa-IR');
+ const filter=$('#product-filter')?.value||'all';
+ const visible=store.products.filter(p=>{
+  if(filter==='published'&&!p.published)return false;
+  if(filter==='draft'&&p.published)return false;
+  if(!query)return true;
+  const category=store.categories.find(c=>String(c.id)===String(p.categoryId));
+  return [p.name,p.id,category?.title].filter(Boolean).join(' ').toLocaleLowerCase('fa-IR').includes(query);
+ });
+ if(count)count.textContent=fa(visible.length)+' مورد از '+fa(store.products.length)+' محصول';
+ if(!store.products.length){
+  list.append(make('p','هنوز محصولی ثبت نشده است. از فرم بالا اولین محصول را اضافه کن.','empty-state'));
+  return;
+ }
+ if(!visible.length){
+  list.append(make('p','محصولی با این جست‌وجو یا فیلتر پیدا نشد.','empty-state'));
+  return;
+ }
+ for(const p of visible){
+  const row=make('article',null,'catalogue-item'),name=make('div',null,'catalogue-item-details');
+  const src=String(p.images?.[0]||'');
+  let thumb;
+  if((src.startsWith('/')&&!src.startsWith('//'))||/^https:\/\//i.test(src)){
+   thumb=make('img',null,'catalogue-thumb');thumb.src=src;thumb.alt=p.name||'تصویر محصول';thumb.loading='lazy';thumb.decoding='async';
+   thumb.addEventListener('error',()=>{const fallback=make('div','✧','catalogue-thumb-placeholder');fallback.setAttribute('aria-hidden','true');thumb.replaceWith(fallback);},{once:true});
+  }else{
+   thumb=make('div','✧','catalogue-thumb-placeholder');thumb.setAttribute('aria-hidden','true');
+  }
   const title=make('strong',p.name);
+  const status=make('span',p.published?'منتشرشده':'پیش‌نویس','status-pill '+(p.published?'is-live':'is-draft'));
+  const category=store.categories.find(c=>String(c.id)===String(p.categoryId));
   const grams=p.weightGrams==null?'وزن ثبت نشده':fa(p.weightGrams)+' گرم';
   const making=p.makingFeeBps==null?'اجرت نامشخص':fa(p.makingFeeBps/100)+'٪ اجرت';
   const profit=p.profitBps==null?'سود نامشخص':fa(p.profitBps/100)+'٪ سود';
@@ -81,10 +138,9 @@ function drawProducts(){
    :manual?'مبلغ تأییدشده دستی: '+fa(p.price.amountToman)+' تومان'
    :readiness.missing?.length?'ناقص: '+readiness.missing.join('، ')
    :!store.pricingReady?'در انتظار نرخ معتبر و سیاست مالی تأییدشده':'قیمت معتبر در دسترس نیست';
-  name.append(title,
-   make('small',(p.published?'منتشرشده':'پیش‌نویس')+' · '+grams),
-   make('small',making+' · '+profit),
-   make('small',price,'pricing-readiness'));
+  const meta=make('div',null,'catalogue-meta');meta.append(status);
+  if(category)meta.append(make('small',category.title));
+  name.append(title,meta,make('small',grams+' · '+making+' · '+profit),make('small',price,'pricing-readiness'));
   if(auto&&p.price.breakdown){
    const summary=make('details',null,'admin-price-breakdown');
    summary.append(make('summary','ریز محاسبه همین محصول'));
@@ -97,8 +153,8 @@ function drawProducts(){
    for(const [label,value] of rows)summary.append(make('p',label+' — '+fa(value)+' تومان'));
    name.append(summary);
   }
-  const edit=make('button','ویرایش','text-button');edit.type='button';edit.addEventListener('click',()=>editProduct(p.id));
-  row.append(name,edit);list.append(row);
+  const edit=make('button','ویرایش','secondary edit-product');edit.type='button';edit.addEventListener('click',()=>editProduct(p.id));
+  row.append(thumb,name,edit);list.append(row);
  }
 }
 const inquiryStateLabels={
@@ -119,6 +175,7 @@ async function refreshInquiries(){
  target.replaceChildren();
  try{
   const data=await api('/admin/inquiries'),items=data.items||[];
+  store.inquiries=items;updateDashboardStats();
   if(!items.length){target.append(make('p','هنوز درخواست بررسی ثبت نشده است.','muted'));return;}
   for(const row of items){
    const card=make('article',null,'catalogue-item'),details=make('div',null,'catalogue-item-details');
@@ -147,7 +204,7 @@ async function refreshInquiries(){
    }
    card.append(details);target.append(card);
   }
- }catch(err){target.append(make('p','بخش درخواست‌ها هنوز آماده نیست: '+err.message,'muted'));}
+ }catch(err){store.inquiries=null;updateDashboardStats();target.append(make('p','بخش درخواست‌ها هنوز آماده نیست: '+err.message,'empty-state'));}
 }
 async function reload(){
  const [cats,products]=await Promise.all([api('/admin/categories'),api('/admin/products')]);
