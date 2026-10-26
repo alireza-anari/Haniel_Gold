@@ -232,6 +232,7 @@ async function refreshInquiries(){
     (p.indicativeUnitToman==null?'نامعتبر / در انتظار بررسی':fa(p.indicativeUnitToman)+' تومان')));
    if(row.indicative_total_toman!=null)details.append(make('small','جمع تقریبی هنگام درخواست: '+fa(row.indicative_total_toman)+' تومان (غیرقطعی)'));
    if(row.admin_note)details.append(make('small','یادداشت مدیریت: '+row.admin_note));
+   if(row.customer_response)details.append(make('small',row.customer_response==='accepted'?'پاسخ مشتری: موافقت با قیمت و درخواست ادامه خرید ثبت شده؛ هنوز سفارش یا پرداختی ایجاد نشده است.':'پاسخ مشتری: پیشنهاد را رد کرده است.'));
    const notificationTotal=Number(row.notification_total||0),notificationSent=Number(row.notification_sent||0);
    const notificationFailed=Number(row.notification_failed||0),notificationPending=Number(row.notification_pending||0);
    if(notificationTotal===0)details.append(make('small','اعلان ربات هنوز ثبت نشده است.','notification-warning'));
@@ -295,6 +296,20 @@ async function refreshInquiries(){
      }catch(err){note(err.message,true);save.disabled=false;}
     });
     details.append(quoteForm);
+   }
+   if(['quote_prepared','quote_sent'].includes(row.status)&&!row.customer_response){
+    const share=make('button',row.status==='quote_sent'?'ساخت لینک تازه برای مشتری':'ساخت لینک امن برای مشتری','secondary');share.type='button';
+    share.addEventListener('click',async()=>{
+     if(row.status==='quote_sent'&&!confirm('ساخت لینک تازه، لینک قبلی را باطل می‌کند. ادامه می‌دهی؟'))return;
+     share.disabled=true;
+     try{
+      const result=await api('/admin/inquiries/'+encodeURIComponent(row.id)+'/quote-link',{method:'POST',data:{}});
+      const url=String(result.customerQuoteUrl||'');if(!url)throw Error('لینک پیشنهاد از سرور دریافت نشد.');
+      try{await navigator.clipboard.writeText(url);note('لینک امن پیشنهاد کپی شد. پس از ارسال واقعی به مشتری، وضعیت را «پیشنهاد ارسال شد» کن.');}
+      catch{window.prompt('لینک امن پیشنهاد را کپی و برای مشتری ارسال کن:',url);note('لینک امن پیشنهاد ساخته شد. پس از ارسال واقعی به مشتری، وضعیت را «پیشنهاد ارسال شد» کن.');}
+     }catch(err){note(err.message,true);share.disabled=false;}
+    });
+    details.append(share,make('small','لینک فقط تا اعتبار پیشنهاد فعال است؛ ساخت لینک تازه، لینک قبلی را باطل می‌کند.'));
    }
    const next=inquiryTransitions[row.status]||[];
    if(next.length){

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {inquiryClock,inquiryAvailability,publicInquiry,inquirySchemaReady,telegramConfigured,telegramRecipients,dispatchInquiryNotifications} from '../functions/_lib/request-inquiries.js';
 import {handle} from '../functions/_lib/cloudflare-api.js';
-import {validateQuote,adminQuote} from '../functions/_lib/purchase-quotes.js';
+import {validateQuote,adminQuote,adminQuoteLink,publicQuote,respondToQuote} from '../functions/_lib/purchase-quotes.js';
 
 test('Tehran trading schedule: Sat–Wed 10–17, Thu 10–14, Friday closed',()=>{
  const time=t=>new Date(t).getTime();
@@ -261,4 +261,107 @@ test('quote preparation D1 migration is schema-only and preserves inquiry rows',
  assert.match(sql,/CREATE TABLE IF NOT EXISTS purchase_inquiry_quotes/);
  assert.match(sql,/inquiry_id TEXT NOT NULL UNIQUE/);
  assert.doesNotMatch(sql,/\bDELETE FROM\b|\bINSERT INTO\b|\bDROP TABLE\b|\bUPDATE\b/i);
+});
+
+
+test('secure customer quote link exposes only quote details and records a non-payment response',async()=>{
+ const now=Date.now(),inquiryId='123e4567-e89b-42d3-a456-426614174000';
+ let status='quote_prepared',storedHash='',expiresAt=0,responseRow=null;
+ const quoteRow={valid_until:now+5*60_000,supply_hold_until:now+10*60_000,
+  delivery_toman:100000,final_total_toman:8300000,
+  items_json:JSON.stringify([{slug:'gold-bracelet',name:'دستبند شبدر',quantity:2,weightMg:1200,karat:18,makingFeeBps:900,profitBps:700,indicativeUnitToman:4000000}])};
+ const DB={prepare(sql){
+  let args=[];
+  return {bind(...values){args=values;return this;},
+   async first(){
+    if(sql.includes('FROM purchase_inquiries i JOIN purchase_inquiry_quotes q'))
+     return {status,valid_until:quoteRow.valid_until,supply_hold_until:quoteRow.supply_hold_until,response:responseRow?.response||null};
+    if(sql.includes('FROM purchase_quote_access a')){
+     if(!storedHash||args[0]!==storedHash)return null;
+     return {inquiry_id:inquiryId,status,items_json:quoteRow.items_json,delivery_toman:quoteRow.delivery_toman,
+      final_total_toman:quoteRow.final_total_toman,valid_until:quoteRow.valid_until,
+      supply_hold_until:quoteRow.supply_hold_until,expires_at:expiresAt,response:responseRow?.response||null};
+    }
+    return null;
+   },
+   async run(){
+    if(sql.includes('INSERT INTO purchase_quote_access')){storedHash=args[1];expiresAt=args[3];return {meta:{changes:1}};}
+    if(sql.includes('INSERT INTO purchase_quote_responses')){
+     if(responseRow)return {meta:{changes:0}};
+     responseRow={response:args[1],responded_at:args[2],acknowledged:args[3]};return {meta:{changes:1}};
+    }
+    return {meta:{changes:1}};
+   }
+  };
+ }};
+ const linkResponse=await adminQuoteLink({
+  request:new Request('https://shop.example/api/v1/admin/inquiries/'+inquiryId+'/quote-link',{method:'POST'}),
+  env:{DB}
+ },'admin/inquiries/'+inquiryId+'/quote-link');
+ assert.equal(linkResponse.status,201);
+ const linkData=await linkResponse.json();
+ const url=new URL(linkData.customerQuoteUrl);
+ const token=url.hash.split('/').pop();
+ assert.match(token,/^[A-Za-z0-9_-]{43}$/);
+ assert.equal(url.searchParams.get('catalog'),'live');
+ assert.notEqual(storedHash,token);
+ status='quote_sent';
+ const quoteResponse=await publicQuote({
+  request:new Request('https://shop.example/api/v1/quotes/'+token),
+  env:{DB}
+ },'quotes/'+token);
+ assert.equal(quoteResponse.status,200);
+ const publicData=await quoteResponse.json();
+ assert.equal(publicData.quote.finalTotalToman,8300000);
+ assert.deepEqual(publicData.quote.items,[{name:'دستبند شبدر',quantity:2}]);
+ assert.equal(publicData.paymentEnabled,false);
+ assert.equal(publicData.orderCreated,false);
+ assert.doesNotMatch(JSON.stringify(publicData),/customer_phone|customer_name|makingFeeBps|profitBps|09123456789/);
+ const accepted=await respondToQuote({
+  request:new Request('https://shop.example/api/v1/quotes/'+token+'/respond',{
+   method:'POST',headers:{origin:'https://shop.example','content-type':'application/json'},
+   body:JSON.stringify({response:'accepted',acknowledged:true})
+  }),env:{DB}
+ },'quotes/'+token+'/respond');
+ assert.equal(accepted.status,201);
+ const acceptedData=await accepted.json();
+ assert.equal(acceptedData.response,'accepted');
+ assert.equal(acceptedData.orderCreated,false);
+ assert.equal(acceptedData.paymentEnabled,false);
+ const repeated=await respondToQuote({
+  request:new Request('https://shop.example/api/v1/quotes/'+token+'/respond',{
+   method:'POST',headers:{origin:'https://shop.example','content-type':'application/json'},
+   body:JSON.stringify({response:'declined'})
+  }),env:{DB}
+ },'quotes/'+token+'/respond');
+ assert.equal(repeated.status,409);
+});
+test('quote response rejects cross-origin requests and requires explicit acceptance acknowledgement',async()=>{
+ const token='A'.repeat(43),inquiryId='123e4567-e89b-42d3-a456-426614174000';
+ const DB={prepare(sql){return {bind(){return this;},async first(){return {
+  inquiry_id:inquiryId,status:'quote_sent',valid_until:Date.now()+60_000,
+  supply_hold_until:Date.now()+120_000,expires_at:Date.now()+60_000,response:null
+ };},async run(){return {meta:{changes:1}};}};}};
+ const crossOrigin=await respondToQuote({
+  request:new Request('https://shop.example/api/v1/quotes/'+token+'/respond',{
+   method:'POST',headers:{origin:'https://attacker.example','content-type':'application/json'},
+   body:JSON.stringify({response:'accepted',acknowledged:true})
+  }),env:{DB}
+ },'quotes/'+token+'/respond');
+ assert.equal(crossOrigin.status,403);
+ const missingAcknowledgement=await respondToQuote({
+  request:new Request('https://shop.example/api/v1/quotes/'+token+'/respond',{
+   method:'POST',headers:{origin:'https://shop.example','content-type':'application/json'},
+   body:JSON.stringify({response:'accepted',acknowledged:false})
+  }),env:{DB}
+ },'quotes/'+token+'/respond');
+ assert.equal(missingAcknowledgement.status,400);
+});
+test('quote-sharing migration stores only token hashes and no payment data',()=>{
+ const sql=readFileSync(new URL('../cloudflare/0007_quote_sharing.sql',import.meta.url),'utf8');
+ assert.match(sql,/CREATE TABLE IF NOT EXISTS purchase_quote_access/);
+ assert.match(sql,/token_hash TEXT NOT NULL UNIQUE/);
+ assert.match(sql,/CREATE TABLE IF NOT EXISTS purchase_quote_responses/);
+ assert.match(sql,/CHECK\(response IN \('accepted','declined'\)\)/);
+ assert.doesNotMatch(sql,/payment_card|bank_password|payment_verified|token TEXT/i);
 });

@@ -1,6 +1,6 @@
 import { MarketError, marketPublic, marketAdmin, syncRate, approvePendingRate, approvePricingPolicy, dynamicContext, calculatePrice } from './gold-market.js';
 import {publicInquiry,adminInquiry} from './request-inquiries.js';
-import {adminQuote} from './purchase-quotes.js';
+import {adminQuote,adminQuoteLink,publicQuote,respondToQuote} from './purchase-quotes.js';
 // HANI-EL GOLD — Cloudflare-native catalogue API. No live orders/payments/Servix.
 const C='haniel_admin_session';
 const j=(x,status=200,headers={})=>new Response(JSON.stringify(x),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff','x-robots-tag':'noindex, nofollow',...headers}});
@@ -95,6 +95,8 @@ async function route(c){
  const path=url.pathname.slice('/api/v1/'.length).replace(/\/$/,'');
  if(path==='health'&&method==='GET')return j({status:'ok',runtime:'cloudflare-pages-functions',database:!!e.DB});
  if(!e.DB)return err('دیتابیس D1 به پروژه Cloudflare متصل نشده است.',503);
+ if(/^quotes\/[A-Za-z0-9_-]{43}$/.test(path)&&method==='GET')return publicQuote(c,path);
+ if(/^quotes\/[A-Za-z0-9_-]{43}\/respond$/.test(path)&&method==='POST')return respondToQuote(c,path);
  if(path==='inquiries/settings'&&method==='GET'||path==='inquiries'&&method==='POST')return publicInquiry(c,path);
  if(path==='admin/login'&&method==='POST')return login(c);
  if(path==='admin/session'&&method==='GET'){const s=await admin(c);return j(s?{authenticated:true,csrfToken:s.csrf}:{authenticated:false});}
@@ -129,6 +131,7 @@ async function route(c){
  if(!path.startsWith('admin/'))return err('مسیر موجود نیست.',404);
  const s=await admin(c);if(!s)return err('ابتدا وارد پنل مدیریت شوید.',401);
  if(method!=='GET'&&(!sameOrigin(r)||!equal(r.headers.get('x-haniel-csrf'),s.csrf)))return err('درخواست امنیتی معتبر نیست.',403);
+ if(/^admin\/inquiries\/[0-9a-f-]{36}\/quote-link$/.test(path))return adminQuoteLink(c,path);
  if(/^admin\/inquiries\/[0-9a-f-]{36}\/quote$/.test(path))return adminQuote(c,path);
  if(path.startsWith('admin/inquiries'))return adminInquiry(c,path);
  if(path==='admin/logout'&&method==='POST'){await e.DB.prepare('DELETE FROM admin_sessions WHERE token_hash=?').bind(s.hash).run();return j({authenticated:false},200,{'set-cookie':setCookie(r,'',0)});}

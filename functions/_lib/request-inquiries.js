@@ -210,8 +210,14 @@ export async function adminInquiry(c,path){
  if(path==='admin/inquiries/readiness'&&r.method==='GET'){
   const clock=inquiryAvailability(e);
   const schemaReady=await inquirySchemaReady(e);
+  let quoteSharingReady=false;
+  try{
+   const shareSchema=await e.DB.prepare("SELECT COUNT(*) AS table_count FROM sqlite_master WHERE type='table' AND name IN ('purchase_quote_access','purchase_quote_responses')").first();
+   quoteSharingReady=Number(shareSchema?.table_count)===2;
+  }catch{}
   const checks=[
    {id:'schema',label:'جداول درخواست، اعلان ربات، محدودیت ارسال و پیشنهاد قیمت در D1',ready:schemaReady},
+   {id:'quote_sharing',label:'جداول لینک امن پیشنهاد و پاسخ مشتری در D1',ready:quoteSharingReady},
    {id:'turnstile',label:'کلید عمومی و Secret ضدربات Turnstile',ready:!!e.TURNSTILE_SITE_KEY&&!!e.TURNSTILE_SECRET},
    {id:'telegram',label:'ربات تلگرام و شناسه ادمین‌ها برای اعلان استعلام',ready:telegramConfigured(e)},
    {id:'rate',label:'کلید محرمانه محدودیت درخواست (حداقل ۲۴ کاراکتر)',ready:typeof e.INQUIRY_RATE_SALT==='string'&&e.INQUIRY_RATE_SALT.length>=24},
@@ -225,7 +231,14 @@ export async function adminInquiry(c,path){
  }
  if(path==='admin/inquiries'&&r.method==='GET'){
   const result=await e.DB.prepare("SELECT i.id,i.customer_name,i.customer_phone,i.items_json,i.indicative_total_toman,i.rate_valid_until,i.status,i.admin_note,i.created_at,i.updated_at,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id) notification_total,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='sent') notification_sent,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='failed') notification_failed,(SELECT COUNT(*) FROM purchase_inquiry_notifications n WHERE n.inquiry_id=i.id AND n.status='pending') notification_pending FROM purchase_inquiries i ORDER BY i.created_at DESC LIMIT 80").all();
-  return json({items:(result.results||[]).map(row=>({...row,items:JSON.parse(row.items_json)}))});
+  let customerResponses={};
+  try{
+   const responses=await e.DB.prepare('SELECT inquiry_id,response,responded_at FROM purchase_quote_responses').all();
+   for(const item of responses.results||[])customerResponses[item.inquiry_id]={response:item.response,responded_at:item.responded_at};
+  }catch{/* Quote-sharing migration may not have been applied yet. */}
+  return json({items:(result.results||[]).map(row=>({...row,items:JSON.parse(row.items_json),
+   customer_response:customerResponses[row.id]?.response||null,
+   customer_responded_at:customerResponses[row.id]?.responded_at||null}))});
  }
  const notifyMatch=/^admin\/inquiries\/([a-f0-9-]{36})\/notify$/.exec(path);
  if(notifyMatch&&r.method==='POST'){
