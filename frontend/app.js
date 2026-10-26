@@ -204,7 +204,7 @@ async function submitQuoteResponse(responseValue){
  if(responseValue==='accepted'&&!acknowledged){state.quote.actionError='برای ادامه، تأیید متن ضروری است.';render();return;}
  state.quote.submitting=true;state.quote.actionError='';render();
  try{
-  const res=await fetch(String(CONFIG.apiBaseUrl).replace(/\\/$/,'')+'/v1/quotes/'+encodeURIComponent(token)+'/respond',{
+  const res=await fetch(String(CONFIG.apiBaseUrl).replace(/\/$/,'')+'/v1/quotes/'+encodeURIComponent(token)+'/respond',{
    method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},
    body:JSON.stringify({response:responseValue,acknowledged}),credentials:'same-origin',cache:'no-store'
   });
