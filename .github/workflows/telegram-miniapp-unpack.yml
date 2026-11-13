@@ -4,7 +4,7 @@ on:
     branches:
       - feature/telegram-miniapp-cloudflare
     paths:
-      - telegram-miniapp/_sources/source.tar.br.b64
+      - telegram-miniapp/_sources/part-05.txt
 permissions:
   contents: write
 jobs:
@@ -25,7 +25,9 @@ jobs:
           node - <<'NODE'
           const fs=require('node:fs');
           const zlib=require('node:zlib');
-          const input=fs.readFileSync('telegram-miniapp/_sources/source.tar.br.b64','utf8').trim();
+          const paths=fs.readdirSync('telegram-miniapp/_sources').filter(n=>/^part-\\d{2}\\.txt$/.test(n)).sort();
+          if(paths.length!==6) throw new Error('Expected six source payload parts');
+          const input=paths.map(n=>fs.readFileSync('telegram-miniapp/_sources/'+n,'utf8').trim()).join('');
           fs.writeFileSync('/tmp/telegram-miniapp-source.tar',zlib.brotliDecompressSync(Buffer.from(input,'base64')));
           NODE
           tar -tf /tmp/telegram-miniapp-source.tar
