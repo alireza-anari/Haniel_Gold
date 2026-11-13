@@ -1,0 +1,13 @@
+node_modules/
+.cloudflare/
+.wrangler/
+.dev.vars*
+.env*
+.DS_Store
+*.xlsx
+*.xls
+*.sqlite
+*.db
+*.zip
+secrets.local.json
+*.secrets.json
