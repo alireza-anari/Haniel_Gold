@@ -108,7 +108,7 @@ function removeCalcChain(zip,rels,types){
 async function updateWorkbookTemplate(zip,data){
  const wbPath='xl/workbook.xml',relsPath='xl/_rels/workbook.xml.rels',typesPath='[Content_Types].xml';
  const wb=parse(await zip.file(wbPath).async('text')),rels=parse(await zip.file(relsPath).async('text'));
- const paths=sheetPaths(wb,rels);if(!paths['موجودی']||!paths['فروش'])throw Error('قالب اصلی باید شیت‌های «موجودی» و «فروش» را داشته باشد.');
+ const paths=sheetPaths(wb,rels);const required=['موجودی','متعلقات','فروش','Sheet1','تامین کننده'];const missing=required.filter(name=>!paths[name]);if(missing.length)throw Error('برای حفظ کامل فایل، قالب اصلی باید هر پنج شیت موجودی، متعلقات، فروش، صندوق طلا (Sheet1) و تأمین‌کننده را داشته باشد؛ شیت‌های مفقود: '+missing.join('، '));
  const products=data.products||[],sales=(data.sales||[]).slice().sort((a,b)=>num(a.id)-num(b.id));
  if(products.length>200)throw Error('قالب اصلی برای ۲۰۰ محصول آماده شده است؛ تعداد محصولات فعلی '+products.length+' است. برای جلوگیری از حذف اطلاعات، خروجی ساخته نشد.');
  if(sales.length>200)throw Error('قالب اصلی برای ۲۰۰ ردیف فروش آماده شده است؛ تعداد فروش‌های ثبت‌شده '+sales.length+' است. برای جلوگیری از حذف اطلاعات، خروجی ساخته نشد.');
@@ -167,8 +167,8 @@ async function updateWorkbookTemplate(zip,data){
  wbXml=wbXml.replace(/<calcPr\b([^>]*)\/>/,(m,a)=>'<calcPr'+a.replace(/\s(fullCalcOnLoad|forceFullCalc|calcMode)="[^"]*"/g,'')+' fullCalcOnLoad="1" forceFullCalc="1" calcMode="auto"/>');
  if(!/<calcPr\b/.test(wbXml))wbXml=wbXml.replace('</workbook>','<calcPr fullCalcOnLoad="1" forceFullCalc="1" calcMode="auto"/></workbook>');
  zip.file(wbPath,wbXml);
- let pivotPath='xl/pivotCache/pivotCacheDefinition1.xml';
- if(zip.file(pivotPath)){let pivot=await zip.file(pivotPath).async('text');pivot=addAttr(pivot,'pivotCacheDefinition','refreshOnLoad','1');zip.file(pivotPath,pivot);}
+ const pivotPaths=Object.keys(zip.files).filter(name=>/^xl\/pivotCache\/pivotCacheDefinition\d+\.xml$/.test(name));
+ for(const pivotPath of pivotPaths){let pivot=await zip.file(pivotPath).async('text');pivot=addAttr(pivot,'pivotCacheDefinition','refreshOnLoad','1');zip.file(pivotPath,pivot);}
  let relsXml=await zip.file(relsPath).async('text'),typesXml=await zip.file(typesPath).async('text');
  const cleaned=removeCalcChain(zip,relsXml,typesXml);zip.file(relsPath,cleaned.rels);zip.file(typesPath,cleaned.types);
 }
