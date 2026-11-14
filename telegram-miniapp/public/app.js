@@ -82,8 +82,47 @@ function dashboard(){
  </div>
  ${empty?blank('هنوز محصولی ثبت نشده است'):''}`;
 }
-function cardPhoto(p){return `<div class="product-photo">${p.cover_id?`<img data-photo="${p.cover_id}" alt="تصویر محصول ${esc(p.name)}">`:'<span class="placeholder">✧</span>'}</div>`}
 
+function cardPhoto(p){
+ return `<div class="product-photo">${p.cover_id?`<img data-photo="${p.cover_id}" loading="lazy" alt="تصویر محصول ${esc(p.name)}">`:`<span class="photo-placeholder"><img src="/assets/clover.png" alt="" aria-hidden="true"><span>بدون تصویر</span></span>`}</div>`;
+}
+function productCard(p){
+ return `<button class="product-card" type="button" data-action="product" data-id="${p.id}" aria-label="مشاهده جزئیات ${esc(p.name)}">
+  ${cardPhoto(p)}
+  <span class="product-info">
+   <span class="product-sub"><span class="mono">${esc(p.sku)}</span><span class="pill ${p.available?'':'zero'}">${p.available?'موجود':'ناموجود'}</span></span>
+   <span class="product-name">${esc(p.name)}</span>
+   <span class="product-detail"><span class="muted tiny">${number(p.weight,4)} گرم</span><strong>${number(p.available,0)} <small>عدد</small></strong></span>
+  </span>
+ </button>`;
+}
+function updateProductGrid(){
+ const container=document.getElementById('product-results');if(!container)return;
+ const query=searchTerm.trim().toLocaleLowerCase('fa');
+ const list=products.filter(p=>(stockFilter==='all'||(stockFilter==='available'?p.available>0:p.available<=0))&&
+  `${p.name} ${p.sku}`.toLocaleLowerCase('fa').includes(query));
+ document.getElementById('product-count').textContent=`${number(list.length,0)} محصول`;
+ container.innerHTML=list.length?`<div class="product-grid">${list.map(productCard).join('')}</div>`:blank('محصولی با این فیلتر پیدا نشد');
+ document.querySelectorAll('[data-stock-filter]').forEach(el=>{
+  const selected=el.dataset.stockFilter===stockFilter;el.classList.toggle('active',selected);el.setAttribute('aria-pressed',String(selected));
+ });
+ hydratePhotos(container);
+}
+function renderProducts(){
+ view.innerHTML=`<div class="section-head products-title"><div><span class="section-kicker">PRODUCT COLLECTION</span><h2>گالری محصولات</h2><p>جست‌وجو، مشاهده موجودی و مدیریت تصویری کالاها</p></div>
+  <div class="buttons">${isManager()?button('افزودن محصول +','addProduct','',''):''}</div></div>
+  <div class="products-toolbar"><label class="search-field"><span class="search-glyph">${iconSvg('products')}</span><span class="visually-hidden">جست‌وجوی محصول</span><input class="input search" id="search" placeholder="نام یا کد محصول را جست‌وجو کن" value="${esc(searchTerm)}" autocomplete="off"></label>
+  <div class="filterbar"><div class="filter-chips" aria-label="فیلتر موجودی">
+    <button type="button" class="filter-chip" data-stock-filter="all">همه</button>
+    <button type="button" class="filter-chip" data-stock-filter="available">موجود</button>
+    <button type="button" class="filter-chip" data-stock-filter="unavailable">ناموجود</button>
+   </div><span class="result-count" id="product-count"></span>
+  </div></div>
+  <div id="product-results" aria-live="polite"></div>`;
+ const el=document.getElementById('search');
+ el?.addEventListener('input',e=>{searchTerm=e.target.value;updateProductGrid()});
+ updateProductGrid();
+}
 // Compress product photos on the owner's phone; originals remain untouched.
 async function compressProductImage(file){
  if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw Error('فرمت مجاز: JPG، PNG یا WebP');
@@ -116,14 +155,6 @@ async function hydratePhotos(scope=document){
   const id=el.dataset.photo;
   try{if(!photoCache.has(id)){const r=await api(`/api/images/${id}`,{raw:true});const b=await r.blob();photoCache.set(id,URL.createObjectURL(b))}el.src=photoCache.get(id)}catch{el.replaceWith(document.createTextNode('✧'))}
  }
-}
-function renderProducts(){
- const list=products.filter(p=>`${p.name} ${p.sku}`.includes(searchTerm));
- view.innerHTML=`<div class="section-head"><div><h2>گالری موجودی</h2><p>دسترسی تصویری به محصولات و مشخصات واقعی آن‌ها</p></div><div class="buttons">${isManager()?button('+ محصول جدید','addProduct','',''):''}</div></div>
- <div class="filterbar"><input class="input search" id="search" placeholder="جست‌وجوی نام یا کد محصول…" value="${esc(searchTerm)}"><span class="muted tiny">${number(list.length,0)} محصول</span></div>
- ${list.length?`<div class="product-grid">${list.map(p=>`<article class="product-card" data-action="product" data-id="${p.id}">${cardPhoto(p)}<div class="product-info"><div class="product-sub"><span class="mono">${esc(p.sku)}</span><span class="pill ${p.available?'':'zero'}">${p.available?'موجود':'ناموجود'}</span></div><h3 class="product-name">${esc(p.name)}</h3><div class="product-detail"><span class="muted tiny">${number(p.weight)} گرم</span><strong>${number(p.available,0)} عدد</strong></div></div></article>`).join('')}</div>`:blank('محصولی با این مشخصات پیدا نشد.')}`;
- hydratePhotos(view);
- const el=document.getElementById('search');el?.addEventListener('input',e=>{searchTerm=e.target.value;renderProducts();document.getElementById('search')?.focus()});
 }
 function showModal(title,html){modalTitle.textContent=title;modalBody.innerHTML=html;modal.showModal();hydratePhotos(modalBody)}
 function closeModal(){modal.close();modalBody.innerHTML=''}
@@ -278,6 +309,7 @@ async function deletePhoto(id,productId){if(!confirm('این تصویر حذف �
  catch(e){loadError(e)}
 }
 document.addEventListener('click',async e=>{
+ const chip=e.target.closest('[data-stock-filter]');if(chip){stockFilter=chip.dataset.stockFilter;updateProductGrid();return;}
  const nav=e.target.closest('[data-nav]');if(nav){go(nav.dataset.nav);return}
  const action=e.target.closest('[data-action]');if(!action)return;
  const {action:a,id}=action.dataset;
