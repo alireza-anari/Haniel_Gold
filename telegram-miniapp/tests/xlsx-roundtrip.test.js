@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { File } from 'node:buffer';
 
 function decode(s){return String(s??'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');}
 class XmlNode{
@@ -79,7 +78,7 @@ test('XLSX export preserves all original sheets and updates sales/inventory safe
 test('XLSX parser reads stable product/sale keys and voided status from exported workbook',async()=>{
  const ctx=await app(),template=await makeTemplate(ctx.JSZip);
  const blob=await ctx.exportHanielXlsx({products:[product],sales:[sale]},template);
- const file=new File([blob],'Haniel Invoice.xlsx',{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+ const file=new Blob([blob],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});Object.defineProperty(file,'name',{value:'Haniel Invoice.xlsx'});
  const parsed=await ctx.parseHanielXlsx(file);
  assert.equal(parsed.products.length,1);
  assert.equal(parsed.products[0].sku,product.sku);
