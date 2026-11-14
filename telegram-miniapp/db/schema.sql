@@ -41,11 +41,14 @@ CREATE TABLE IF NOT EXISTS sales (
  purchase_cost TEXT NOT NULL,
  net_profit TEXT NOT NULL,
  source_ref TEXT UNIQUE,
+ idempotency_key TEXT,
+ request_fingerprint TEXT,
  voided INTEGER NOT NULL DEFAULT 0,
  void_reason TEXT NOT NULL DEFAULT '',
  created_by TEXT NOT NULL,
  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_idempotency_key ON sales(idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE TABLE IF NOT EXISTS images (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  product_id INTEGER NOT NULL REFERENCES products(id),
