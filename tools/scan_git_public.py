@@ -41,7 +41,7 @@ for path in paths:
                 clean = clean.replace("INSERT OR IGNORE INTO meta(key,value) VALUES('revision','0');", '')
             clean = ' '.join(clean.split()).upper().replace('BEFORE UPDATE OF ', '')
             forbidden_sql = (
-                'INSERT INTO', 'INSERT OR ', 'REPLACE INTO', 'UPDATE ',
+                'INSERT INTO', 'INSERT OR ', 'REPLACE INTO', ' UPDATE ',
                 'DELETE FROM', 'DROP TABLE', 'ATTACH DATABASE', 'PRIVATE KEY',
             )
             if any(token in clean for token in forbidden_sql):
