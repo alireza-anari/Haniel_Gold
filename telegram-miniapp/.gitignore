@@ -11,3 +11,6 @@ node_modules/
 *.zip
 secrets.local.json
 *.secrets.json
+
+# Generated from the storefront's canonical font CSS during Vite build.
+public/brand-fonts.css
