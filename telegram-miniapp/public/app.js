@@ -57,8 +57,29 @@ async function go(page){
   if(page==='team')await renderTeam();if(page==='help')renderHelp();
  }catch(e){view.innerHTML=blank('نمایش اطلاعات ممکن نشد.');loadError(e)}
 }
-function metric(label,val,unit='',gold=false,glyph=''){
- return `<article class="metric ${gold?'gold':''}"><div class="metric-top"><span class="caption">${label}</span><span class="metric-icon">${iconSvg(glyph||'dashboard')}</span></div><strong class="metric-number">${val}</strong><span class="foot">${unit||'HANI-EL GOLD'}</span></article>`;
+function metric(label,val,unit='',gold=false,glyph='',currency=''){
+ const amount=currency
+  ? `<div class="metric-money-figure" aria-label="${esc(val+' '+currency)}"><bdi class="metric-currency-number" dir="ltr">${val}</bdi><span class="metric-currency-unit">${currency}</span></div>`
+  : `<strong class="metric-number">${val}</strong>`;
+ return `<article class="metric ${gold?'gold':''} ${currency?'metric-money':''}"><div class="metric-top"><span class="caption">${label}</span><span class="metric-icon">${iconSvg(glyph||'dashboard')}</span></div>${amount}<span class="foot">${unit||'HANI-EL GOLD'}</span></article>`;
+}
+// Keep the full displayed amount in rial. Adapt typography to the real card width;
+// never abbreviate, clip, split digit groups, or modify the underlying financial data.
+function moneyMetric(label,value,foot='',gold=false,glyph=''){
+ return metric(label,number(value,2),foot,gold,glyph,'ریال');
+}
+function fitMoneyMetrics(scope=view){
+ for(const value of scope.querySelectorAll('.metric-currency-number')){
+  const box=value.closest('.metric-money-figure');
+  if(!box || !box.clientWidth)continue;
+  value.style.fontSize='';
+  const available=box.clientWidth-1;
+  let fontSize=parseFloat(getComputedStyle(value).fontSize);
+  while(value.scrollWidth>available && fontSize>11){
+   fontSize=Math.max(11,fontSize-0.5);
+   value.style.fontSize=fontSize+'px';
+  }
+ }
 }
 function dashboard(){
  const empty=products.length===0;
@@ -73,7 +94,7 @@ function dashboard(){
  </section>
  <div class="section-head overview-title"><div><h2>وضعیت کسب‌وکار</h2><p>خلاصه اطلاعات ثبت‌شده در سیستم</p></div><span class="section-note">نمای کلی</span></div>
  <div class="metric-grid">${metric('محصولات',number(summary.products,0),'مدل ثبت‌شده',false,'products')}${metric('موجودی فعلی',number(summary.available_units,0),'تعداد واحد',false,'dashboard')}${metric('وزن طلای موجود',number(summary.available_weight,4),'گرم',false,'reports')}${metric('فروش ثبت‌شده',number(summary.sales_count,0),'سند فروش',true,'sales')}</div>
- ${isManager()?`<div class="section-head financial-title"><div><h2>نمای مالی</h2><p>بر اساس اطلاعات ثبت‌شده، نه قیمت لحظه‌ای بازار</p></div></div><div class="metric-grid financial-grid">${metric('ارزش خرید موجودی',rial(summary.inventory_cost_rial),'با نرخ خرید',false,'products')}${metric('مبلغ فروش ثبت‌شده',rial(summary.sales_rial),'اسناد فعال',false,'sales')}${metric('سود خالص ثبت‌شده',rial(summary.profit_rial),'طبق محاسبات سیستم',true,'reports')}${metric('محصولات ناموجود',number(products.filter(p=>p.available===0).length,0),'مدل',false,'dashboard')}</div>`:''}
+ ${isManager()?`<div class="section-head financial-title"><div><h2>نمای مالی</h2><p>بر اساس اطلاعات ثبت‌شده، نه قیمت لحظه‌ای بازار</p></div></div><div class="metric-grid financial-grid">${moneyMetric('ارزش خرید موجودی',summary.inventory_cost_rial,'با نرخ خرید',false,'products')}${moneyMetric('مبلغ فروش ثبت‌شده',summary.sales_rial,'اسناد فعال',false,'sales')}${moneyMetric('سود خالص ثبت‌شده',summary.profit_rial,'طبق محاسبات سیستم',true,'reports')}${metric('محصولات ناموجود',number(products.filter(p=>p.available===0).length,0),'مدل',false,'dashboard')}</div>`:''}
  <div class="section-head shortcuts-title"><div><h2>دسترسی سریع</h2><p>کارهای روزانه با کمترین تعداد لمس</p></div></div>
  <div class="action-grid">
   <button class="action" type="button" data-nav="products"><span class="top">${iconSvg('products')}</span><span class="action-text"><span class="label">گالری محصولات</span><small>مشاهده موجودی</small></span><span class="action-arrow">↗</span></button>
@@ -81,6 +102,7 @@ function dashboard(){
   ${isManager()?`<button class="action" type="button" data-nav="excel"><span class="top">${iconSvg('excel')}</span><span class="action-text"><span class="label">همگام‌سازی اکسل</span><small>ورود و دریافت فایل</small></span><span class="action-arrow">↗</span></button>`:''}
  </div>
  ${empty?blank('هنوز محصولی ثبت نشده است'):''}`;
+ requestAnimationFrame(()=>fitMoneyMetrics());
 }
 
 function cardPhoto(p){
@@ -242,10 +264,11 @@ async function calculate(){
 function renderReports(){
  const stockSum=products.reduce((a,p)=>a+p.available,0),sold=summary.sold_units,total=stockSum+sold;
  view.innerHTML=`<div class="section-head"><div><h2>گزارش مدیریتی</h2><p>ارقام ثبت‌شده، بدون نرخ‌سازی یا اطلاعات فرضی</p></div></div>
- <div class="metric-grid">${metric('ارزش بهای خرید موجودی',rial(summary.inventory_cost_rial),'براساس هزینه خرید')}${metric('فروش نهایی',rial(summary.sales_rial),'فقط اسناد فعال')}${metric('سود خالص فروش',rial(summary.profit_rial),'طبق منطق اکسل',true)}${metric('وزن موجود',number(summary.available_weight,4),'گرم')}</div>
+ <div class="metric-grid">${moneyMetric('ارزش بهای خرید موجودی',summary.inventory_cost_rial,'براساس هزینه خرید')}${moneyMetric('فروش نهایی',summary.sales_rial,'فقط اسناد فعال')}${moneyMetric('سود خالص فروش',summary.profit_rial,'طبق منطق اکسل',true)}${metric('وزن موجود',number(summary.available_weight,4),'گرم')}</div>
  <div class="panel"><div class="section-head"><h2>نسبت فروش به کل واحدهای ثبت‌شده</h2><span>${total?number(sold/total*100,1):'۰'}٪</span></div>
  <div style="background:#353a30;border-radius:20px;height:13px;margin:24px 0 13px;overflow:hidden"><div style="height:100%;width:${total?Math.max(0,Math.min(100,sold/total*100)):0}%;background:#b5965b;border-radius:20px"></div></div>
  <p class="tiny muted">این نمودار نسبت تعداد واحدهای فروخته‌شده فعال به مجموع موجودی و فروش را نشان می‌دهد؛ ارزش روز بازار نیست.</p></div>`;
+ requestAnimationFrame(()=>fitMoneyMetrics());
 }
 function renderExcel(){
  previewToken=null;
@@ -339,6 +362,7 @@ document.addEventListener('click',async e=>{
 });
 document.getElementById('close-modal').addEventListener('click',closeModal);
 document.getElementById('refresh').addEventListener('click',()=>go(current));
+window.addEventListener('resize',()=>fitMoneyMetrics());
 (async()=>{try{session=await api('/api/session');menus();await go('dashboard')}catch(e){
  view.innerHTML=`<div class="empty"><div class="empty-symbol">♧</div><h3>ورود امن مورد نیاز است</h3><p>${esc(e.message)}</p><p>مینی‌اپ را از طریق دکمه «مدیریت هانی‌ال» در ربات تلگرام باز کن.</p></div>`
  }})();
