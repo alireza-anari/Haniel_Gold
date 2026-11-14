@@ -88,3 +88,23 @@ test('XLSX parser reads stable product/sale keys and voided status from exported
  assert.equal(parsed.sales[0].void_reason,sale.void_reason);
  assert.equal(parsed.sales[0].purchase_cost,sale.purchase_cost);
 });
+
+test('manual allocation columns stay attached to their product when workbook row order changes',async()=>{
+ const ctx=await app(),base=await makeTemplate(ctx.JSZip),zip=await ctx.JSZip.loadAsync(base);
+ let xml=await zip.file('xl/worksheets/sheet1.xml').async('text');
+ const row5='<row r="5"><c r="A5" t="inlineStr"><is><t>گردنبند آزمایشی</t></is></c><c r="M5"><v>11</v></c><c r="N5"><v>22</v></c><c r="O5" t="inlineStr"><is><t>HG-TEST000001</t></is></c></row>';
+ const row6='<row r="6"><c r="A6" t="inlineStr"><is><t>انگشتر آزمایشی</t></is></c><c r="M6"><v>33</v></c><c r="N6"><v>44</v></c><c r="O6" t="inlineStr"><is><t>HG-TEST000002</t></is></c></row>';
+ xml=xml.replace('<row r="5"></row>',row5).replace('<row r="6"></row>',row6);zip.file('xl/worksheets/sheet1.xml',xml);
+ const template=await zip.generateAsync({type:'nodebuffer'});
+ const product2={...product,id:1,sku:'HG-TEST000002',name:'انگشتر آزمایشی'};
+ const product1={...product,id:2};
+ const blob=await ctx.exportHanielXlsx({products:[product1,product2],sales:[]},template);
+ const output=await ctx.JSZip.loadAsync(await blob.arrayBuffer());
+ const out=await output.file('xl/worksheets/sheet1.xml').async('text');
+ assert.match(out,/<c r="A5"[^>]*>.*?انگشتر آزمایشی/s);
+ assert.match(out,/<c r="M5"[^>]*>.*?<v>33<\/v>/s);
+ assert.match(out,/<c r="N5"[^>]*>.*?<v>44<\/v>/s);
+ assert.match(out,/<c r="A6"[^>]*>.*?گردنبند آزمایشی/s);
+ assert.match(out,/<c r="M6"[^>]*>.*?<v>11<\/v>/s);
+ assert.match(out,/<c r="N6"[^>]*>.*?<v>22<\/v>/s);
+});
