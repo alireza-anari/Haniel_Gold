@@ -1,0 +1,26 @@
+name: Telegram Mini App CI
+on:
+  push:
+    branches:
+      - feature/telegram-miniapp-cloudflare
+    paths:
+      - 'telegram-miniapp/**'
+      - '.github/workflows/telegram-miniapp-ci.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: telegram-miniapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: npm run check
+      - name: Run authorization, finance, and photo tests
+        run: npm test
