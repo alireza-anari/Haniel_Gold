@@ -73,3 +73,23 @@ test('preview blocks reduction below the already sold stock',async()=>{
  const r=await planImport(mockDb([existing],[oldSale]),workbook([lower],[]));
  assert.ok(r.conflicts.some(x=>x.includes('موجودی')));
 });
+
+test('voided historical sales are imported for audit without consuming inventory',async()=>{
+ const q1=quote(product,{...saleInput,quantity:2});
+ const voided1={...sale,ref:'voided-sale-1',row:4,quantity:2,final_price:q1.final_price,purchase_cost:q1.purchase_cost,voided:1,void_reason:'اشتباه در ثبت'};
+ const q2=quote(product,{...saleInput,quantity:1});
+ const voided2={...sale,ref:'voided-sale-2',row:5,quantity:1,final_price:q2.final_price,purchase_cost:q2.purchase_cost,voided:1,void_reason:'ثبت آزمایشی'};
+ const r=await planImport(mockDb(),workbook([product],[voided1,voided2]));
+ assert.deepEqual(r.errors,[]);
+ assert.deepEqual(r.conflicts,[]);
+ assert.equal(r.counts.sales_new,2);
+ assert.equal(r.plan.newSales[0].voided,1);
+ assert.equal(r.plan.newSales[0].void_reason,'اشتباه در ثبت');
+});
+test('reimported voided sale remains unchanged and does not become active',async()=>{
+ const old={...sale,product_id:1,product_name:product.name,source_ref:'voided-existing',voided:1,void_reason:'ابطال تست',id:7};
+ const incoming={...sale,ref:'voided-existing',voided:1,void_reason:'ابطال تست'};
+ const r=await planImport(mockDb([{...product,id:1,sku:'HG-EXIST1'}],[old]),workbook([{...product,sku:'HG-EXIST1'}],[incoming]));
+ assert.equal(r.counts.sales_new,0);
+ assert.equal(r.counts.sales_unchanged,1);
+});
