@@ -154,6 +154,7 @@ async function apiRequest(req,env,url,user){
  if(m==='GET'&&path==='/api/summary'){
   const ps=await products(db),ss=(await sales(db)).filter(x=>!x.voided);
   const result={products:ps.length,available_units:ps.reduce((s,p)=>s+p.available,0),sold_units:ss.reduce((s,p)=>s+p.quantity,0),available_weight:fmt(ps.reduce((s,p)=>s+dec(p.weight)*BigInt(p.available),0n)),sales_count:ss.length};
+  if(roles)result.total_purchased_weight=fmt(ps.reduce((s,p)=>s+dec(p.weight)*BigInt(p.purchased_qty),0n));
   if(roles)Object.assign(result,{sales_rial:fmt(ss.reduce((s,p)=>s+dec(p.final_price),0n)),profit_rial:fmt(ss.reduce((s,p)=>s+dec(p.net_profit),0n)),inventory_cost_rial:fmt(ps.reduce((s,p)=>s+purchaseUnitCost(p)*BigInt(p.available),0n))});
   return reply(result);
  }
