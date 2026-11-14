@@ -252,3 +252,31 @@ dialog{background:#1b211b;border-color:#525440;border-radius:21px;box-shadow:0 2
  .form-grid{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+
+/* Financial KPI: keep full Persian digit groups together and isolate the currency.
+   The font size is also measured against each card width by fitMoneyMetrics(). */
+.metric-money .metric-money-figure{
+ display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+ min-width:0;width:100%;max-width:100%;overflow:visible;
+}
+.metric-money .metric-currency-number{
+ display:block;width:max-content;max-width:none;white-space:nowrap;
+ overflow-wrap:normal;word-break:normal;direction:ltr;unicode-bidi:isolate;
+ font-family:var(--font);font-size:24px;font-weight:700;line-height:1.5;
+ font-variant-numeric:tabular-nums;letter-spacing:-.4px;color:var(--ink);
+}
+.metric-money.gold .metric-currency-number{color:#eed2a0}
+.metric-money .metric-currency-unit{
+ display:block;font-size:11px;line-height:1.5;font-weight:500;
+ white-space:nowrap;color:var(--sub);margin:0;
+}
+@media(max-width:750px){
+ .metric-money .metric-currency-number{font-size:19px}
+ .metric-money .metric-currency-unit{font-size:10px}
+ .metric-money{min-height:140px}
+}
+@media(max-width:380px){
+ .financial-grid{grid-template-columns:1fr}
+ .metric-money .metric-currency-number{font-size:20px}
+}
