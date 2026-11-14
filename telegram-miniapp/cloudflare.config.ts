@@ -11,7 +11,6 @@ export default defineConfig({
     env: {
       ASSETS: bindings.assets(),
       DB: bindings.d1({ name: 'haniel-gold-db' }),
-      PHOTOS: bindings.r2({ name: 'haniel-gold-product-images' }),
       BOT_TOKEN: bindings.secret(),
       OWNER_TELEGRAM_ID: bindings.secret()
     }
