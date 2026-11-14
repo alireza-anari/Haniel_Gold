@@ -78,7 +78,7 @@ test('XLSX export preserves all original sheets and updates sales/inventory safe
 test('XLSX parser reads stable product/sale keys and voided status from exported workbook',async()=>{
  const ctx=await app(),template=await makeTemplate(ctx.JSZip);
  const blob=await ctx.exportHanielXlsx({products:[product],sales:[sale]},template);
- const file=new Blob([blob],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});Object.defineProperty(file,'name',{value:'Haniel Invoice.xlsx'});
+ const file=new Uint8Array(await blob.arrayBuffer());Object.defineProperty(file,'name',{value:'Haniel Invoice.xlsx'});Object.defineProperty(file,'size',{value:file.byteLength});
  const parsed=await ctx.parseHanielXlsx(file);
  assert.equal(parsed.products.length,1);
  assert.equal(parsed.products[0].sku,product.sku);
