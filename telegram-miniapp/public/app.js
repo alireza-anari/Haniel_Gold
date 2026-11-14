@@ -145,8 +145,8 @@ function dashboard(){
   <div><span class="section-kicker">HANI-EL GOLD / OVERVIEW</span><h2>وضعیت موجودی و فروش</h2><p>خلاصه اعداد واقعی ثبت‌شده در سیستم</p></div>
   <img src="/assets/clover.png" alt="" aria-hidden="true">
  </section>
- <div class="metric-grid dashboard-grid">
- ${isManager()?metric('طلای کل ثبت‌شده از ابتدا',number(summary.total_purchased_weight,4),'گرم · مجموع خرید ثبت‌شده، پیش از کسر فروش',true,'reports') .replace('class="metric gold"', 'class="metric gold metric-total-gold"'):''}
+ <div class="metric-grid dashboard-grid ${isManager()?'':'dashboard-compact'}">
+ ${isManager()?metric('طلای کل ثبت‌شده از ابتدا',number(summary.total_purchased_weight,4),'گرم · مجموع خرید ثبت‌شده، پیش از کسر فروش',true,'reports').replace('class="metric gold ', 'class="metric gold metric-total-gold '):''}
  ${metric('وزن طلای موجود',number(summary.available_weight,4),'گرم · موجودی فعلی',false,'reports')}
  ${metric('موجودی فعلی',number(summary.available_units,0),'تعداد واحد',false,'dashboard')}
  ${metric('مدل‌های ثبت‌شده',number(summary.products,0),'نوع محصول',false,'products')}
