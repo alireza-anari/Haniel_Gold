@@ -77,7 +77,7 @@ function writeCellInRow(row,ref,value,formula=null){
  const next=inner?'<c '+attrs+'>'+inner+'</c>':'<c '+attrs+'/>';
  if(found)return row.replace(found[0],next);
  const close=row.lastIndexOf('</row>');if(close<0)throw Error('ساختار ردیف اکسل معتبر نیست.');
- const cells=[...row.matchAll(/<c\\b[^>]*(?:\\/\\s*>|>[\\s\\S]*?<\\/c>)/g)];
+ const cells=[...row.matchAll(/<c\b[^>]*(?:\/\s*>|>[\s\S]*?<\/c>)/g)];
  const target=colIndex(ref);let at=close;
  for(const c of cells){const m=c[0].match(/\br="([A-Z]+\d+)"/);if(m&&colIndex(m[1])>target){at=c.index;break;}}
  return row.slice(0,at)+next+row.slice(at);
