@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS images (
  product_id INTEGER NOT NULL REFERENCES products(id),
  object_key TEXT NOT NULL UNIQUE,
  mime TEXT NOT NULL,
+ image_blob BLOB,
  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE IF NOT EXISTS audit (
