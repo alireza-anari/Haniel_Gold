@@ -35,8 +35,18 @@ for path in paths:
         if path != 'tools/scan_git_public.py' and ('-----BEGIN PRIVATE KEY-----' in data or '-----BEGIN OPENSSH PRIVATE KEY-----' in data):
             forbidden.append(path+' [private key content]')
         if path in MINIAPP_SCHEMA_ONLY_SQL:
-            # Reject DML/customer rows and dangerous SQL, preserving only a known fixed revision seed.
-            clean = re.sub(r'(?m)^\s*--[^\n]*
+            # Only source DDL is publishable. The one fixed revision seed is harmless.
+            clean = ' '.join(line for line in data.splitlines() if not line.lstrip().startswith('--'))
+            if path == 'telegram-miniapp/db/schema.sql':
+                clean = clean.replace("INSERT OR IGNORE INTO meta(key,value) VALUES('revision','0');", '')
+            clean = ' '.join(clean.split()).upper().replace('BEFORE UPDATE OF ', '')
+            forbidden_sql = (
+                'INSERT INTO', 'INSERT OR ', 'REPLACE INTO', 'UPDATE ',
+                'DELETE FROM', 'DROP TABLE', 'ATTACH DATABASE', 'PRIVATE KEY',
+            )
+            if any(token in clean for token in forbidden_sql):
+                forbidden.append(path+' [miniapp SQL must contain schema only, no data rows or keys]')
+        if path == 'cloudflare/schema.sql' and ('INSERT INTO' in data.upper() or 'PRIVATE KEY' in data.upper()):
             forbidden.append(path+' [schema cannot contain seed data or keys]')
         if path == 'cloudflare/0002_gold_pricing.sql' and ('PRIVATE KEY' in data.upper() or 'INSERT INTO PRODUCTS' in data.upper() or 'INSERT INTO GOLD_MARKET_STATE(' in data.upper()):
             forbidden.append(path+' [rate schema must not seed product or market prices]')
