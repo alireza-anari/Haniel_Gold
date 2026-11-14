@@ -2,7 +2,25 @@ const tg=window.Telegram?.WebApp;
 try{tg?.ready();tg?.expand();tg?.setHeaderColor('#141512');tg?.setBackgroundColor('#111310')}catch{}
 const headers=()=>({'X-Telegram-Init-Data':tg?.initData||''});
 let session=null,products=[],sales=[],summary=null,current='dashboard',previewToken=null,searchTerm='',stockFilter='all';
-const photoCache=new Map();
+const photoCache=new Map(),pendingSaleKeys=new Map();
+function secureUuid(){
+ if(crypto.randomUUID)return crypto.randomUUID();
+ const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;
+ const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+ return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+}
+async function saleIdempotency(data){
+ const canonical=JSON.stringify(Object.keys(data).sort().map(k=>[k,String(data[k]??'')]));
+ let suffix=canonical;
+ try{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical));suffix=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')}catch{}
+ const storageKey='hani-sale-pending-v1:'+suffix;
+ let key=pendingSaleKeys.get(storageKey);
+ try{key=sessionStorage.getItem(storageKey)||key}catch{}
+ if(!key)key=secureUuid();
+ pendingSaleKeys.set(storageKey,key);
+ try{sessionStorage.setItem(storageKey,key)}catch{}
+ return {key,storageKey};
+}
 const view=document.getElementById('view'),navSide=document.getElementById('side-nav'),navMobile=document.getElementById('mobile-nav');
 const modal=document.getElementById('modal'),modalBody=document.getElementById('modal-body'),modalTitle=document.getElementById('modal-title');
 const esc=(x)=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -248,10 +266,20 @@ function renderQuote(selected){
  if(selected)saleForm.elements.product_id.value=String(selected);
  const setDefaultLabor=()=>{const p=usable.find(p=>p.id===Number(saleForm.elements.product_id.value));if(p) saleForm.elements.labor_pct.value=p.default_labor_pct??''};
  saleForm.elements.product_id.addEventListener('change',setDefaultLabor);setDefaultLabor();
- saleForm.addEventListener('submit',async e=>{e.preventDefault();if(!confirm('فروش ثبت شود و موجودی کاهش یابد؟'))return;
-  try{const data=Object.fromEntries(new FormData(saleForm));const r=await api('/api/sales',{method:'POST',body:JSON.stringify(data)});
-  notice(`فروش شماره ${r.id} ثبت شد.`);await go('sales')}catch(err){loadError(err)}
- });
+ saleForm.addEventListener('submit',async e=>{
+  e.preventDefault();if(!confirm('فروش ثبت شود و موجودی کاهش یابد؟'))return;
+  const submitButton=saleForm.querySelector('button[type="submit"]');if(submitButton?.disabled)return;
+  if(submitButton){submitButton.disabled=true;submitButton.textContent='در حال ثبت…'}
+  let attempt=null;
+  try{
+   const data=Object.fromEntries(new FormData(saleForm));attempt=await saleIdempotency(data);
+   const r=await api('/api/sales',{method:'POST',headers:{'Idempotency-Key':attempt.key},body:JSON.stringify(data)});
+   pendingSaleKeys.delete(attempt.storageKey);try{sessionStorage.removeItem(attempt.storageKey)}catch{}
+   notice(r.duplicate?`فروش شماره ${r.id} قبلاً ثبت شده بود؛ موجودی دوباره کم نشد.`:`فروش شماره ${r.id} ثبت شد.`);
+   await go('sales');
+  }catch(err){loadError(err)}
+  finally{if(submitButton){submitButton.disabled=false;submitButton.textContent='ثبت نهایی فروش'}}
+ });;
 }
 async function calculate(){
  const form=document.getElementById('sale-form');if(!form)return;
@@ -276,13 +304,19 @@ function renderExcel(){
  <div class="panel"><form id="import-form" class="form"><div class="field"><label>فایل Haniel Invoice با فرمت XLSX</label><input type="file" class="input" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" name="file" required><small>حداکثر ۸ مگابایت؛ شیت‌های «موجودی» و «فروش» لازم هستند.</small></div>
  <div class="row-actions"><button class="btn" type="submit">بررسی تغییرات فایل</button>${button('دریافت اکسل','export','','ghost')}</div></form></div><div id="import-preview"></div>
  <div class="panel help"><b>نکات همگام‌سازی</b><p>در هر خروجی، کد ثابت محصول در ستون O شیت «موجودی» و شناسه فروش در ستون T شیت «فروش» درج می‌شود. این شناسه‌ها را پاک نکن؛ کمک می‌کنند یک فایل دوباره وارد شود، بدون فروش یا محصول تکراری.</p>
- <p>خروجی نسخه Cloudflare شامل شیت‌های «موجودی» و «فروش» است. شیت‌های «متعلقات»، «صندوق طلا» و «تأمین‌کننده» اکسل اصلی در این خروجی قرار ندارند؛ فایل اصلی خود را حتماً نگه دار. اطلاعات واردشده پیش از ثبت کنترل می‌شوند.</p></div>`;
+ <p>خروجی بر پایه آخرین فایل اصلی انتخاب‌شده در همین دستگاه ساخته می‌شود و شیت‌های دیگر، قالب‌بندی، فرمول‌ها و جدول تأمین‌کننده حفظ می‌شوند. فایل اصلی به سرور ارسال نمی‌شود؛ قالب فقط در حافظه محلی مرورگر ذخیره می‌شود. پس از پاک‌کردن داده‌های مرورگر، فایل اصلی را دوباره انتخاب کن.</p>
+ <p>تاریخچه فروش‌های باطل‌شده نیز در خروجی با وضعیت «باطل» و علت ابطال نگهداری می‌شود و در محاسبه موجودی و جمع فروش فعال لحاظ نمی‌شود.</p></div>`;
  document.getElementById('import-form').addEventListener('submit',async e=>{
  e.preventDefault();const fd=new FormData(e.target);
  const file=fd.get('file');if(!file)return;
  if(file.size>8*1024*1024)return notice('فایل باید کمتر از ۸ مگابایت باشد.','error');
  const container=document.getElementById('import-preview');container.innerHTML='<div class="loading"><span class="loader"></span> در حال بررسی ساختار و مغایرت‌ها…</div>';
- try{const rows=await window.parseHanielXlsx(file);const p=await api('/api/import/preview',{method:'POST',body:JSON.stringify(rows)});previewToken=p.token;drawPreview(p)}catch(err){container.innerHTML='';loadError(err)}
+ try{
+   const rows=await window.parseHanielXlsx(file);
+   const saved=await window.storeHanielXlsxTemplate(file).catch(()=>({persistent:false}));
+   if(!saved.persistent)notice('قالب اکسل فقط تا پایان این نشست در حافظه می‌ماند؛ پس از بازگشت دوباره فایل اصلی را انتخاب کن.','error');
+   const p=await api('/api/import/preview',{method:'POST',body:JSON.stringify(rows)});previewToken=p.token;drawPreview(p)
+  }catch(err){container.innerHTML='';loadError(err)}
  });
 }
 function drawPreview(p){
