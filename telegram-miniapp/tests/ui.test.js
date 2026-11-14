@@ -31,3 +31,20 @@ test('responsive dashboard contains accessible mobile icons and product filter c
  assert.match(styles,/prefers-reduced-motion/);
  assert.match(styles,/\.metric-number/);
 });
+
+
+test('financial KPI preserves the complete formatted rial amount with separate unit',()=>{
+ const app=text('../public/app.js');
+ const css=text('../public/styles.css');
+ assert.match(app,/function moneyMetric\(label,value,foot=/);
+ assert.match(app,/metric-currency-number/);
+ assert.match(app,/metric-currency-unit/);
+ assert.match(app,/function fitMoneyMetrics\(scope=view\)/);
+ assert.match(app,/value\.scrollWidth>available/);
+ assert.match(app,/moneyMetric\('ارزش خرید موجودی',summary\.inventory_cost_rial/);
+ assert.match(app,/moneyMetric\('مبلغ فروش ثبت‌شده',summary\.sales_rial/);
+ assert.match(app,/moneyMetric\('سود خالص ثبت‌شده',summary\.profit_rial/);
+ assert.match(css,/\.metric-money \.metric-currency-number/);
+ assert.match(css,/white-space:nowrap/);
+ assert.match(css,/@media\(max-width:380px\)/);
+});
