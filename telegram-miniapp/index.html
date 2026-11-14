@@ -32,9 +32,14 @@
             <h1 id="page-title">داشبورد</h1>
           </div>
         </div>
-        <button class="icon-button refresh-button" id="refresh" type="button" aria-label="به‌روزرسانی اطلاعات" title="به‌روزرسانی اطلاعات">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
-        </button>
+        <div class="topbar-tools">
+          <button class="icon-button back-button" id="back" type="button" aria-label="بازگشت به صفحه قبل" title="بازگشت" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+          </button>
+          <button class="icon-button refresh-button" id="refresh" type="button" aria-label="به‌روزرسانی اطلاعات" title="به‌روزرسانی اطلاعات">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>
+          </button>
+        </div>
       </header>
       <div id="notice" class="notice" aria-live="polite"></div>
       <section id="view" class="view" aria-live="polite"><div class="loading"><span class="loader"></span> در حال بارگیری اطلاعات…</div></section>
