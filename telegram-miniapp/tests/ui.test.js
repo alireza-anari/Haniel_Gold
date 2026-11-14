@@ -33,18 +33,37 @@ test('responsive dashboard contains accessible mobile icons and product filter c
 });
 
 
-test('financial KPI preserves the complete formatted rial amount with separate unit',()=>{
- const app=text('../public/app.js');
- const css=text('../public/styles.css');
+test('dashboard focuses on operational KPIs and total purchased gold weight',()=>{
+ const app=text('../public/app.js'),worker=text('../src/index.js'),css=text('../public/styles.css');
+ const start=app.indexOf('function dashboard(){'),end=app.indexOf('function cardPhoto(',start);
+ const dashboard=app.slice(start,end);
+ assert.match(dashboard,/total_purchased_weight/);
+ assert.match(dashboard,/طلای کل ثبت‌شده از ابتدا/);
+ assert.match(dashboard,/وزن طلای موجود/);
+ assert.doesNotMatch(dashboard,/نمای مالی|دسترسی سریع|financial-grid|action-grid|hero-actions/);
+ assert.match(worker,/total_purchased_weight=fmt\(ps.reduce/);
+ assert.match(css,/metric-total-gold/);
+});
+test('back navigation is visible in inner pages and supported by Telegram BackButton',()=>{
+ const app=text('../public/app.js'),html=text('../index.html'),css=text('../public/styles.css');
+ assert.match(html,/id="back"/);
+ assert.match(html,/aria-label="بازگشت به صفحه قبل"/);
+ assert.match(app,/async function navigateBack\(\)/);
+ assert.match(app,/pageHistory\.pop\(\)/);
+ assert.match(app,/tg\?\.BackButton\?\.onClick\(navigateBack\)/);
+ assert.match(app,/function updateBackButton\(\)/);
+ assert.match(css,/\.back-button\[hidden\]/);
+});
+test('financial amounts keep all digits and use comma grouping with integer presentation',()=>{
+ const app=text('../public/app.js'),css=text('../public/styles.css');
  assert.match(app,/function moneyMetric\(label,value,foot=/);
  assert.match(app,/metric-currency-number/);
- assert.match(app,/metric-currency-unit/);
- assert.match(app,/function fitMoneyMetrics\(scope=view\)/);
- assert.match(app,/value\.scrollWidth>available/);
- assert.match(app,/moneyMetric\('ارزش خرید موجودی',summary\.inventory_cost_rial/);
- assert.match(app,/moneyMetric\('مبلغ فروش ثبت‌شده',summary\.sales_rial/);
- assert.match(app,/moneyMetric\('سود خالص ثبت‌شده',summary\.profit_rial/);
- assert.match(css,/\.metric-money \.metric-currency-number/);
- assert.match(css,/white-space:nowrap/);
- assert.match(css,/@media\(max-width:380px\)/);
+ assert.match(app,/number\(value,0\)/);
+ assert.match(app,/const rial=x=>/);
+ assert.match(app,/number\(x,0\)/);
+ assert.match(app,/function formatTypedNumber\(raw\)/);
+ assert.match(app,/function formObject\(form\)/);
+ assert.match(app,/data-numeric="true"/);
+ assert.match(css,/\.num-money/);
+ assert.match(css,/\.numeric-input/);
 });
