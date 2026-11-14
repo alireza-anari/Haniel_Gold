@@ -65,19 +65,29 @@ async function products(db){return all(db,STOCK_SQL)}
 async function product(db,id){return first(db,'SELECT * FROM products WHERE id=?',id)}
 async function sales(db){return all(db,SALES_SQL)}
 function removeSensitiveSale(s,user){if(manager(user))return s;let t={...s};for(const key of ['purchase_cost','net_profit','profit_rial','profit_gold'])delete t[key];return t;}
-function makeSaleStatement(db,p,input,user,ref=null){
+async function makeSaleStatement(db,p,input,user,idempotencyKey){
  const q=quote({...p,...(input.unit_weight?{weight:input.unit_weight}:{})},input),date=asciiDigits(safeText(input.date,20));
- if(input.purchase_cost!==undefined&&input.purchase_cost!==null&&input.purchase_cost!==''){q.purchase_cost=fmt(valid(input.purchase_cost,'بهای خرید تاریخی'));q.net_profit=fmt(dec(q.final_price)-dec(q.purchase_cost)-dec(q.accessories));}
  if(!/^\d{4}[/-]\d{1,2}[/-]\d{1,2}$/.test(date))err('تاریخ شمسی نامعتبر است.');
- const customer=safeText(input.customer,140),key=ref?String(ref):null;
+ const customer=safeText(input.customer,140);
+ const canonical=JSON.stringify([p.id,date,q.quantity,q.gold_rate,q.labor_pct,q.profit_pct,q.accessories,q.discount,customer,q.unit_weight,q.purchase_cost]);
+ const fingerprint=toHex(await crypto.subtle.digest('SHA-256',textEncoder.encode(canonical)));
  const columns=['product_id','date','quantity','gold_rate','labor_pct','profit_pct','accessories','discount','customer',
- 'unit_weight','total_weight','raw_price','labor_gold','profit_gold','profit_rial','final_price','purchase_cost','net_profit','source_ref','created_by'];
+ 'unit_weight','total_weight','raw_price','labor_gold','profit_gold','profit_rial','final_price','purchase_cost','net_profit','source_ref','created_by','idempotency_key','request_fingerprint'];
  const vals=[p.id,date,q.quantity,q.gold_rate,q.labor_pct,q.profit_pct,q.accessories,q.discount,customer,q.unit_weight,
- q.total_weight,q.raw_price,q.labor_gold,q.profit_gold,q.profit_rial,q.final_price,q.purchase_cost,q.net_profit,key,user.id];
- return {q,stmt:db.prepare(`INSERT INTO sales (${columns.join(',')}) VALUES (${columns.map(()=>'?').join(',')})`).bind(...vals)};
+ q.total_weight,q.raw_price,q.labor_gold,q.profit_gold,q.profit_rial,q.final_price,q.purchase_cost,q.net_profit,null,user.id,idempotencyKey,fingerprint];
+ return {q,fingerprint,stmt:db.prepare(`INSERT INTO sales (${columns.join(',')}) VALUES (${columns.map(()=>'?').join(',')})`).bind(...vals)};
+}
+export async function insertSaleIdempotently(db,stmt,idempotencyKey,fingerprint){
+ try{return {inserted:true,result:await stmt.run()};}
+ catch(error){
+  const existing=await first(db,'SELECT id,request_fingerprint,final_price,net_profit FROM sales WHERE idempotency_key=?',idempotencyKey);
+  if(!existing)throw error;
+  if(existing.request_fingerprint!==fingerprint)err('این شناسه درخواست قبلاً برای فروش دیگری استفاده شده است؛ صفحه را تازه‌سازی و دوباره تلاش کن.',409);
+  return {inserted:false,sale:existing};
+ }
 }
 function sameProduct(a,b){return ['name','weight','purchase_gold_rate','purchase_labor_pct','purchased_qty','supplier'].every(k=>String(a[k]??'')===String(b[k]??''));}
-const keyImportSale=s=>['date','name','quantity','gold_rate','labor_pct','profit_pct','accessories','discount','customer','unit_weight','purchase_cost'].map(k=>String(s[k]??'')).join('|');
+const keyImportSale=s=>['date','name','quantity','gold_rate','labor_pct','profit_pct','accessories','discount','customer','unit_weight','purchase_cost','voided','void_reason'].map(k=>String(s[k]??'')).join('|');
 function tryImportProduct(row,errors){try{return validateProduct(row)}catch(e){errors.push(`ردیف ${row.row||'؟'} موجودی: ${e.message}`);return null}}
 export async function planImport(db,body){
  if(!Array.isArray(body.products)||!Array.isArray(body.sales)||body.products.length>2000||body.sales.length>3000)err('فایل یا تعداد ردیف‌ها معتبر نیست.',413);
@@ -119,14 +129,16 @@ export async function planImport(db,body){
     if(r.final_price!==undefined&&r.final_price!==null&&r.final_price!==''){const diff=dec(q.final_price)-dec(r.final_price);if(diff>dec('1')||diff<dec('-1'))throw Error('مبلغ نهایی فایل با فرمول محاسبه‌شده اختلاف دارد.');}
     let date=asciiDigits(String(r.date||''));if(!/^\d{4}[/-]\d{1,2}[/-]\d{1,2}$/.test(date))throw Error('تاریخ نامعتبر');}
   catch(e){errors.push(`ردیف فروش ${r.row}: ${e.message}`);continue;}
-  const canonical={date:asciiDigits(String(r.date||'')),name:norm(r.name),quantity:q.quantity,gold_rate:q.gold_rate,labor_pct:q.labor_pct,profit_pct:q.profit_pct,accessories:q.accessories,discount:q.discount,customer:safeText(r.customer,140),unit_weight:q.unit_weight,purchase_cost:q.purchase_cost};
+  const canonical={date:asciiDigits(String(r.date||'')),name:norm(r.name),quantity:q.quantity,gold_rate:q.gold_rate,labor_pct:q.labor_pct,profit_pct:q.profit_pct,accessories:q.accessories,discount:q.discount,customer:safeText(r.customer,140),unit_weight:q.unit_weight,purchase_cost:q.purchase_cost,voided:r.voided?1:0,void_reason:safeText(r.void_reason,200)};
   if(old){
-   const former={date:old.date,name:norm(old.product_name),quantity:old.quantity,gold_rate:old.gold_rate,labor_pct:old.labor_pct,profit_pct:old.profit_pct,accessories:old.accessories,discount:old.discount,customer:old.customer,unit_weight:old.unit_weight,purchase_cost:old.purchase_cost};
+   const former={date:old.date,name:norm(old.product_name),quantity:old.quantity,gold_rate:old.gold_rate,labor_pct:old.labor_pct,profit_pct:old.profit_pct,accessories:old.accessories,discount:old.discount,customer:old.customer,unit_weight:old.unit_weight,purchase_cost:old.purchase_cost,voided:old.voided?1:0,void_reason:old.void_reason||''};
    if(keyImportSale(canonical)!==keyImportSale(former)){conflicts.push(`فروش ${ref} قبلاً ثبت شده و اطلاعات آن تغییر کرده؛ برای اصلاح باید دستی بررسی شود.`);salesConflict++;}else salesSame++;
    continue;
   }
-  if((stockBySku.get(candidate.sku)||0)<q.quantity){conflicts.push(`فروش ${ref}: موجودی «${p.name}» کافی نیست.`);salesConflict++;continue;}
-  stockBySku.set(candidate.sku,stockBySku.get(candidate.sku)-q.quantity);
+  if(!canonical.voided){
+   if((stockBySku.get(candidate.sku)||0)<q.quantity){conflicts.push(`فروش ${ref}: موجودی «${p.name}» کافی نیست.`);salesConflict++;continue;}
+   stockBySku.set(candidate.sku,stockBySku.get(candidate.sku)-q.quantity);
+  }
   newSales.push({...canonical,sku:candidate.sku,source_ref:ref});
  }
  if(body.products.length!==existing.length)warnings.push('محصولات حذف‌شده از Excel از اپ حذف نمی‌شوند.');
@@ -205,10 +217,16 @@ async function apiRequest(req,env,url,user){
  }
  if(path==='/api/sales'&&m==='GET'){only(seller(user));return reply((await sales(db)).map(s=>removeSensitiveSale(s,user)));}
  if(path==='/api/sales'&&m==='POST'){
-  only(seller(user));const body=await readJson(req),p=await product(db,Number(body.product_id));if(!p)err('محصول یافت نشد.',404);
-  const {stmt,q}=makeSaleStatement(db,p,body,user);const r=await stmt.run();
-  await auditBatch(db,user,'sale.create','sale',r.meta.last_row_id,`${p.sku} x${q.quantity}`);
-  return reply({id:r.meta.last_row_id,final_price:q.final_price,...(roles?{net_profit:q.net_profit}:{})},201);
+  only(seller(user));const body=await readJson(req);
+  const idempotencyKey=safeText(req.headers.get('Idempotency-Key')||body.idempotency_key,80);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey))err('شناسه یکتای درخواست فروش معتبر نیست؛ دوباره فرم را باز کن.',400);
+  const p=await product(db,Number(body.product_id));if(!p)err('محصول یافت نشد.',404);
+  const {stmt,q,fingerprint}=await makeSaleStatement(db,p,body,user,idempotencyKey);
+  const saved=await insertSaleIdempotently(db,stmt,idempotencyKey,fingerprint);
+  if(!saved.inserted)return reply({id:saved.sale.id,final_price:saved.sale.final_price,...(roles?{net_profit:saved.sale.net_profit}:{}),duplicate:true},200);
+  const id=saved.result.meta.last_row_id;
+  await auditBatch(db,user,'sale.create','sale',id,`${p.sku} x${q.quantity}`);
+  return reply({id,final_price:q.final_price,...(roles?{net_profit:q.net_profit}:{}),duplicate:false},201);
  }
  const voidSale=path.match(/^\/api\/sales\/(\d+)\/void$/);
  if(voidSale&&m==='POST'){
@@ -249,9 +267,10 @@ async function apiRequest(req,env,url,user){
    if(!p)err(`محصول فروش ${s.name} پیدا نشد.`,409);
    const q=quote({...p,...(s.unit_weight?{weight:s.unit_weight}:{})},s);
    if(s.purchase_cost!==undefined&&s.purchase_cost!==null&&s.purchase_cost!==''){q.purchase_cost=fmt(valid(s.purchase_cost,'بهای خرید تاریخی'));q.net_profit=fmt(dec(q.final_price)-dec(q.purchase_cost)-dec(q.accessories));}
-   st.push(db.prepare(`INSERT INTO sales(product_id,date,quantity,gold_rate,labor_pct,profit_pct,accessories,discount,customer,unit_weight,total_weight,raw_price,labor_gold,profit_gold,profit_rial,final_price,purchase_cost,net_profit,source_ref,created_by)
-     SELECT id,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? FROM products WHERE sku=?`).bind(
-     s.date,q.quantity,q.gold_rate,q.labor_pct,q.profit_pct,q.accessories,q.discount,s.customer,q.unit_weight,q.total_weight,q.raw_price,q.labor_gold,q.profit_gold,q.profit_rial,q.final_price,q.purchase_cost,q.net_profit,s.source_ref,user.id,s.sku));
+   st.push(db.prepare(`INSERT INTO sales(product_id,date,quantity,gold_rate,labor_pct,profit_pct,accessories,discount,customer,unit_weight,total_weight,raw_price,labor_gold,profit_gold,profit_rial,final_price,purchase_cost,net_profit,source_ref,created_by,voided,void_reason)
+      SELECT id,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? FROM products WHERE sku=?`).bind(
+      s.date,q.quantity,q.gold_rate,q.labor_pct,q.profit_pct,q.accessories,q.discount,s.customer,q.unit_weight,q.total_weight,q.raw_price,q.labor_gold,q.profit_gold,q.profit_rial,q.final_price,q.purchase_cost,q.net_profit,s.source_ref,user.id,s.voided?1:0,s.void_reason||'',s.sku));
+
   }
   st.push(db.prepare('DELETE FROM imports WHERE token=?').bind(row.token),audit(db,user,'excel.import','workbook',1,JSON.stringify(info.counts)),bump(db));
   await db.batch(st);
@@ -259,7 +278,7 @@ async function apiRequest(req,env,url,user){
  }
  if(path==='/api/export'&&m==='GET'){
   only(roles);const [p,s]=await Promise.all([products(db),sales(db)]);await run(db,'INSERT INTO audit(actor,action,entity,entity_id,detail) VALUES(?,?,?,?,?)',user.id,'excel.export','workbook','1','JSON workbook data');
-  return reply({products:p.map(x=>publicProduct(x,user)),sales:s.filter(x=>!x.voided)});
+  return reply({products:p.map(x=>publicProduct(x,user)),sales:s});
  }
  err('مسیر API یافت نشد.',404);
 }
