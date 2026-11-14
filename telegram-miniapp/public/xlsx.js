@@ -94,7 +94,6 @@ function updateSheet(xml,updates){
  return xml;
 }
 function num(v){const n=Number(v??0);return Number.isFinite(n)?n:0;}
-const normProductName=x=>String(x??'').trim().normalize('NFC').replace(/ي/g,'ی').replace(/ك/g,'ک').toLocaleLowerCase('fa');
 function addAttr(xml,tag,attr,value){
  const re=new RegExp('<'+tag+'\\b([^>]*)>'),m=xml.match(re);if(!m)return xml;
  const attrs=m[1].replace(new RegExp('\\s'+attr+'="[^"]*"','g'),'');
@@ -114,13 +113,6 @@ async function updateWorkbookTemplate(zip,data){
  if(products.length>200)throw Error('قالب اصلی برای ۲۰۰ محصول آماده شده است؛ تعداد محصولات فعلی '+products.length+' است. برای جلوگیری از حذف اطلاعات، خروجی ساخته نشد.');
  if(sales.length>200)throw Error('قالب اصلی برای ۲۰۰ ردیف فروش آماده شده است؛ تعداد فروش‌های ثبت‌شده '+sales.length+' است. برای جلوگیری از حذف اطلاعات، خروجی ساخته نشد.');
  let invXml=await zip.file(paths['موجودی']).async('text'),salesXml=await zip.file(paths['فروش']).async('text');
- const shared=zip.file('xl/sharedStrings.xml')?[...parse(await zip.file('xl/sharedStrings.xml').async('text')).getElementsByTagName('si')].map(si=>[...si.getElementsByTagName('t')].map(x=>x.textContent).join('')):[];
- const originalInventory=await getRows(zip,paths['موجودی'],shared),manualBySku=new Map(),manualByName=new Map();
- for(const row of originalInventory)if(row.n>=5&&clean(row.cells.A)){
-  const manual={m:row.cells.M??null,n:row.cells.N??null};
-  if(clean(row.cells.O))manualBySku.set(clean(row.cells.O),manual);
-  manualByName.set(normProductName(row.cells.A),manual);
- }
  const invUpdates=[['O4','کد محصول HANI-EL']];
  const salesUpdates=[['S3','مشتری'],['T3','شناسه ثابت فروش'],['U3','بهای خرید ثبت‌شده'],['V3','وزن واحد در زمان فروش'],['W3','وضعیت سند'],['X3','علت ابطال']];
  const soldByName=new Map();for(const s of sales)if(!s.voided){const k=String(s.product_name||'');soldByName.set(k,(soldByName.get(k)||0)+num(s.quantity));}
@@ -131,8 +123,7 @@ async function updateWorkbookTemplate(zip,data){
   const unitCost=p?(p.purchase_unit_cost!==undefined?num(p.purchase_unit_cost):(w+(labor||0))*rate):null;
   const set=(col,val,formula=null)=>invUpdates.push([col+r,val,formula]);
   set('A',p?p.name:null);set('B',p?p.weight:null);set('C',p?p.purchase_gold_rate:null);set('D',p?p.purchase_labor_pct:null);
-  const manual=p?(manualBySku.get(String(p.sku||''))||manualByName.get(normProductName(p.name))):null;
-  set('F',p?p.purchased_qty:null);set('L',p?(p.supplier||''):null);set('M',manual?.m??null);set('N',manual?.n??null);set('O',p?p.sku:null);
+  set('F',p?p.purchased_qty:null);set('L',p?(p.supplier||''):null);set('O',p?p.sku:null);
   set('E',p?labor:null,'IF(A'+r+'="","",B'+r+'*D'+r+'/100)');
   set('G',p?sold:null,'IF(A'+r+'="","",SUMIFS(فروش!$D$4:$D$203,فروش!$C$4:$C$203,A'+r+',فروش!$W$4:$W$203,"<>باطل"))');
   set('H',p?available:null,'IF(A'+r+'="","",F'+r+'-G'+r+')');
