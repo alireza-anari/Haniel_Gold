@@ -145,7 +145,7 @@ async function updateWorkbookTemplate(zip,data){
   const r=4+i,s=sales[i]||null,active=s&&!s.voided;
   const set=(col,val,formula=null)=>salesUpdates.push([col+r,val,formula]);
   set('A',s?i+1:null);set('B',s?s.date:null);set('C',s?s.product_name:null);set('D',s?s.quantity:null);
-  set('E',s?s.unit_weight:null,'IF(C'+r+'="","",IFERROR(VLOOKUP(C'+r+',موجودی!$A$5:$J$204,2,FALSE),0))');
+  set('E',s?s.unit_weight:null);
   set('F',s?s.total_weight:null,'IF(C'+r+'="","",D'+r+'*E'+r+')');
   set('G',s?s.gold_rate:null);set('H',s?s.raw_price:null,'IF(C'+r+'="","",F'+r+'*G'+r+')');
   set('I',s?s.labor_pct:null);set('J',s?s.labor_gold:null,'IF(C'+r+'="","",F'+r+'*I'+r+'/100)');
