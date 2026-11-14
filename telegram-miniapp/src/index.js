@@ -21,7 +21,7 @@ export async function verifyTelegram(raw,token,maxAge=86400,now=Math.floor(Date.
  if(!raw||raw.length>10000||!token)err('ورود باید از داخل تلگرام انجام شود.',401);
  const p=new URLSearchParams(raw), hash=p.get('hash');const age=Number(p.get('auth_date'));
  if(!hash||!/^[a-f\d]{64}$/i.test(hash)||!Number.isSafeInteger(age)||now-age>maxAge||age>now+60)err('ورود تلگرام نامعتبر یا منقضی شده است.',401);
- const check=[...p.entries()].filter(([k])=>k!=='hash'&&k!=='signature').sort(([a],[b])=>a.localeCompare(b,'en')).map(([k,v])=>`${k}=${v}`).join('\n');
+ const check=[...p.entries()].filter(([k])=>k!=='hash').sort(([a],[b])=>a.localeCompare(b,'en')).map(([k,v])=>`${k}=${v}`).join('\n');
  const secret=await hmac(textEncoder.encode('WebAppData'),token);const received=toHex(await hmac(secret,check));
  let delta=0;for(let i=0;i<64;i++)delta|=received.charCodeAt(i)^hash.toLowerCase().charCodeAt(i);
  if(delta!==0)err('امضای ورود تلگرام معتبر نیست.',401);
