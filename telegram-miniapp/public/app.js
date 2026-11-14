@@ -2,6 +2,7 @@ const tg=window.Telegram?.WebApp;
 try{tg?.ready();tg?.expand();tg?.setHeaderColor('#141512');tg?.setBackgroundColor('#111310')}catch{}
 const headers=()=>({'X-Telegram-Init-Data':tg?.initData||''});
 let session=null,products=[],sales=[],summary=null,current='dashboard',previewToken=null,searchTerm='',stockFilter='all';
+const pageHistory=[];
 const photoCache=new Map(),pendingSaleKeys=new Map();
 function secureUuid(){
  if(crypto.randomUUID)return crypto.randomUUID();
@@ -24,8 +25,34 @@ async function saleIdempotency(data){
 const view=document.getElementById('view'),navSide=document.getElementById('side-nav'),navMobile=document.getElementById('mobile-nav');
 const modal=document.getElementById('modal'),modalBody=document.getElementById('modal-body'),modalTitle=document.getElementById('modal-title');
 const esc=(x)=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const number=(x,max=3)=>{let n=Number(x);return Number.isFinite(n)?n.toLocaleString('fa-IR',{maximumFractionDigits:max}):'—'};
-const rial=(x)=>`${number(x,2)} <small class="muted">ریال</small>`;
+// Precision-safe presentation only: original monetary values and calculations are never rounded.
+const latinDigits=x=>String(x??'').replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-1776)).replace(/[٠-٩]/g,c=>String(c.charCodeAt(0)-1632));
+const persianDigits=x=>String(x).replace(/\d/g,c=>'۰۱۲۳۴۵۶۷۸۹'[Number(c)]);
+function number(x,max=3){
+ const raw=latinDigits(x).trim().replace(/[,٬،\s]/g,'').replace('٫','.');
+ if(!/^-?\d+(?:\.\d+)?$/.test(raw))return '—';
+ const negative=raw.startsWith('-'),[int,frac='']=raw.replace('-','').split('.');
+ const precision=Math.max(0,Math.min(15,Number(max)||0)),head=frac.slice(0,precision);
+ let rounded=BigInt(int+(head.padEnd(precision,'0'))||'0');
+ if(frac.length>precision&&Number(frac[precision])>=5)rounded+=1n;
+ const scale=10n**BigInt(precision),whole=(rounded/scale).toString(),fraction=(rounded%scale).toString().padStart(precision,'0').replace(/0+$/,'');
+ const grouped=whole.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+ return persianDigits((negative&&rounded!==0n?'-':'')+grouped+(fraction?'.'+fraction:''));
+}
+const rial=x=>`<bdi dir="ltr" class="num-money">${number(x,0)}</bdi> <small class="muted">ریال</small>`;
+function formatTypedNumber(raw){
+ const v=latinDigits(raw).replace(/[٬،,\s]/g,'').replace('٫','.');
+ if(!v)return '';
+ const sign=v.startsWith('-')?'-':'',withoutSign=v.replace(/-/g,'').replace(/[^\d.]/g,''),dot=withoutSign.indexOf('.');
+ const intPart=(dot<0?withoutSign:withoutSign.slice(0,dot)),decPart=dot<0?'':withoutSign.slice(dot+1).replace(/\./g,'');
+ const grouped=intPart.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+ return persianDigits(sign+grouped+(dot<0?'':'.'+decPart));
+}
+function formObject(form){
+ const result=Object.fromEntries(new FormData(form));
+ for(const el of form.querySelectorAll('[data-numeric]'))result[el.name]=latinDigits(el.value).replace(/[,٬،\s]/g,'').replace('٫','.');
+ return result;
+}
 const isManager=()=>['owner','manager'].includes(session?.user.role);
 const isSeller=()=>session?.user.role!=='viewer';
 
@@ -63,10 +90,23 @@ function menus(){
  navMobile.innerHTML=mobile.map(p=>`<button type="button" class="${p===current?'active':''}" data-nav="${p}" ${p===current?'aria-current="page"':''}><span class="mobile-nav-icon">${iconSvg(p)}</span><span class="mobile-nav-label">${p==='quote'?'قیمت':labels[p]}</span></button>`).join('');
  document.getElementById('page-title').textContent=labels[current];
  document.getElementById('user-role').textContent=`${session.user.name} · ${({'owner':'مالک','manager':'مدیر','sales':'فروشنده','viewer':'مشاهده‌گر'})[session.user.role]}`;
+ updateBackButton();
+}
+function updateBackButton(){
+ const visible=current!=='dashboard'||modal?.open;
+ const back=document.getElementById('back');
+ if(back){back.hidden=!visible;back.setAttribute('aria-hidden',String(!visible));}
+ try{if(visible)tg?.BackButton?.show();else tg?.BackButton?.hide();}catch{}
+}
+async function navigateBack(){
+ if(modal?.open){closeModal();return;}
+ const previous=pageHistory.pop()||'dashboard';
+ await go(previous,{remember:false});
 }
 async function refreshData(){[summary,products]=await Promise.all([api('/api/summary'),api('/api/products')]);}
-async function go(page){
+async function go(page,{remember=true}={}){
  if(!canSee(page))return;
+ if(remember&&page!==current)pageHistory.push(current);
  current=page;menus();loading();
  try {if(['dashboard','products','sales','quote','reports'].includes(page))await refreshData();
   if(page==='dashboard')dashboard();if(page==='products')renderProducts();
@@ -84,7 +124,7 @@ function metric(label,val,unit='',gold=false,glyph='',currency=''){
 // Keep the full displayed amount in rial. Adapt typography to the real card width;
 // never abbreviate, clip, split digit groups, or modify the underlying financial data.
 function moneyMetric(label,value,foot='',gold=false,glyph=''){
- return metric(label,number(value,2),foot,gold,glyph,'ریال');
+ return metric(label,number(value,0),foot,gold,glyph,'ریال');
 }
 function fitMoneyMetrics(scope=view){
  for(const value of scope.querySelectorAll('.metric-currency-number')){
@@ -101,26 +141,18 @@ function fitMoneyMetrics(scope=view){
 }
 function dashboard(){
  const empty=products.length===0;
- view.innerHTML=`<section class="hero" aria-label="دسترسی سریع">
-  <div class="hero-copy">
-   <div class="hero-kicker"><span class="live-dot"></span> فضای مدیریت اختصاصی</div>
-   <h2>همه‌چیز در یک نگاه.</h2>
-   <p>موجودی، فروش و قیمت‌گذاری هانی‌ال؛ دقیق، منظم و همیشه در دسترس.</p>
-   <div class="hero-actions">${isManager()?button('افزودن محصول','addProduct','',''):button('مشاهده محصولات','nav','products','')}${isManager()?button('ورود فایل اکسل','nav','excel','outline'):''}</div>
-  </div>
-  <div class="hero-signature"><img src="/assets/logo.png" alt="لوگوی رسمی HANI-EL GOLD"></div>
+ view.innerHTML=`<section class="dashboard-intro" aria-label="خلاصه موجودی">
+  <div><span class="section-kicker">HANI-EL GOLD / OVERVIEW</span><h2>وضعیت موجودی و فروش</h2><p>خلاصه اعداد واقعی ثبت‌شده در سیستم</p></div>
+  <img src="/assets/clover.png" alt="" aria-hidden="true">
  </section>
- <div class="section-head overview-title"><div><h2>وضعیت کسب‌وکار</h2><p>خلاصه اطلاعات ثبت‌شده در سیستم</p></div><span class="section-note">نمای کلی</span></div>
- <div class="metric-grid">${metric('محصولات',number(summary.products,0),'مدل ثبت‌شده',false,'products')}${metric('موجودی فعلی',number(summary.available_units,0),'تعداد واحد',false,'dashboard')}${metric('وزن طلای موجود',number(summary.available_weight,4),'گرم',false,'reports')}${metric('فروش ثبت‌شده',number(summary.sales_count,0),'سند فروش',true,'sales')}</div>
- ${isManager()?`<div class="section-head financial-title"><div><h2>نمای مالی</h2><p>بر اساس اطلاعات ثبت‌شده، نه قیمت لحظه‌ای بازار</p></div></div><div class="metric-grid financial-grid">${moneyMetric('ارزش خرید موجودی',summary.inventory_cost_rial,'با نرخ خرید',false,'products')}${moneyMetric('مبلغ فروش ثبت‌شده',summary.sales_rial,'اسناد فعال',false,'sales')}${moneyMetric('سود خالص ثبت‌شده',summary.profit_rial,'طبق محاسبات سیستم',true,'reports')}${metric('محصولات ناموجود',number(products.filter(p=>p.available===0).length,0),'مدل',false,'dashboard')}</div>`:''}
- <div class="section-head shortcuts-title"><div><h2>دسترسی سریع</h2><p>کارهای روزانه با کمترین تعداد لمس</p></div></div>
- <div class="action-grid">
-  <button class="action" type="button" data-nav="products"><span class="top">${iconSvg('products')}</span><span class="action-text"><span class="label">گالری محصولات</span><small>مشاهده موجودی</small></span><span class="action-arrow">↗</span></button>
-  ${isSeller()?`<button class="action" type="button" data-nav="quote"><span class="top">${iconSvg('quote')}</span><span class="action-text"><span class="label">محاسبه قیمت</span><small>قیمت و ثبت فروش</small></span><span class="action-arrow">↗</span></button>`:''}
-  ${isManager()?`<button class="action" type="button" data-nav="excel"><span class="top">${iconSvg('excel')}</span><span class="action-text"><span class="label">همگام‌سازی اکسل</span><small>ورود و دریافت فایل</small></span><span class="action-arrow">↗</span></button>`:''}
+ <div class="metric-grid dashboard-grid">
+ ${isManager()?metric('طلای کل ثبت‌شده از ابتدا',number(summary.total_purchased_weight,4),'گرم · مجموع خرید ثبت‌شده، پیش از کسر فروش',true,'reports') .replace('class="metric gold"', 'class="metric gold metric-total-gold"'):''}
+ ${metric('وزن طلای موجود',number(summary.available_weight,4),'گرم · موجودی فعلی',false,'reports')}
+ ${metric('موجودی فعلی',number(summary.available_units,0),'تعداد واحد',false,'dashboard')}
+ ${metric('مدل‌های ثبت‌شده',number(summary.products,0),'نوع محصول',false,'products')}
+ ${metric('فروش‌های فعال',number(summary.sales_count,0),'سند فروش',false,'sales')}
  </div>
  ${empty?blank('هنوز محصولی ثبت نشده است'):''}`;
- requestAnimationFrame(()=>fitMoneyMetrics());
 }
 
 function cardPhoto(p){
@@ -196,9 +228,12 @@ async function hydratePhotos(scope=document){
   try{if(!photoCache.has(id)){const r=await api(`/api/images/${id}`,{raw:true});const b=await r.blob();photoCache.set(id,URL.createObjectURL(b))}el.src=photoCache.get(id)}catch{el.replaceWith(document.createTextNode('✧'))}
  }
 }
-function showModal(title,html){modalTitle.textContent=title;modalBody.innerHTML=html;modal.showModal();hydratePhotos(modalBody)}
-function closeModal(){modal.close();modalBody.innerHTML=''}
-function field(label,name,val='',type='text',more=''){return `<div class="field"><label for="field-${name}">${label}</label><input class="input" id="field-${name}" name="${name}" type="${type}" ${type==='number'?'step="any" min="0"':''} value="${esc(val)}" ${more}></div>`}
+function showModal(title,html){modalTitle.textContent=title;modalBody.innerHTML=html;modal.showModal();updateBackButton();hydratePhotos(modalBody)}
+function closeModal(){if(modal.open)modal.close();modalBody.innerHTML='';updateBackButton()}
+function field(label,name,val='',type='text',more=''){
+ const numeric=type==='number',integer=['quantity','purchased_qty'].includes(name);
+ return `<div class="field"><label for="field-${name}">${label}</label><input class="input ${numeric?'numeric-input':''}" id="field-${name}" name="${name}" type="${numeric?'text':type}" ${numeric?`data-numeric="true" inputmode="${integer?'numeric':'decimal'}" dir="ltr" autocomplete="off"`:''} value="${esc(numeric?formatTypedNumber(val):val)}" ${more}></div>`;
+}
 function selectField(label,name,items){return `<div class="field"><label>${label}</label><select class="select" name="${name}" required>${items.map(o=>`<option value="${esc(o.value)}">${esc(o.text)}</option>`).join('')}</select></div>`}
 function productForm(p){
  const isEdit=!!p;
@@ -221,7 +256,7 @@ function productForm(p){
   <div class="row-actions form-footer"><button class="btn" type="submit">${isEdit?'ذخیره تغییرات':'ثبت محصول'}</button>${button('انصراف','close','','ghost')}</div>
  </form>`);
  document.getElementById('product-form').addEventListener('submit',async e=>{
-  e.preventDefault();const f=Object.fromEntries(new FormData(e.target));
+  e.preventDefault();const f=formObject(e.target);
   if(p) f.version=p.version;
   try{await api(p?`/api/products/${p.id}`:'/api/products',{method:p?'PATCH':'POST',body:JSON.stringify(f)});
   closeModal();notice('اطلاعات محصول ذخیره شد.');await go('products')}catch(err){loadError(err)}
@@ -272,7 +307,7 @@ function renderQuote(selected){
   if(submitButton){submitButton.disabled=true;submitButton.textContent='در حال ثبت…'}
   let attempt=null;
   try{
-   const data=Object.fromEntries(new FormData(saleForm));attempt=await saleIdempotency(data);
+   const data=formObject(saleForm);attempt=await saleIdempotency(data);
    const r=await api('/api/sales',{method:'POST',headers:{'Idempotency-Key':attempt.key},body:JSON.stringify(data)});
    pendingSaleKeys.delete(attempt.storageKey);try{sessionStorage.removeItem(attempt.storageKey)}catch{}
    notice(r.duplicate?`فروش شماره ${r.id} قبلاً ثبت شده بود؛ موجودی دوباره کم نشد.`:`فروش شماره ${r.id} ثبت شد.`);
@@ -283,7 +318,7 @@ function renderQuote(selected){
 }
 async function calculate(){
  const form=document.getElementById('sale-form');if(!form)return;
- const data=Object.fromEntries(new FormData(form));
+ const data=formObject(form);
  try{const q=await api('/api/quote',{method:'POST',body:JSON.stringify(data)});
  document.getElementById('quote-result').innerHTML=`<div class="divider"></div><div class="price-big"><label>قیمت نهایی محاسبه‌شده</label><strong>${rial(q.final_price)}</strong></div><div class="summary-lines">
  <div class="line"><span class="name">وزن کل</span><span>${number(q.total_weight,5)} گرم</span></div><div class="line"><span class="name">طلای خام</span><span>${rial(q.raw_price)}</span></div><div class="line"><span class="name">اجرت به طلا</span><span>${number(q.labor_gold,6)} گرم</span></div>${isManager()?`<div class="line"><span class="name">سود خالص</span><span>${rial(q.net_profit)}</span></div>`:''}</div>`;
@@ -373,6 +408,15 @@ async function deletePhoto(id,productId){if(!confirm('این تصویر حذف �
  try{await api(`/api/images/${id}`,{method:'DELETE'});photoCache.delete(String(id));closeModal();await go('products');await productDetail(productId);notice('تصویر حذف شد.')}
  catch(e){loadError(e)}
 }
+document.addEventListener('input',e=>{
+ const el=e.target;
+ if(!(el instanceof HTMLInputElement)||!el.matches('[data-numeric]'))return;
+ const pos=el.selectionStart??el.value.length,former=el.value;
+ const next=formatTypedNumber(former);
+ if(former===next)return;
+ const cursor=formatTypedNumber(former.slice(0,pos)).length;
+ el.value=next;try{el.setSelectionRange(cursor,cursor)}catch{}
+});
 document.addEventListener('click',async e=>{
  const chip=e.target.closest('[data-stock-filter]');if(chip){stockFilter=chip.dataset.stockFilter;updateProductGrid();return;}
  const nav=e.target.closest('[data-nav]');if(nav){go(nav.dataset.nav);return}
@@ -395,7 +439,10 @@ document.addEventListener('click',async e=>{
  }catch(err){loadError(err)}
 });
 document.getElementById('close-modal').addEventListener('click',closeModal);
-document.getElementById('refresh').addEventListener('click',()=>go(current));
+document.getElementById('refresh').addEventListener('click',()=>go(current,{remember:false}));
+document.getElementById('back').addEventListener('click',navigateBack);
+try{tg?.BackButton?.onClick(navigateBack)}catch{}
+modal.addEventListener('close',updateBackButton);
 window.addEventListener('resize',()=>fitMoneyMetrics());
 (async()=>{try{session=await api('/api/session');menus();await go('dashboard')}catch(e){
  view.innerHTML=`<div class="empty"><div class="empty-symbol">♧</div><h3>ورود امن مورد نیاز است</h3><p>${esc(e.message)}</p><p>مینی‌اپ را از طریق دکمه «مدیریت هانی‌ال» در ربات تلگرام باز کن.</p></div>`
