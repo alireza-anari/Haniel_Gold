@@ -41,7 +41,8 @@ test('reimporting identical workbook does not double-sell or duplicate products'
  assert.equal(again.counts.sales_unchanged,1);
 });
 test('previews block overselling within the same workbook',async()=>{
- const sale2={...sale,ref:'legacy-row-5',row:5,date:'1405/08/24',quantity:2};
+ const secondQuote=quote(product,{...saleInput,quantity:2});
+ const sale2={...sale,ref:'legacy-row-5',row:5,date:'1405/08/24',quantity:2,final_price:secondQuote.final_price,purchase_cost:secondQuote.purchase_cost};
  const r=await planImport(mockDb(),workbook([product],[sale,sale2]));
  assert.equal(r.counts.sales_new,1);
  assert.equal(r.counts.sales_conflicts,1);
