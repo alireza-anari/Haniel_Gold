@@ -1,0 +1,16 @@
+node_modules/
+.cloudflare/
+.wrangler/
+.dev.vars*
+.env*
+.DS_Store
+*.xlsx
+*.xls
+*.sqlite
+*.db
+*.zip
+secrets.local.json
+*.secrets.json
+
+# Generated from the storefront's canonical font CSS during Vite build.
+public/brand-fonts.css
