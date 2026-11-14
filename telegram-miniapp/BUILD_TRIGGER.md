@@ -7,3 +7,7 @@ The Telegram management app is isolated in `telegram-miniapp/`. Cloudflare Worke
 Trigger: first post-connection commit to start a Workers Build.
 
 Do not connect this branch to the HANI-EL storefront deployment. The main branch is not modified.
+
+## Retry after secrets configuration
+
+Runtime secrets `BOT_TOKEN` and `OWNER_TELEGRAM_ID` were configured by the operator in the Cloudflare dashboard. This documentation-only commit requests a fresh Workers Build on the dedicated feature branch. It contains no secret values and does not change the storefront.
