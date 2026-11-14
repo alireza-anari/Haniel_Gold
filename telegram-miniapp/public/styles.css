@@ -225,6 +225,14 @@ dialog{background:#1b211b;border-color:#525440;border-radius:21px;box-shadow:0 2
  .mobile-nav button{position:relative;min-width:0;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:5px 0;border-radius:10px;color:#a4a99d}
  .mobile-nav .mobile-nav-icon{width:24px;height:26px;font-size:unset;display:grid;place-items:center}
  .mobile-nav .mobile-nav-icon svg{width:20px;height:20px}
+ /* Override the legacy .mobile-nav button span { font-size:20px } rule:
+    labels must be compact, while icon sizes remain unchanged. */
+ .mobile-nav button .mobile-nav-label{
+  display:block;font-size:11px;line-height:1.45;font-weight:500;
+  letter-spacing:0;white-space:nowrap;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;text-align:center
+ }
+ .mobile-nav button.active .mobile-nav-label{font-weight:700}
  .mobile-nav button.active{color:#f3dca9;background:#2a2b23;font-weight:700}
  .mobile-nav button.active::before{content:"";position:absolute;top:1px;width:19px;height:2px;border-radius:2px;background:#c9a771}
  dialog{width:min(630px,calc(100vw - 18px));max-height:calc(100dvh - 24px)}
