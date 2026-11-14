@@ -172,28 +172,29 @@ async function apiRequest(req,env,url,user){
  }
  if(pimages&&m==='POST'){
   only(roles);const id=Number(pimages[1]);if(!(await product(db,id)))err('محصول وجود ندارد.',404);
-  const count=await first(db,'SELECT COUNT(*) n FROM images WHERE product_id=?',id);if(count.n>=8)err('بیشتر از ۸ عکس برای این محصول مجاز نیست.');
-  const len=Number(req.headers.get('content-length')||0);if(len>5000000)err('حجم تصویر بیش از حد مجاز است.',413);
+  const count=await first(db,'SELECT COUNT(*) n FROM images WHERE product_id=?',id);if(count.n>=6)err('بیشتر از ۶ عکس برای هر محصول مجاز نیست.');
+  const len=Number(req.headers.get('content-length')||0);if(len>1000000)err('حجم درخواست تصویر بیش از حد مجاز است.',413);
   const data=await req.formData(),file=data.get('image');if(!(file instanceof File))err('فایل تصویر وارد نشده است.');
-  if(file.size>4*1024*1024||file.size<50)err('حجم تصویر باید کمتر از ۴ مگابایت باشد.',413);
+  if(file.size>400000||file.size<50)err('حجم تصویر باید کمتر از ۴۰۰ کیلوبایت باشد.',413);
   const bytes=new Uint8Array(await file.arrayBuffer());
   const head=bytes.slice(0,16),looks=(...arr)=>arr.every((v,i)=>head[i]===v);
   let mime=looks(255,216,255)?'image/jpeg':looks(137,80,78,71,13,10,26,10)?'image/png':looks(82,73,70,70)&&String.fromCharCode(...head.slice(8,12))==='WEBP'?'image/webp':null;
   if(!mime)err('فقط JPG، PNG یا WebP مجاز است.');
+  // D1 BLOB storage: no billing-dependent R2 subscription.
   const key=`products/${id}/${crypto.randomUUID()}`;
-  await env.PHOTOS.put(key,bytes,{httpMetadata:{contentType:mime}});
-  try{const info=await run(db,'INSERT INTO images(product_id,object_key,mime) VALUES(?,?,?)',id,key,mime);await auditBatch(db,user,'image.add','product',id,String(info.meta.last_row_id));return reply({id:info.meta.last_row_id},201);}
-  catch(e){await env.PHOTOS.delete(key);throw e;}
+  const info=await run(db,'INSERT INTO images(product_id,object_key,mime,image_blob) VALUES(?,?,?,?)',id,key,mime,bytes);
+  await auditBatch(db,user,'image.add','product',id,String(info.meta.last_row_id));
+  return reply({id:info.meta.last_row_id},201);
  }
  const image=path.match(/^\/api\/images\/(\d+)$/);
  if(image&&m==='GET'){
-  const row=await first(db,'SELECT * FROM images WHERE id=?',Number(image[1]));if(!row)err('تصویر یافت نشد.',404);
-  const object=await env.PHOTOS.get(row.object_key);if(!object)err('فایل تصویر یافت نشد.',404);
-  return new Response(object.body,{headers:{'content-type':row.mime,'cache-control':'private, no-store','x-content-type-options':'nosniff'}});
+  const row=await first(db,'SELECT mime,image_blob FROM images WHERE id=?',Number(image[1]));if(!row)err('تصویر یافت نشد.',404);
+  if(!row.image_blob)err('داده تصویر یافت نشد.',404);
+  return new Response(new Uint8Array(row.image_blob),{headers:{'content-type':row.mime,'cache-control':'private, no-store','x-content-type-options':'nosniff'}});
  }
  if(image&&m==='DELETE'){
   only(roles);const row=await first(db,'SELECT * FROM images WHERE id=?',Number(image[1]));if(!row)err('تصویر یافت نشد.',404);
-  await env.PHOTOS.delete(row.object_key);await run(db,'DELETE FROM images WHERE id=?',row.id);await auditBatch(db,user,'image.delete','product',row.product_id,String(row.id));return reply({ok:true});
+  await run(db,'DELETE FROM images WHERE id=?',row.id);await auditBatch(db,user,'image.delete','product',row.product_id,String(row.id));return reply({ok:true});
  }
  if(path==='/api/quote'&&m==='POST'){
   only(seller(user));const body=await readJson(req),p=await product(db,Number(body.product_id));if(!p)err('محصول یافت نشد.',404);
@@ -267,7 +268,7 @@ export default {
   const url=new URL(req.url),path=url.pathname;
   if(!path.startsWith('/api/'))return env.ASSETS.fetch(req);
   try{
-   if(!env.DB||!env.PHOTOS)err('اتصال دیتابیس یا فضای تصاویر تنظیم نشده است.',503);
+   if(!env.DB)err('اتصال دیتابیس تنظیم نشده است.',503);
    const user=await authenticate(req,env);
    return security(await apiRequest(req,env,url,user));
   }catch(e){
