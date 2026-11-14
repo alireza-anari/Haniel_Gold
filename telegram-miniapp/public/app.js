@@ -1,7 +1,7 @@
 const tg=window.Telegram?.WebApp;
 try{tg?.ready();tg?.expand();tg?.setHeaderColor('#141512');tg?.setBackgroundColor('#111310')}catch{}
 const headers=()=>({'X-Telegram-Init-Data':tg?.initData||''});
-let session=null,products=[],sales=[],summary=null,current='dashboard',previewToken=null,searchTerm='';
+let session=null,products=[],sales=[],summary=null,current='dashboard',previewToken=null,searchTerm='',stockFilter='all';
 const photoCache=new Map();
 const view=document.getElementById('view'),navSide=document.getElementById('side-nav'),navMobile=document.getElementById('mobile-nav');
 const modal=document.getElementById('modal'),modalBody=document.getElementById('modal-body'),modalTitle=document.getElementById('modal-title');
@@ -10,7 +10,18 @@ const number=(x,max=3)=>{let n=Number(x);return Number.isFinite(n)?n.toLocaleStr
 const rial=(x)=>`${number(x,2)} <small class="muted">ریال</small>`;
 const isManager=()=>['owner','manager'].includes(session?.user.role);
 const isSeller=()=>session?.user.role!=='viewer';
-const icons={dashboard:'◈',products:'◇',sales:'▣',quote:'⌗',reports:'▥',excel:'⇅',team:'♧',help:'ⓘ'};
+
+const iconPaths={
+ dashboard:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+ products:'<path d="m6 3 12 0 4 7-10 11L2 10z"/><path d="M2 10h20M6 3l4 7 2 11 2-11 4-7"/>',
+ sales:'<path d="M4 3h16v18l-3-2-3 2-3-2-3 2-4-2z"/><path d="M8 8h8M8 12h8M8 16h4"/>',
+ quote:'<rect x="4" y="2.5" width="16" height="19" rx="2"/><path d="M8 7h8M8 11h2M14 11h2M8 15h2M14 15h2M8 19h8"/>',
+ reports:'<path d="M4 20V13h4v7M10 20V7h4v13M16 20V4h4v16M2 20h20"/>',
+ excel:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M12 10v10"/>',
+ team:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+ help:'<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4M12 17.4h.01"/>'
+};
+const iconSvg=(name)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]||iconPaths.dashboard}</svg>`;
 const labels={dashboard:'داشبورد',products:'محصولات',sales:'فروش',quote:'محاسبه قیمت',reports:'گزارش‌ها',excel:'اکسل',team:'کاربران',help:'راهنما'};
 async function api(url,opts={}){
  const h={...headers(),...(opts.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(opts.headers||{})};
@@ -24,14 +35,14 @@ function notice(text,type='ok'){
 }
 function loadError(err){notice(err?.message||'خطای ناشناخته','error')}
 function loading(){view.innerHTML='<div class="loading"><span class="loader"></span> دریافت اطلاعات…</div>'}
-function blank(text='هنوز اطلاعاتی وجود ندارد.') {return `<div class="empty"><div class="empty-symbol">✧</div><h3>${esc(text)}</h3><p>اطلاعات واقعی پس از ثبت یا ورود اکسل اینجا نمایش داده می‌شوند.</p></div>`}
+function blank(text='هنوز اطلاعاتی وجود ندارد.') {return `<div class="empty"><img class="empty-logo" src="/assets/logo.png" alt="HANI-EL GOLD"><h3>${esc(text)}</h3><p>اطلاعات واقعی پس از ثبت یا ورود اکسل اینجا نمایش داده می‌شوند.</p>${isManager()?`<div class="empty-actions">${button('افزودن محصول','addProduct','','outline')} ${button('ورود اکسل','nav','excel','ghost')}</div>`:''}</div>`}
 function button(text,action,id='',kind='outline',extra=''){return `<button class="btn ${kind}" type="button" data-action="${action}" data-id="${esc(id)}" ${extra}>${text}</button>`}
 function canSee(page){return (!['excel','reports'].includes(page)||isManager()) && (page!=='team'||session?.user.role==='owner') &&(!['sales','quote'].includes(page)||isSeller())}
 function menus(){
  const pages=['dashboard','products','sales','quote','reports','excel','team','help'].filter(canSee);
- navSide.innerHTML=pages.map(p=>`<button class="nav-btn ${p===current?'active':''}" data-nav="${p}"><span class="nav-icon">${icons[p]}</span>${labels[p]}</button>`).join('');
+ navSide.innerHTML=pages.map(p=>`<button type="button" class="nav-btn ${p===current?'active':''}" data-nav="${p}" ${p===current?'aria-current="page"':''}><span class="nav-icon">${iconSvg(p)}</span><span>${labels[p]}</span></button>`).join('');
  const mobile=['dashboard','products','sales','quote',isManager()?'excel':'help'].filter(canSee);
- navMobile.innerHTML=mobile.map(p=>`<button class="${p===current?'active':''}" data-nav="${p}"><span>${icons[p]}</span>${labels[p]}</button>`).join('');
+ navMobile.innerHTML=mobile.map(p=>`<button type="button" class="${p===current?'active':''}" data-nav="${p}" ${p===current?'aria-current="page"':''}><span class="mobile-nav-icon">${iconSvg(p)}</span><span class="mobile-nav-label">${p==='quote'?'قیمت':labels[p]}</span></button>`).join('');
  document.getElementById('page-title').textContent=labels[current];
  document.getElementById('user-role').textContent=`${session.user.name} · ${({'owner':'مالک','manager':'مدیر','sales':'فروشنده','viewer':'مشاهده‌گر'})[session.user.role]}`;
 }
@@ -46,16 +57,30 @@ async function go(page){
   if(page==='team')await renderTeam();if(page==='help')renderHelp();
  }catch(e){view.innerHTML=blank('نمایش اطلاعات ممکن نشد.');loadError(e)}
 }
-function metric(label,val,unit='',gold=false){return `<div class="metric ${gold?'gold':''}"><span class="caption">${label}</span><strong class="mono">${val}</strong><span class="foot">${unit||'HANI-EL GOLD'}</span></div>`}
+function metric(label,val,unit='',gold=false,glyph=''){
+ return `<article class="metric ${gold?'gold':''}"><div class="metric-top"><span class="caption">${label}</span><span class="metric-icon">${iconSvg(glyph||'dashboard')}</span></div><strong class="metric-number">${val}</strong><span class="foot">${unit||'HANI-EL GOLD'}</span></article>`;
+}
 function dashboard(){
  const empty=products.length===0;
- view.innerHTML=`<div class="hero"><div><div class="eyebrow">PRIVATE WORKSPACE / HANIEL</div><h2>مدیریت دقیق، تصمیم‌گیری مطمئن</h2><p>موجودی، فروش و قیمت‌گذاری محصولات را در یک فضای اختصاصی و متصل به اکسل کنترل کن.</p>
- <div class="hero-actions">${button('مشاهده محصولات','nav','products')}${isManager()?button('ورود فایل اکسل','nav','excel','ghost'):''}</div></div><img src="/assets/clover.png" alt="نشان رسمی برند"></div>
- <div class="metric-grid">${metric('محصولات',number(summary.products,0),'تعداد مدل‌ها')}${metric('موجودی فعلی',number(summary.available_units,0),'تعداد واحد')}${metric('وزن طلای موجود',number(summary.available_weight,4),'گرم')}${metric('فروش ثبت‌شده',number(summary.sales_count,0),'سند فروش',true)}</div>
- ${isManager()?`<div class="metric-grid">${metric('ارزش خرید موجودی',rial(summary.inventory_cost_rial),'براساس نرخ خرید ثبت‌شده')}${metric('مبلغ فروش ثبت‌شده',rial(summary.sales_rial),'براساس اسناد فعال',true)}${metric('سود خالص ثبت‌شده',rial(summary.profit_rial),'براساس فرمول اکسل')}${metric('محصولات ناموجود',number(products.filter(p=>p.available===0).length,0),'تعداد مدل')}</div>`:''}
- <div class="section-head"><div><h2>دسترسی سریع</h2><p>کارهای روزانه بدون خروج از تلگرام</p></div></div>
- <div class="action-grid"><button class="action" data-nav="products"><span class="top">◇</span><span class="label">گالری محصولات</span></button>${isSeller()?'<button class="action" data-nav="quote"><span class="top">⌗</span><span class="label">محاسبه فروش</span></button>':''}${isManager()?'<button class="action" data-nav="excel"><span class="top">⇅</span><span class="label">همگام‌سازی اکسل</span></button>':''}</div>
- ${empty?blank('برای شروع، اکسل را وارد کن.'):''}`;
+ view.innerHTML=`<section class="hero" aria-label="دسترسی سریع">
+  <div class="hero-copy">
+   <div class="hero-kicker"><span class="live-dot"></span> فضای مدیریت اختصاصی</div>
+   <h2>همه‌چیز در یک نگاه.</h2>
+   <p>موجودی، فروش و قیمت‌گذاری هانی‌ال؛ دقیق، منظم و همیشه در دسترس.</p>
+   <div class="hero-actions">${isManager()?button('افزودن محصول','addProduct','',''):button('مشاهده محصولات','nav','products','')}${isManager()?button('ورود فایل اکسل','nav','excel','outline'):''}</div>
+  </div>
+  <div class="hero-signature"><img src="/assets/logo.png" alt="لوگوی رسمی HANI-EL GOLD"></div>
+ </section>
+ <div class="section-head overview-title"><div><h2>وضعیت کسب‌وکار</h2><p>خلاصه اطلاعات ثبت‌شده در سیستم</p></div><span class="section-note">نمای کلی</span></div>
+ <div class="metric-grid">${metric('محصولات',number(summary.products,0),'مدل ثبت‌شده',false,'products')}${metric('موجودی فعلی',number(summary.available_units,0),'تعداد واحد',false,'dashboard')}${metric('وزن طلای موجود',number(summary.available_weight,4),'گرم',false,'reports')}${metric('فروش ثبت‌شده',number(summary.sales_count,0),'سند فروش',true,'sales')}</div>
+ ${isManager()?`<div class="section-head financial-title"><div><h2>نمای مالی</h2><p>بر اساس اطلاعات ثبت‌شده، نه قیمت لحظه‌ای بازار</p></div></div><div class="metric-grid financial-grid">${metric('ارزش خرید موجودی',rial(summary.inventory_cost_rial),'با نرخ خرید',false,'products')}${metric('مبلغ فروش ثبت‌شده',rial(summary.sales_rial),'اسناد فعال',false,'sales')}${metric('سود خالص ثبت‌شده',rial(summary.profit_rial),'طبق محاسبات سیستم',true,'reports')}${metric('محصولات ناموجود',number(products.filter(p=>p.available===0).length,0),'مدل',false,'dashboard')}</div>`:''}
+ <div class="section-head shortcuts-title"><div><h2>دسترسی سریع</h2><p>کارهای روزانه با کمترین تعداد لمس</p></div></div>
+ <div class="action-grid">
+  <button class="action" type="button" data-nav="products"><span class="top">${iconSvg('products')}</span><span class="action-text"><span class="label">گالری محصولات</span><small>مشاهده موجودی</small></span><span class="action-arrow">↗</span></button>
+  ${isSeller()?`<button class="action" type="button" data-nav="quote"><span class="top">${iconSvg('quote')}</span><span class="action-text"><span class="label">محاسبه قیمت</span><small>قیمت و ثبت فروش</small></span><span class="action-arrow">↗</span></button>`:''}
+  ${isManager()?`<button class="action" type="button" data-nav="excel"><span class="top">${iconSvg('excel')}</span><span class="action-text"><span class="label">همگام‌سازی اکسل</span><small>ورود و دریافت فایل</small></span><span class="action-arrow">↗</span></button>`:''}
+ </div>
+ ${empty?blank('هنوز محصولی ثبت نشده است'):''}`;
 }
 function cardPhoto(p){return `<div class="product-photo">${p.cover_id?`<img data-photo="${p.cover_id}" alt="تصویر محصول ${esc(p.name)}">`:'<span class="placeholder">✧</span>'}</div>`}
 
