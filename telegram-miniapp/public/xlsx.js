@@ -60,33 +60,33 @@ window.parseHanielXlsx=async function(file){
  };
 };
 function colIndex(ref){let letters=String(ref).match(/^[A-Z]+/)[0],n=0;for(const c of letters)n=n*26+c.charCodeAt(0)-64;return n;}
-function cellMatch(xml,ref){const re=new RegExp('<c\\b(?=[^>]*\\br="'+ref+'")[^>]*(?:\\\\/\\\\s*>|>[\\\\s\\\\S]*?<\\\\/c>)');return xml.match(re);}
+function cellMatch(xml,ref){const re=new RegExp('<c\\b(?=[^>]*\\br="'+ref+'")[^>]*(?:\\/\\s*>|>[\\s\\S]*?<\\/c>)');return xml.match(re);}
 function writeCellInRow(row,ref,value,formula=null){
- const found=cellMatch(row,ref),old=found?.[0]||'',open=old.match(/^<c\\b[^>]*\\/?\\s*>/)?.[0]||'';
- let attrs=open?open.slice(2,-1).replace(/\\/$/,''):' r="'+ref+'"';
- attrs=attrs.replace(/\\s+t="[^"]*"/g,'').trim();
+ const found=cellMatch(row,ref),old=found?.[0]||'',open=old.match(/^<c\b[^>]*\/?\s*>/)?.[0]||'';
+ let attrs=open?open.slice(2,-1).replace(/\/$/,''):' r="'+ref+'"';
+ attrs=attrs.replace(/\s+t="[^"]*"/g,'').trim();
  let inner='';
  if(formula!==null){
   const cache=value===null||value===undefined?'':String(value);
   inner='<f>'+eXml(formula)+'</f><v>'+eXml(cache)+'</v>';
  }else if(value!==null&&value!==undefined&&value!==''){
   const v=String(value);
-  if(typeof value==='number'||/^-?(?:\\d+\\.?\\d*|\\.\\d+)(?:[Ee][+-]?\\d+)?$/.test(v))inner='<v>'+eXml(v)+'</v>';
+  if(typeof value==='number'||/^-?(?:\d+\.?\d*|\.\d+)(?:[Ee][+-]?\d+)?$/.test(v))inner='<v>'+eXml(v)+'</v>';
   else{attrs+=' t="inlineStr"';inner='<is><t xml:space="preserve">'+eXml(v)+'</t></is>';}
  }
  const next=inner?'<c '+attrs+'>'+inner+'</c>':'<c '+attrs+'/>';
  if(found)return row.replace(found[0],next);
  const close=row.lastIndexOf('</row>');if(close<0)throw Error('ساختار ردیف اکسل معتبر نیست.');
- const cells=[...row.matchAll(/<c\\b[^>]*(?:\\\\/\\\\s*>|>[\\\\s\\\\S]*?<\\\\/c>)/g)];
+ const cells=[...row.matchAll(/<c\\b[^>]*(?:\\/\\s*>|>[\\s\\S]*?<\\/c>)/g)];
  const target=colIndex(ref);let at=close;
- for(const c of cells){const m=c[0].match(/\\br="([A-Z]+\\d+)"/);if(m&&colIndex(m[1])>target){at=c.index;break;}}
+ for(const c of cells){const m=c[0].match(/\br="([A-Z]+\d+)"/);if(m&&colIndex(m[1])>target){at=c.index;break;}}
  return row.slice(0,at)+next+row.slice(at);
 }
 function updateSheet(xml,updates){
  const byRow=new Map();
- for(const [ref,value,formula] of updates){const n=Number(String(ref).match(/\\d+$/)[0]);if(!byRow.has(n))byRow.set(n,[]);byRow.get(n).push([ref,value,formula??null]);}
+ for(const [ref,value,formula] of updates){const n=Number(String(ref).match(/\d+$/)[0]);if(!byRow.has(n))byRow.set(n,[]);byRow.get(n).push([ref,value,formula??null]);}
  for(const [n,changes] of byRow){
-  const re=new RegExp('<row\\b(?=[^>]*\\br="'+n+'")[^>]*(?:\\\\/\\\\s*>|>[\\\\s\\\\S]*?<\\\\/row>)');
+  const re=new RegExp('<row\\b(?=[^>]*\\br="'+n+'")[^>]*(?:\\/\\s*>|>[\\s\\S]*?<\\/row>)');
   const found=xml.match(re);if(!found)throw Error('ردیف '+n+' در قالب اصلی اکسل وجود ندارد.');
   let row=found[0];for(const [ref,value,formula] of changes)row=writeCellInRow(row,ref,value,formula);
   xml=xml.replace(found[0],row);
@@ -96,13 +96,13 @@ function updateSheet(xml,updates){
 function num(v){const n=Number(v??0);return Number.isFinite(n)?n:0;}
 function addAttr(xml,tag,attr,value){
  const re=new RegExp('<'+tag+'\\b([^>]*)>'),m=xml.match(re);if(!m)return xml;
- const attrs=m[1].replace(new RegExp('\\\\s'+attr+'="[^"]*"','g'),'');
+ const attrs=m[1].replace(new RegExp('\\s'+attr+'="[^"]*"','g'),'');
  return xml.replace(m[0],'<'+tag+attrs+' '+attr+'="'+value+'">');
 }
 function removeCalcChain(zip,rels,types){
  zip.remove('xl/calcChain.xml');
- rels=rels.replace(/<Relationship\\b(?=[^>]*Type="[^"]*\\/calcChain")[^>]*\\/>/g,'');
- types=types.replace(/<Override\\b(?=[^>]*PartName="\\/xl\\/calcChain\\.xml")[^>]*\\/>/g,'');
+ rels=rels.replace(/<Relationship\b(?=[^>]*Type="[^"]*\/calcChain")[^>]*\/>/g,'');
+ types=types.replace(/<Override\b(?=[^>]*PartName="\/xl\/calcChain\.xml")[^>]*\/>/g,'');
  return {rels,types};
 }
 async function updateWorkbookTemplate(zip,data){
@@ -161,11 +161,11 @@ async function updateWorkbookTemplate(zip,data){
  const totalCols={D:'quantity',F:'total_weight',H:'raw_price',J:'labor_gold',L:'profit_gold',M:'profit_rial',N:'accessories',O:'discount',P:'final_price',Q:'purchase_cost',R:'net_profit'};
  for(const [col,field] of Object.entries(totalCols))salesUpdates.push([col+'2',salesTotals[col],'SUMIFS('+col+'4:'+col+'203,W4:W203,"<>باطل")']);
  invXml=updateSheet(invXml,invUpdates);salesXml=updateSheet(salesXml,salesUpdates);
- invXml=invXml.replace(/<dimension\\b[^>]*ref="A1:N204"[^>]*\\/>/,'<dimension ref="A1:O204"/>');
+ invXml=invXml.replace(/<dimension\b[^>]*ref="A1:N204"[^>]*\/>/,'<dimension ref="A1:O204"/>');
  zip.file(paths['موجودی'],invXml);zip.file(paths['فروش'],salesXml);
  let wbXml=await zip.file(wbPath).async('text');
- wbXml=wbXml.replace(/<calcPr\\b([^>]*)\\/>/,(m,a)=>'<calcPr'+a.replace(/\\s(fullCalcOnLoad|forceFullCalc|calcMode)="[^"]*"/g,'')+' fullCalcOnLoad="1" forceFullCalc="1" calcMode="auto"/>');
- if(!/<calcPr\\b/.test(wbXml))wbXml=wbXml.replace('</workbook>','<calcPr fullCalcOnLoad="1" forceFullCalc="1" calcMode="auto"/></workbook>');
+ wbXml=wbXml.replace(/<calcPr\b([^>]*)\/>/,(m,a)=>'<calcPr'+a.replace(/\s(fullCalcOnLoad|forceFullCalc|calcMode)="[^"]*"/g,'')+' fullCalcOnLoad="1" forceFullCalc="1" calcMode="auto"/>');
+ if(!/<calcPr\b/.test(wbXml))wbXml=wbXml.replace('</workbook>','<calcPr fullCalcOnLoad="1" forceFullCalc="1" calcMode="auto"/></workbook>');
  zip.file(wbPath,wbXml);
  let pivotPath='xl/pivotCache/pivotCacheDefinition1.xml';
  if(zip.file(pivotPath)){let pivot=await zip.file(pivotPath).async('text');pivot=addAttr(pivot,'pivotCacheDefinition','refreshOnLoad','1');zip.file(pivotPath,pivot);}
