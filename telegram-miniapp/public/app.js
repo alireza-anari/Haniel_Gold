@@ -58,6 +58,34 @@ function dashboard(){
  ${empty?blank('برای شروع، اکسل را وارد کن.'):''}`;
 }
 function cardPhoto(p){return `<div class="product-photo">${p.cover_id?`<img data-photo="${p.cover_id}" alt="تصویر محصول ${esc(p.name)}">`:'<span class="placeholder">✧</span>'}</div>`}
+
+// Compress product photos on the owner's phone; originals remain untouched.
+async function compressProductImage(file){
+ if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw Error('فرمت مجاز: JPG، PNG یا WebP');
+ if(file.size>20*1024*1024)throw Error('تصویر اصلی بیش از ۲۰ مگابایت است.');
+ const url=URL.createObjectURL(file),img=new Image();
+ try{
+  await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('تصویر قابل بازشدن نیست.'));img.src=url});
+  const width=img.naturalWidth,height=img.naturalHeight;
+  if(!width||!height)throw Error('ابعاد تصویر نامعتبر است.');
+  const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+  if(!ctx)throw Error('فشرده‌سازی تصویر در مرورگر امکان‌پذیر نیست.');
+  for(const maxSide of [1440,1200,1000,850,700,560]){
+   const scale=Math.min(1,maxSide/Math.max(width,height));
+   canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale));
+   ctx.clearRect(0,0,canvas.width,canvas.height);
+   ctx.fillStyle='#f8f7f3';ctx.fillRect(0,0,canvas.width,canvas.height);
+   ctx.drawImage(img,0,0,canvas.width,canvas.height);
+   for(const quality of [0.84,0.72,0.60]){
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));
+    if(blob&&blob.size>=50&&blob.size<=380000&&/^image\/(webp|jpeg)$/.test(blob.type))
+     return new File([blob],'product.'+(blob.type==='image/webp'?'webp':'jpg'),{type:blob.type});
+   }
+  }
+  throw Error('تصویر فشرده‌شده هنوز بزرگ است؛ لطفاً عکس کوچک‌تری انتخاب کن.');
+ }finally{URL.revokeObjectURL(url)}
+}
+
 async function hydratePhotos(scope=document){
  for(const el of scope.querySelectorAll('img[data-photo]')){
   const id=el.dataset.photo;
@@ -100,12 +128,12 @@ async function productDetail(id){
  let imgs=await api(`/api/products/${p.id}/images`);
  showModal(p.name,`<div class="form"><div class="row-actions"><span class="badge-role mono">${esc(p.sku)}</span><span class="pill ${p.available?'':'zero'}">${p.available?'موجود':'ناموجود'}</span></div>
  <div class="photo-grid">${imgs.map(i=>`<div class="photo-item"><img data-photo="${i.id}" alt="تصویر محصول">${isManager()?`<button data-action="deletePhoto" data-id="${i.id}" data-product="${p.id}">حذف</button>`:''}</div>`).join('')}</div>
- ${isManager()?`<form id="photo-form" class="field"><label>افزودن تصویر (JPEG / PNG / WebP — حداکثر ۴ مگابایت)</label><input class="input" type="file" name="image" accept="image/png,image/jpeg,image/webp" required><button class="btn outline" type="submit">آپلود تصویر</button></form>`:''}
+ ${isManager()?`<form id="photo-form" class="field"><label>افزودن تصویر (JPG / PNG / WebP؛ فشرده‌سازی خودکار برای ذخیره امن در D1)</label><input class="input" type="file" name="image" accept="image/png,image/jpeg,image/webp" required><button class="btn outline" type="submit">آپلود تصویر</button></form>`:''}
  <div class="summary-lines"><div class="line"><span class="name">وزن واحد</span><span>${number(p.weight,5)} گرم</span></div><div class="line"><span class="name">موجودی</span><span>${number(p.available,0)} عدد</span></div>
  ${isManager()?`<div class="line"><span class="name">تعداد خرید</span><span>${number(p.purchased_qty,0)}</span></div><div class="line"><span class="name">نرخ خرید طلا</span><span>${rial(p.purchase_gold_rate)}</span></div><div class="line"><span class="name">اجرت خرید</span><span>${number(p.purchase_labor_pct)}٪</span></div><div class="line"><span class="name">بهای خرید هر عدد</span><span>${rial(p.purchase_unit_cost)}</span></div><div class="line"><span class="name">تأمین‌کننده</span><span>${esc(p.supplier||'—')}</span></div>`:''}</div>
  <div class="row-actions">${isManager()?button('ویرایش','editProduct',p.id,'outline'):''}${isSeller()?button('محاسبه / فروش','quickSale',p.id,'ghost'):''}</div></div>`);
  const photoForm=document.getElementById('photo-form');photoForm?.addEventListener('submit',async e=>{
- e.preventDefault();const fd=new FormData(photoForm);try{await api(`/api/products/${p.id}/images`,{method:'POST',body:fd});closeModal();await go('products');await productDetail(p.id);notice('تصویر اضافه شد.')}catch(err){loadError(err)}
+ e.preventDefault();const fd=new FormData(photoForm);try{const file=fd.get('image');if(!(file instanceof File))throw Error('تصویری انتخاب نشده است.');const compressed=await compressProductImage(file);fd.set('image',compressed,compressed.name);await api(`/api/products/${p.id}/images`,{method:'POST',body:fd});closeModal();await go('products');await productDetail(p.id);notice('تصویر اضافه شد.')}catch(err){loadError(err)}
  });
 }
 async function renderSales(){
