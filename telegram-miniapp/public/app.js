@@ -162,21 +162,29 @@ function field(label,name,val='',type='text',more=''){return `<div class="field"
 function selectField(label,name,items){return `<div class="field"><label>${label}</label><select class="select" name="${name}" required>${items.map(o=>`<option value="${esc(o.value)}">${esc(o.text)}</option>`).join('')}</select></div>`}
 function productForm(p){
  const isEdit=!!p;
- showModal(isEdit?'ویرایش محصول':'ثبت محصول جدید',`<form class="form" id="product-form" data-id="${p?.id||''}"><div class="form-grid">
- <div class="field wide">${field('نام محصول','name',p?.name||'','text','required maxlength="130"')}</div>
- ${field('وزن هر عدد (گرم)','weight',p?.weight||'','number','required')}
- ${field('تعداد خرید','purchased_qty',p?.purchased_qty??'','number','required step="1"')}
- ${field('قیمت خرید هر گرم طلا (ریال)','purchase_gold_rate',p?.purchase_gold_rate??'','number','required')}
- ${field('اجرت خرید (%)','purchase_labor_pct',p?.purchase_labor_pct??'','number','required')}
- <div class="field wide">${field('تأمین‌کننده','supplier',p?.supplier||'')}</div>
- <div class="field wide"><label>یادداشت</label><textarea class="input" name="note" rows="2">${esc(p?.note||'')}</textarea></div></div>
- <div class="row-actions"><button class="btn" type="submit">${isEdit?'ذخیره تغییرات':'ثبت محصول'}</button>${button('انصراف','close','','ghost')}</div>
- <p class="tiny muted">تغییر تعداد خرید ممکن است موجودی را تغییر دهد؛ فروش‌های قبلی حذف نمی‌شوند. نرخ‌های خرید و فروش بر حسب ریال هستند.</p></form>`);
+ showModal(isEdit?'ویرایش محصول':'محصول جدید',`<form class="form product-edit-form" id="product-form" data-id="${p?.id||''}">
+  <div class="form-section-title"><span class="form-section-index">۰۱</span><div><strong>اطلاعات اصلی</strong><small>شناسه محصول به‌صورت خودکار توسط سیستم ساخته می‌شود</small></div></div>
+  <div class="form-grid">
+   <div class="field wide">${field('نام محصول','name',p?.name||'','text','required maxlength="130" autocomplete="off"')}</div>
+   ${field('وزن هر واحد (گرم)','weight',p?.weight||'','number','required')}
+   ${field('تعداد خرید','purchased_qty',p?.purchased_qty??'','number','required step="1"')}
+  </div>
+  <div class="form-section-title"><span class="form-section-index">۰۲</span><div><strong>اطلاعات خرید</strong><small>قیمت و اجرت خرید را با دقت وارد کن</small></div></div>
+  <div class="form-grid">
+   ${field('قیمت خرید هر گرم طلا (ریال)','purchase_gold_rate',p?.purchase_gold_rate??'','number','required')}
+   ${field('درصد اجرت خرید','purchase_labor_pct',p?.purchase_labor_pct??'','number','required')}
+   <div class="field wide">${field('تأمین‌کننده','supplier',p?.supplier||'')}</div>
+  </div>
+  <div class="form-section-title"><span class="form-section-index">۰۳</span><div><strong>یادداشت</strong><small>جزئیات اختیاری مرتبط با محصول</small></div></div>
+  <div class="field"><textarea class="input" name="note" rows="3" placeholder="یادداشت داخلی محصول">${esc(p?.note||'')}</textarea></div>
+  <p class="form-hint">تغییر تعداد خرید روی موجودی اثر می‌گذارد؛ سوابق فروش قبلی حذف نمی‌شوند. مقادیر قیمت برحسب ریال هستند.</p>
+  <div class="row-actions form-footer"><button class="btn" type="submit">${isEdit?'ذخیره تغییرات':'ثبت محصول'}</button>${button('انصراف','close','','ghost')}</div>
+ </form>`);
  document.getElementById('product-form').addEventListener('submit',async e=>{
- e.preventDefault();const f=Object.fromEntries(new FormData(e.target));
- if(p) f.version=p.version;
- try{await api(p?`/api/products/${p.id}`:'/api/products',{method:p?'PATCH':'POST',body:JSON.stringify(f)});
- closeModal();notice('اطلاعات محصول ذخیره شد.');await go('products')}catch(err){loadError(err)}
+  e.preventDefault();const f=Object.fromEntries(new FormData(e.target));
+  if(p) f.version=p.version;
+  try{await api(p?`/api/products/${p.id}`:'/api/products',{method:p?'PATCH':'POST',body:JSON.stringify(f)});
+  closeModal();notice('اطلاعات محصول ذخیره شد.');await go('products')}catch(err){loadError(err)}
  });
 }
 async function productDetail(id){
@@ -294,7 +302,7 @@ function userForm(id){
 }
 function renderHelp(){
  view.innerHTML=`<div class="panel help"><h2>راهنمای مدیریت HANI-EL GOLD</h2><p><b>۱. شروع کار:</b> مالک ابتدا Excel فعلی را از قسمت «اکسل» آپلود می‌کند، پیش‌نمایش را بررسی می‌کند و اعمال را تأیید می‌کند.</p>
- <p><b>۲. افزودن عکس:</b> در بخش محصولات وارد جزئیات شو و تصویر را آپلود کن. تصاویر در فضای خصوصی R2 ذخیره می‌شوند و در فایل Excel قرار نمی‌گیرند.</p>
+ <p><b>۲. افزودن عکس:</b> در بخش محصولات وارد جزئیات شو و تصویر را آپلود کن. تصاویر با فشرده‌سازی در فضای خصوصی دیتابیس D1 ذخیره می‌شوند و در فایل Excel قرار نمی‌گیرند.</p>
  <p><b>۳. فروش:</b> در «محاسبه قیمت» محصول، تعداد، نرخ روز طلا، درصد اجرت فروش، درصد سود، متعلقات و تخفیف را وارد کن. پس از بررسی، فروش ثبت و موجودی کم می‌شود.</p>
  <p><b>۴. همکاران:</b> مالک با شناسه عددی تلگرام نقش مدیر، فروشنده یا مشاهده‌گر می‌دهد.</p>
  <p><b>۵. خروجی Excel:</b> از نسخه به‌روز فایل خروجی بگیر؛ این عملیات فایل اکسل قدیمی روی گوشی یا رایانه را خودکار تغییر نمی‌دهد.</p>
@@ -332,5 +340,5 @@ document.addEventListener('click',async e=>{
 document.getElementById('close-modal').addEventListener('click',closeModal);
 document.getElementById('refresh').addEventListener('click',()=>go(current));
 (async()=>{try{session=await api('/api/session');menus();await go('dashboard')}catch(e){
- view.innerHTML=`<div class="empty"><div class="empty-symbol">♧</div><h3>ورود امن مورد نیاز است</h3><p>${esc(e.message)}</p><p>مینی‌اپ را از داخل ربات رسمی تلگرام باز کن؛ یا برای آزمایش محلی فرمان <span class="mono">cf dev</span> را اجرا کن.</p></div>`
+ view.innerHTML=`<div class="empty"><div class="empty-symbol">♧</div><h3>ورود امن مورد نیاز است</h3><p>${esc(e.message)}</p><p>مینی‌اپ را از طریق دکمه «مدیریت هانی‌ال» در ربات تلگرام باز کن.</p></div>`
  }})();
