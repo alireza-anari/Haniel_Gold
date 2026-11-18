@@ -12,11 +12,18 @@ export function mapPointer(clientX, clientY, rect, canvasWidth, canvasHeight) {
   return { x: (clientX - rect.left) * canvasWidth / rect.width, y: (clientY - rect.top) * canvasHeight / rect.height };
 }
 
-export function defaultOverlay(type, imageWidth, imageHeight, itemAspectRatio = 1) {
+export function defaultOverlay(type, imageWidth, imageHeight, itemAspectRatio = 1, earSide = 'right') {
   const side = Math.min(imageWidth, imageHeight);
-  const base = type === 'earring' ? side * 0.105 : type === 'necklace' ? side * 0.36 : side * 0.20;
-  return { x: imageWidth * 0.50, y: imageHeight * (type === 'earring' ? 0.43 : 0.64), width: base,
-    height: base / clamp(itemAspectRatio, 0.15, 8), rotation: 0 };
+  const base = type === 'earring' ? side * 0.105 : type === 'necklace' ? side * 0.28 : side * 0.20;
+  const aspect = clamp(itemAspectRatio, 0.15, 8);
+  // Protect the subject's face before landmarks are available. These are only estimates.
+  const maxHeight = type === 'earring' ? imageHeight * 0.28 : type === 'necklace' ? imageHeight * 0.34 : imageHeight * .40;
+  const actualWidth = Math.min(base, maxHeight * aspect);
+  const x = type === 'earring' ? imageWidth * (earSide === 'left' ? .30 : .70) : imageWidth * .50;
+  const y = type === 'earring' ? Math.min(imageHeight * .55, imageHeight * .44 + side * .10)
+    : type === 'necklace' ? Math.min(imageHeight * .82, imageHeight * .72 + side * .10)
+    : imageHeight * .64;
+  return {x, y, width:actualWidth, height:actualWidth / aspect, rotation:0};
 }
 
 export function faceAnchor(landmarks, type, width, height, side = 'right') {
