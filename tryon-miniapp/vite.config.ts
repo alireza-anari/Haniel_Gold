@@ -7,5 +7,7 @@ const assetsDir = new URL('./public/assets/', import.meta.url);
 mkdirSync(assetsDir, {recursive:true});
 copyFileSync(new URL('../telegram-miniapp/public/assets/logo.png', import.meta.url),
              new URL('./public/assets/logo.png', import.meta.url));
+copyFileSync(new URL('../frontend/brand-fonts.css', import.meta.url),
+             new URL('./public/brand-fonts.css', import.meta.url));
 
 export default defineConfig({ plugins: [cloudflare()], server: { port: 5174 } });
