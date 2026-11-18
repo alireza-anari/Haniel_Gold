@@ -1,4 +1,5 @@
 import {containSize, defaultOverlay, mapPointer, faceAnchor, poseNeckAnchor, normalizeOverlay, clamp} from './geometry.mjs';
+import {inspectAlphaMask, cutoutQualityMessage} from './asset-quality.mjs';
 
 /** HANI-EL private V1 proof of concept. No customer photo network requests. */
 const $ = (id) => document.getElementById(id);
@@ -7,7 +8,7 @@ const ctx = canvas.getContext('2d', {alpha:false});
 const stage = $('canvas-wrap');
 const status = $('status');
 const controls = ['auto-place','reset','compare','download'];
-const state = {photo:null,jewelry:null,overlay:null,baseWidth:0,baseHeight:0,initialWidth:0,compare:false,pointers:new Map(),moveStart:null,gestureStart:null,busy:false};
+const state = {photo:null,jewelry:null,overlay:null,baseWidth:0,baseHeight:0,initialWidth:0,compare:false,pointers:new Map(),moveStart:null,gestureStart:null,busy:false,assetQuality:null};
 
 function message(text,error=false) {
   status.textContent=text;
@@ -50,7 +51,7 @@ function readyImages() {
   state.overlay=defaultOverlay($('product-type').value,canvas.width,canvas.height,aspect);
   state.initialWidth=state.overlay.width;
   syncSlider();updateControls();redraw();
-  message('دو تصویر آماده‌اند. محصول را با انگشت روی عکس جابه‌جا کن یا تشخیص خودکار را امتحان کن.');
+  message('تصاویر آماده‌اند. جای محصول را روی عکس اصلاح کن و پیش از تأیید، نتیجه را با محصول واقعی مقایسه کن.');
 }
 async function verifyFile(file, types, maxBytes) {
   if(!file || !types.includes(file.type) || file.size>maxBytes || file.size<100)throw Error('نوع یا حجم فایل نامعتبر است.');
@@ -75,17 +76,14 @@ function cropAlpha(image) {
   const buffer=document.createElement('canvas');buffer.width=width;buffer.height=height;
   const c=buffer.getContext('2d',{willReadFrequently:true});c.drawImage(image,0,0,width,height);
   const rgba=c.getImageData(0,0,width,height).data;
-  let x1=width,y1=height,x2=-1,y2=-1,clearCount=0;
-  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-    const alpha=rgba[(y*width+x)*4+3];
-    if(alpha<235)clearCount++;
-    if(alpha>20){x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y);}
-  }
-  // Reject fully opaque images: they would paint a rectangle over the customer's face.
-  if(clearCount<width*height*.04)throw Error('تصویر محصول باید زمینه واقعاً شفاف داشته باشد.');
-  if(x2<=x1||y2<=y1)throw Error('تصویر محصول خالی است.');
-  const out=document.createElement('canvas');out.width=x2-x1+1;out.height=y2-y1+1;
-  out.getContext('2d').drawImage(buffer,x1,y1,out.width,out.height,0,0,out.width,out.height);
+  const quality=inspectAlphaMask({width,height,data:rgba});
+  if(!quality.ok)throw Error(cutoutQualityMessage(quality));
+  const {x,y,width:boxWidth,height:boxHeight}=quality.bbox;
+  const pad=5;const cx=Math.max(0,x-pad),cy=Math.max(0,y-pad);
+  const cw=Math.min(width-cx,boxWidth+(x-cx)+pad),ch=Math.min(height-cy,boxHeight+(y-cy)+pad);
+  const out=document.createElement('canvas');out.width=cw;out.height=ch;
+  out.getContext('2d').drawImage(buffer,cx,cy,cw,ch,0,0,cw,ch);
+  out.hanielQuality=quality;
   return out;
 }
 async function loadPhoto(file) {
@@ -107,15 +105,21 @@ async function loadJewelry(file) {
   try {
     if(Math.min(image.width,image.height)<80)throw Error('وضوح تصویر محصول کافی نیست.');
     if(image.width*image.height>12000000)throw Error('ابعاد محصول بیش از حد بزرگ است.');
-    state.jewelry=cropAlpha(image);
+    const prepared=cropAlpha(image);
+    state.jewelry=prepared;state.assetQuality=prepared.hanielQuality;
     $('jewelry-name').textContent=file.name.slice(0,18);
+    const note=$('asset-quality');note.hidden=false;note.textContent=cutoutQualityMessage(state.assetQuality);
   } finally {release(image);}
 }
 async function fileChanged(kind,event) {
   const file=event.target.files?.[0];if(!file)return;
   state.busy=true;updateControls();message('در حال آماده‌سازی تصویر روی دستگاه شما…');
   try {if(kind==='photo')await loadPhoto(file);else await loadJewelry(file);readyImages();}
-  catch(e){message(e.message||'بارگذاری عکس موفق نبود.',true);if(kind==='photo')state.photo=null;else state.jewelry=null;state.overlay=null;stage.classList.remove('has-image');$('empty-canvas').hidden=false;}
+  catch(e){
+    message(e.message||'بارگذاری عکس موفق نبود.',true);
+    // Keep the previously valid customer image/product if replacement fails.
+    if(!state.photo||!state.jewelry){stage.classList.remove('has-image');$('empty-canvas').hidden=false;}
+  }
   finally {state.busy=false;updateControls();}
 }
 $('photo-file').addEventListener('change',e=>fileChanged('photo',e));
