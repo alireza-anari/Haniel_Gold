@@ -9,7 +9,7 @@ export default defineConfig(({isPreview})=>({
   workersDev:false,
   env:{
    SOURCE_DB:bindings.d1({name:isPreview?'haniel-gold-tryon-test':'haniel-gold-db'}),
-   CATALOG_DB:bindings.d1({name:isPreview?'haniel-gold-tryon-test':'haniel-tryon-public'}),
+   CATALOG_DB:bindings.d1({name:isPreview?'haniel-tryon-public-test':'haniel-tryon-public'}),
    SYNC_ENABLED:bindings.text('0')
   }
  }
