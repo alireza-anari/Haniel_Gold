@@ -3,3 +3,4 @@ dist/
 .wrangler/
 .cloudflared/
 public/assets/logo.png
+public/brand-fonts.css
