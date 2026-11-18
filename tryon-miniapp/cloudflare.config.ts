@@ -11,7 +11,7 @@ export default defineConfig(({ isPreview }) => ({
     assets: { runWorkerFirst: ['/api/*'] },
     env: {
       ASSETS: bindings.assets(),
-      CATALOG_DB: bindings.d1({ name: isPreview ? 'haniel-gold-tryon-test' : 'haniel-tryon-public' }),
+      CATALOG_DB: bindings.d1({ name: isPreview ? 'haniel-tryon-public-test' : 'haniel-tryon-public' }),
       TRYON_PUBLIC_ENABLED: bindings.text(isPreview ? '1' : '0')
     }
   }
