@@ -20,6 +20,7 @@ ALLOWED_SQL = {
     'cloudflare/schema.sql', 'cloudflare/0002_gold_pricing.sql',
     'cloudflare/0003_inquiry_telegram.sql', 'cloudflare/0004_remove_telegram.sql',
     'cloudflare/0005_inquiry_notifications.sql', 'cloudflare/0006_inquiry_quotes.sql',
+    'cloudflare/0007_tryon_assets.sql',
 } | MINIAPP_SCHEMA_ONLY_SQL
 for path in paths:
     p=Path(path)
@@ -58,6 +59,11 @@ for path in paths:
             forbidden.append(path+' [notification migration must not include secrets or seed customer/notification records]')
         if path == 'cloudflare/0006_inquiry_quotes.sql' and any(x in data.upper() for x in ('PRIVATE KEY','INSERT INTO','UPDATE PRODUCTS','DELETE FROM PURCHASE_INQUIRIES','DROP TABLE')):
             forbidden.append(path+' [quote migration must be schema-only]')
+        if path == 'cloudflare/0007_tryon_assets.sql':
+            # A declared D1 table only; prohibit all writes, destructive statements and secrets.
+            clean = ' '.join(line for line in data.splitlines() if not line.lstrip().startswith('--')).upper()
+            if any(token in clean for token in ('PRIVATE KEY','INSERT INTO',' UPDATE ','DELETE FROM','DROP TABLE','ALTER TABLE','ATTACH DATABASE','REPLACE INTO')):
+                forbidden.append(path+' [tryon migration must be schema-only; no data or destructive writes]')
         # Owner explicitly requested restoring the four original embedded fonts; they now live in the shared brand-fonts.css.
         if path not in ('tools/scan_git_public.py', 'frontend/styles.css', 'frontend/brand-fonts.css') and re.search(r'data:(?:font/|application/(?:x-font|font))[^,]*;base64,', data):
             forbidden.append(path+' [embedded font requires public license review]')
