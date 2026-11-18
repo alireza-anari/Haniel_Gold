@@ -21,6 +21,9 @@ jobs:
       - name: Verify frontend and Cloudflare server JavaScript
         run: |
           node --check frontend/app.js
+          node --check telegram-miniapp/src/tryon.js
+          node --check telegram-miniapp/src/index.js
+          node --test telegram-miniapp/tests/tryon_api.test.js
           node --check frontend/tryon/app.mjs
           node --check frontend/tryon/geometry.mjs
           node --check frontend/tryon/asset-quality.mjs
