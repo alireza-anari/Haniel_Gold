@@ -23,3 +23,13 @@ test('admin cannot approve a product asset without explicit review or correct da
  const unreviewed=await tryonAdminAsset(ctx({assetUrl:good,productType:'necklace',approved:true}),'rose-necklace');assert.equal(unreviewed.status,400);
  const unsafe=await tryonAdminAsset(ctx({assetUrl:'https://evil.com/f.png',productType:'necklace',approved:true,confirmReviewed:true}),'rose-necklace');assert.equal(unsafe.status,400);
 });
+
+test('public query must require BOTH published product and approved asset',async()=>{
+ const c={env:{DB:{prepare:(sql)=>{
+  assert.match(sql,/p\.published=1/);
+  assert.match(sql,/a\.approved=1/);
+  return {bind:()=>({first:async()=>data})};
+ }}}};
+ const r=await tryonPublicProduct(c,'rose-necklace');
+ assert.equal(r.status,200);
+});
