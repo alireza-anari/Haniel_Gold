@@ -26,7 +26,8 @@ export async function tryonAdminAsset(c,slug) {
   let d;
   try {
     if(Number(c.request.headers.get('content-length')||0)>3000)return json({error:'TOO_LARGE'},413);
-    d=await c.request.json();
+    const raw=await c.request.text();if(raw.length>3000)return json({error:'TOO_LARGE'},413);
+    d=JSON.parse(raw);
   }catch{return json({error:'INVALID_BODY'},400);}
   if(!d||typeof d!=='object'||Array.isArray(d)||!validAssetUrl(d.assetUrl)||!validProductType(d.productType)||typeof d.approved!=='boolean'||(d.approved&&d.confirmReviewed!==true))return json({error:'INVALID_OR_UNREVIEWED_ASSET'},400);
   try {
