@@ -1,6 +1,7 @@
 const tg=window.Telegram?.WebApp;
 try{tg?.ready();tg?.expand();tg?.setHeaderColor('#141512');tg?.setBackgroundColor('#111310')}catch{}
-const headers=()=>({'X-Telegram-Init-Data':tg?.initData||''});
+const signedTelegramData=()=>window.HanielTelegramInit?.readRawInitData(tg,window.location.href)||'';
+const headers=()=>({'X-Telegram-Init-Data':signedTelegramData()});
 let session=null,products=[],sales=[],summary=null,current='dashboard',previewToken=null,searchTerm='',stockFilter='all';
 const pageHistory=[];
 const photoCache=new Map(),pendingSaleKeys=new Map();
@@ -445,5 +446,9 @@ try{tg?.BackButton?.onClick(navigateBack)}catch{}
 modal.addEventListener('close',updateBackButton);
 window.addEventListener('resize',()=>fitMoneyMetrics());
 (async()=>{try{session=await api('/api/session');menus();await go('dashboard')}catch(e){
- view.innerHTML=`<div class="empty"><div class="empty-symbol">♧</div><h3>ورود امن مورد نیاز است</h3><p>${esc(e.message)}</p><p>مینی‌اپ را از طریق دکمه «مدیریت هانی‌ال» در ربات تلگرام باز کن.</p></div>`
+ const hasSdk=!!tg,hasSignedData=!!signedTelegramData();
+ const guide=!hasSdk?'اسکریپت تلگرام بارگذاری نشده است. برنامه را از منوی ربات آزمایشی باز کن یا با نسخه به‌روز تلگرام دوباره امتحان کن.'
+  :!hasSignedData?'داده امضاشده ورود از تلگرام به صفحه نرسیده است. مینی‌اپ را ببند و با دکمه Menu همان ربات آزمایشی دوباره باز کن.'
+  :'داده ورود به صفحه رسیده اما توسط سرور تأیید نشده است. توکن ربات آزمایشی و شناسه مالک در تنظیمات Preview باید بررسی شوند.';
+ view.innerHTML=`<div class="empty"><div class="empty-symbol">♧</div><h3>ورود امن مورد نیاز است</h3><p>${esc(e.message)}</p><p>${esc(guide)}</p><p>تشخیص محلی: Telegram SDK: ${hasSdk?'دریافت شد':'دریافت نشد'} · داده ورود: ${hasSignedData?'دریافت شد':'دریافت نشد'}</p></div>`
  }})();
