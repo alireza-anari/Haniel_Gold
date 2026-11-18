@@ -33,3 +33,14 @@ test('extreme adjustments remain constrained',()=>{
   const o=normalizeOverlay({x:-500,y:50000,width:9999,height:9999,rotation:200},1000,700);
   assert.equal(o.x,0); assert.equal(o.y,700); assert.equal(o.rotation,70);
 });
+test('necklace default stays on lower neck area of a square photo',()=>{
+ const p=defaultOverlay('necklace',640,640,.92);
+ assert.equal(p.x,320);assert.ok(p.y>480);assert.ok(p.y-p.height/2>400);
+ assert.ok(p.y+p.height/2<=640);
+});
+test('default earring placement respects photo side and limits elongated drops',()=>{
+ const left=defaultOverlay('earring',640,640,.11,'left');
+ const right=defaultOverlay('earring',640,640,.11,'right');
+ assert.ok(left.x<320&&right.x>320);assert.equal(left.y,right.y);
+ assert.ok(left.height<=640*.28+.01);
+});
