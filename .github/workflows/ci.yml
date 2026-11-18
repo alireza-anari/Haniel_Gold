@@ -21,6 +21,9 @@ jobs:
       - name: Verify frontend and Cloudflare server JavaScript
         run: |
           node --check frontend/app.js
+          node --check frontend/tryon/app.mjs
+          node --check frontend/tryon/geometry.mjs
+          node --test tests/tryon_math.test.mjs
           node --check frontend/admin.js
           node --check functions/_lib/cloudflare-api.js
           node --check functions/_lib/request-inquiries.js
@@ -35,6 +38,7 @@ jobs:
         run: |
           bash tools/build_cloudflare_pages.sh
           test -f .cloudflare-pages-dist/index.html
+          test -f .cloudflare-pages-dist/tryon/index.html
           test -f .cloudflare-pages-dist/robots.txt
           test -f .cloudflare-pages-dist/_headers
           grep -q "apiBaseUrl:''" .cloudflare-pages-dist/runtime-config.js
