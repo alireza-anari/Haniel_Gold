@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.wrangler/
+.cloudflared/
+public/assets/logo.png
