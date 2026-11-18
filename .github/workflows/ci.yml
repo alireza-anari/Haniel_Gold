@@ -21,6 +21,12 @@ jobs:
       - name: Verify frontend and Cloudflare server JavaScript
         run: |
           node --check frontend/app.js
+          node --check tryon-miniapp/src/index.js
+          node --check tryon-miniapp/public/app.mjs
+          node --check tryon-miniapp/public/geometry.mjs
+          node --check tryon-miniapp/public/asset-quality.mjs
+          node --check tryon-sync/src/index.js
+          node --test tryon-miniapp/tests/*.test.mjs tryon-sync/tests/*.test.mjs
           node --check frontend/admin.js
           node --check functions/_lib/cloudflare-api.js
           node --check functions/_lib/request-inquiries.js
