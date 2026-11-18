@@ -1,4 +1,5 @@
 import {asciiDigits,dec,fmt,valid,quantity,purchaseUnitCost,quote} from './finance.js';
+import {tryonPublic,tryonAdmin} from './tryon.js';
 
 const STOCK_SQL=`SELECT p.*,p.purchased_qty-COALESCE((SELECT SUM(s.quantity) FROM sales s WHERE s.product_id=p.id AND s.voided=0),0) available,
  (SELECT COUNT(*) FROM images i WHERE i.product_id=p.id) image_count,
@@ -149,6 +150,7 @@ export async function planImport(db,body){
 }
 async function apiRequest(req,env,url,user){
  const db=env.DB,path=url.pathname,m=req.method,roles=manager(user);
+ if(path.startsWith('/api/tryon/admin/'))return tryonAdmin(req,env,path,user);
  if(m==='GET'&&path==='/api/health')return reply({ok:true});
  if(m==='GET'&&path==='/api/session')return reply({user,revision:await revision(db),features:{canManage:roles,canSell:seller(user),canUsers:user.role==='owner'}});
  if(m==='GET'&&path==='/api/summary'){
@@ -289,6 +291,9 @@ export default {
   if(!path.startsWith('/api/'))return env.ASSETS.fetch(req);
   try{
    if(!env.DB)err('اتصال دیتابیس تنظیم نشده است.',503);
+   // Only approved jewelry images, no accounting data. Disabled without explicit flag.
+   if(req.method==='GET' && /^\/api\/tryon\/(products|cutouts)\//.test(path))
+     return security(await tryonPublic(req,env,path));
    const user=await authenticate(req,env);
    return security(await apiRequest(req,env,url,user));
   }catch(e){
