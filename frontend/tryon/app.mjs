@@ -222,14 +222,41 @@ async function autoPlace(){
 }
 $('auto-place').addEventListener('click',autoPlace);
 
-function startTelegram(){
+async function startTelegram(){
   const tg=window.Telegram?.WebApp;
   try{tg?.ready();tg?.expand();}catch{}
   const raw=new URLSearchParams(location.search).get('tgWebAppStartParam')||new URLSearchParams(location.search).get('startapp')||tg?.initDataUnsafe?.start_param||'';
-  if(raw){
-    $('startapp-notice').hidden=false;
-    $('startapp-notice').textContent='این نسخه فقط برای آزمایش داخلی فعال است. اتصال امن محصول «'+(raw.startsWith('sku_')?'انتخاب‌شده':'')+'» به کاتالوگ در مرحله بعد انجام می‌شود؛ هنوز نمی‌توان محصول کانال را به‌طور خودکار تأیید و بارگذاری کرد.';
-  }
+  if(!raw)return;
+  const note=$('startapp-notice');note.hidden=false;
+  if(!raw.startsWith('sku_')){note.textContent='لینک محصول معتبر نیست. برای آزمایش می‌توانی تصاویر را دستی انتخاب کنی.';return;}
+  const slug=raw.slice(4);
+  if(!/^[a-z0-9][a-z0-9_-]{1,79}$/i.test(slug)){note.textContent='شناسه محصول معتبر نیست.';return;}
+  note.textContent='در حال دریافت محصول تأییدشده از کاتالوگ هانی‌ال…';
+  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),12000);
+  try{
+    // SKU is treated as untrusted input. Only the server may approve product and media.
+    const res=await fetch('/api/v1/tryon/products/'+encodeURIComponent(slug),{credentials:'omit',cache:'no-store',signal:ctrl.signal});
+    if(!res.ok)throw Error('SKU_NOT_APPROVED');
+    const item=await res.json();
+    if(item.slug!==slug||!['earring','necklace','bracelet','ring'].includes(item.productType)||
+      !/^\/api\/v1\/media\/products\/[a-f0-9-]{36}\.(?:png|webp)$/.test(item.assetUrl))throw Error('INVALID_SKU_ASSET');
+    const media=await fetch(item.assetUrl,{credentials:'omit',cache:'force-cache',signal:ctrl.signal});
+    if(!media.ok)throw Error('IMAGE_NOT_READY');
+    const blob=await media.blob();
+    const mime=item.assetUrl.endsWith('.png')?'image/png':'image/webp';
+    const file=new File([blob],slug+'.'+(mime==='image/png'?'png':'webp'),{type:mime});
+    await loadJewelry(file);
+    $('product-type').value=item.productType;
+    $('product-type').dispatchEvent(new Event('change'));
+    $('product-type').disabled=true;
+    $('jewelry-file').disabled=true;
+    document.querySelector('label[for="jewelry-file"]').hidden=true;
+    const link=$('catalog-product-link');link.href='../#/product/'+encodeURIComponent(item.slug);link.hidden=false;
+    note.textContent='محصول «'+String(item.name).slice(0,120)+'» از کاتالوگ تأییدشده بارگذاری شد. عکس خودت را انتخاب کن.';
+    readyImages();
+  }catch{
+    note.textContent='این محصول هنوز برای پرو مجازی تأیید یا آماده نشده است. برای آزمایش داخلی می‌توانی تصویر محصول را دستی انتخاب کنی.';
+  }finally{clearTimeout(timer);}
 }
-startTelegram();updateControls();
+void startTelegram();updateControls();
 window.addEventListener('pagehide',()=>{state.photo=null;state.jewelry=null;state.overlay=null;});
