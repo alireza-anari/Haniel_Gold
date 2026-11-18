@@ -48,7 +48,7 @@ function readyImages() {
   if(!state.photo||!state.jewelry){updateControls();return;}
   stage.classList.add('has-image');$('empty-canvas').hidden=true;
   const aspect=state.jewelry.width/state.jewelry.height;
-  state.overlay=defaultOverlay($('product-type').value,canvas.width,canvas.height,aspect);
+  state.overlay=defaultOverlay($('product-type').value,canvas.width,canvas.height,aspect,$('ear-side').value);
   state.initialWidth=state.overlay.width;
   syncSlider();updateControls();redraw();
   message('تصاویر آماده‌اند. جای محصول را روی عکس اصلاح کن و پیش از تأیید، نتیجه را با محصول واقعی مقایسه کن.');
@@ -129,6 +129,7 @@ $('product-type').addEventListener('change',()=>{
   if(state.photo&&state.jewelry)readyImages();
 });
 $('product-type').dispatchEvent(new Event('change'));
+$('ear-side').addEventListener('change',()=>{if(state.photo&&state.jewelry&&$('product-type').value==='earring')readyImages();});
 $('size-range').addEventListener('input',e=>{
   if(!state.overlay)return;
   const ratio=state.jewelry.width/state.jewelry.height;
