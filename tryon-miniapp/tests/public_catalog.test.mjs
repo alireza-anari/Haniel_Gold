@@ -70,3 +70,21 @@ test('catalog read failures never fall back to private manager records',async()=
  const res=await customerApi(request('/api/v1/products/'+SKU),{CATALOG_DB:db,TRYON_PUBLIC_ENABLED:'1'});
  assert.equal(res.status,503);
 });
+
+test('optional photo comes from the sanitized public catalog and is allowlisted',async()=>{
+ const JPEG=Uint8Array.from([255,216,255,...new Array(32).fill(0)]);
+ const row={...item,source_mime:'image/jpeg',source_blob:JPEG};
+ const {db}=fixture(row),env={CATALOG_DB:db,TRYON_PUBLIC_ENABLED:'1'};
+ const p=await (await customerApi(request('/api/v1/products/'+SKU),env)).json();
+ assert.equal(p.photoUrl,'/api/v1/photos/'+SKU);
+ const r=await customerApi(request('/api/v1/photos/'+SKU),env);
+ assert.equal(r.status,200);assert.equal(r.headers.get('content-type'),'image/jpeg');
+ assert.equal((await r.arrayBuffer()).byteLength,JPEG.length);
+});
+test('unreviewed or invalid original photo never becomes public',async()=>{
+ const {db}=fixture({...item,source_mime:'image/jpeg',source_blob:new Array(32).fill(0)});
+ const env={CATALOG_DB:db,TRYON_PUBLIC_ENABLED:'1'};
+ const p=await (await customerApi(request('/api/v1/products/'+SKU),env)).json();
+ assert.equal(Object.hasOwn(p,'photoUrl'),false);
+ assert.equal((await customerApi(request('/api/v1/photos/'+SKU),env)).status,404);
+});
