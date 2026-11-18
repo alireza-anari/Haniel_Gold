@@ -23,7 +23,8 @@ jobs:
           node --check frontend/app.js
           node --check frontend/tryon/app.mjs
           node --check frontend/tryon/geometry.mjs
-          node --test tests/tryon_math.test.mjs
+          node --check frontend/tryon/asset-quality.mjs
+          node --test tests/tryon_math.test.mjs tests/tryon_asset_quality.test.mjs
           node --check frontend/admin.js
           node --check functions/_lib/cloudflare-api.js
           node --check functions/_lib/request-inquiries.js
