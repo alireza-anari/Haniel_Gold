@@ -27,6 +27,8 @@ jobs:
           node --test tests/tryon_math.test.mjs tests/tryon_asset_quality.test.mjs
           node --check frontend/admin.js
           node --check functions/_lib/cloudflare-api.js
+          node --check functions/_lib/tryon-assets.js
+          node --test tests/tryon_catalog.test.mjs
           node --check functions/_lib/request-inquiries.js
           node --check functions/_lib/purchase-quotes.js
           node --check functions/_lib/gold-market.js
