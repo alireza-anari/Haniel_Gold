@@ -1,6 +1,6 @@
 -- Dedicated PUBLIC-only snapshot of owner-approved products.
 -- DO NOT run on the production Manager DB haniel-gold-db.
--- Preview target: haniel-gold-tryon-test (the empty/test database).
+-- Preview target: haniel-tryon-public-test (new isolated customer catalog test database).
 -- Production requires separate haniel-tryon-public D1; do not copy sales/users.
 CREATE TABLE IF NOT EXISTS tryon_public_catalog (
   sku TEXT PRIMARY KEY,
