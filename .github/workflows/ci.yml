@@ -49,6 +49,13 @@ jobs:
           npm run check
           npm test
           npx cf build --mode preview
+      - name: Build private source service Preview Worker
+        working-directory: tryon-sync
+        run: |
+          npm install --no-audit --no-fund
+          npm run check
+          npm test
+          npx cf build --mode preview
       - name: Verify real Cloudflare Pages staging build
         run: |
           bash tools/build_cloudflare_pages.sh
