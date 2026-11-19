@@ -1,59 +1,73 @@
 # HANI-EL GOLD — Private Try-On Product Publisher
 
-**Status: Source code + automated tests only. NOT deployed. NOT authorized for production.**
+**Status: source code + automated tests. Not deployed or approved for production.**
 
-This is a separate, owner-only application in `tryon-publisher/`. It is not the private Telegram management Mini App and it is not the public customer Virtual Try-On Mini App.
+This is a separate owner-only application in `tryon-publisher/`. It is not the private Telegram management Mini App and it is not the public customer Virtual Try-On Mini App.
 
 ## Architecture
 
 | Component | Purpose |
 |---|---|
-| `telegram-miniapp/` | Existing private management Mini App; **no modifications** |
-| `haniel-gold-db` | Private manager D1; product SKU/name/images are the source of truth |
-| `tryon-publisher/` | Owner-only publication UI, protected by Cloudflare Access |
-| `haniel-tryon-public-test` | Independent, previously created test catalog |
-| `tryon-miniapp/` | Existing public customer Mini App; only serves reviewed catalog items |
-| `tryon-sync/` | Older optional automatic synchronizer; keep disabled to avoid conflicting writes |
+| `telegram-miniapp/` | Existing private management Mini App; **untouched** |
+| `haniel-gold-db` | Private manager D1; source of product SKU/name/images |
+| `tryon-publisher/` | Separate owner publication UI and API |
+| `haniel-tryon-public-test` | Separate customer catalog database, Preview only |
+| `tryon-miniapp/` | Public customer Mini App; serves only reviewed catalog items |
+| `tryon-sync/` | Older optional synchronizer; keep disabled |
 
-The publisher queries ONLY `products(id,sku,name)` and selected `images(id,product_id,mime,image_blob)`, never private sales, user, accounting, labor, or supplier columns. It writes only to the separate `tryon_public_catalog` database.
+The publisher reads only `products(id,sku,name)` and selected `images(id,product_id,mime,image_blob)`. It must never read sales, users, accounting, labor, suppliers, purchase costs, or other private columns. It writes only to the separate public catalog.
 
-**D1 binding access itself is not read-only.** The publisher must NOT receive production `SOURCE_DB` binding until a separate security review and explicit user approval. Its current config deliberately has no `SOURCE_DB` in either environment and no production `CATALOG_DB` binding, so actions fail closed.
+**Important D1 limitation:** a D1 binding is not inherently read-only. `SOURCE_DB` is intentionally absent from the current configuration. Do not add it until a separate least-privilege source-data design and security review are approved. The current Preview can authenticate and inspect the separate catalog, but product search from the Manager remains unavailable until that gate is resolved.
 
-## Workflow
+## Owner authentication — no Cloudflare Access subscription
 
-1. The owner searches for a product by SKU/name.
-2. The owner selects one existing manager image for the exact product.
-3. The owner uploads a matching transparent RGBA PNG under 400 KiB.
-4. Save draft; `approved=0`.
-5. Compare saved original image and cutout side-by-side. The client requires entering the exact SKU and checking the visual review box.
-6. Server verifies that the reviewed SHA-256 fingerprint still matches both stored images, that the manager source image is unchanged and that the record is still unapproved (compare-and-swap update).
-7. Approval makes only that image and limited metadata visible through the public catalog.
-8. Revoke changes approval to 0 without deleting private manager data or the cutout.
+The publisher uses its own server-side owner authentication. Cloudflare Access / Zero Trust onboarding is **not required**.
 
-The source image is subject to the existing manager database's 400 KiB size limit of this pilot; items whose image is remote-only or too large are not silently changed or published.
+Required Worker secrets (never commit these to GitHub):
+- `OWNER_PASSWORD`: a randomly generated password with at least 32 characters.
+- `SESSION_SECRET`: a separate, randomly generated secret with at least 32 characters.
 
-## Security model
+Set both as **Secrets** (not plain-text variables) in Cloudflare Dashboard → Workers & Pages → `haniel-tryon-publisher-private` → Settings → Variables and Secrets. Set them for the Preview environment before testing the login.
 
-All routes and static assets require signed Cloudflare Access JWT with:
-- matching issuer from `ACCESS_TEAM_DOMAIN`
-- exact configured audience `ACCESS_AUD`
-- correct token signature and validity period
-- exact `ACCESS_OWNER_EMAIL`
+Generate independent values locally, for example in PowerShell:
 
-Mutations also require same-origin `Origin` and JSON content type; no CORS wildcard. No Telegram bot token or manager's API is exposed. Customer photos never enter this publisher.
+```powershell
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+```
 
-The public `haniel-gold-tryon` Worker MUST NOT be modified or given the manager DB binding. Cloudflare Access must be configured at the edge before any domain or URL for this publisher is enabled.
+Use the first output for `OWNER_PASSWORD` and the second for `SESSION_SECRET`. Do not send either value in chat or commit them to the repository.
 
-### Private configuration (NOT stored in GitHub)
+Security controls:
+- HMAC-SHA-256 signed, eight-hour owner sessions.
+- `HttpOnly; Secure; SameSite=Strict` host-only cookie.
+- Same-origin checks and a per-session CSRF token for mutations and logout.
+- Constant-time password comparison.
+- Cloudflare Rate Limiting binding: five login attempts per minute per client IP and Cloudflare location. Cloudflare documents these counters as approximate and local to each location, so the high-entropy password remains essential.
+- Missing secrets or missing rate-limit binding fail closed.
+- The static login shell contains no product data; all product/catalog APIs require a valid owner session.
 
-- `ACCESS_TEAM_DOMAIN` — Cloudflare Access team domain
-- `ACCESS_AUD` — specific Access application's audience
-- `ACCESS_OWNER_EMAIL` — owner's permitted address
-- `SOURCE_DB` — **not configured; held back pending security review**
-- `CATALOG_DB` — Preview only, `haniel-tryon-public-test`, already created
-- `ASSETS` — private publisher UI assets
+## Publishing workflow
 
-Do not paste identifiers, credentials, email addresses, private photos or bearer tokens into a public issue or chat.
+1. Search for a product by SKU/name (requires the future, separately reviewed source binding).
+2. Select an existing Manager image belonging to that exact product.
+3. Upload the matching transparent RGBA PNG (maximum 400 KiB).
+4. Save a draft; it remains `approved=0`.
+5. Compare the original and cutout side by side.
+6. Enter the exact SKU and confirm visual review.
+7. The server verifies the SHA-256 fingerprint and confirms that the source image has not changed before approval.
+8. Revoke sets `approved=0` without changing Manager data.
+
+The source image must fit the existing 400 KiB pilot limit. Remote-only or oversized images are not silently transformed or published.
+
+## Environment and release gates
+
+- Preview Worker: `haniel-tryon-publisher-private`; workers.dev is enabled for Preview only.
+- Preview `CATALOG_DB`: `haniel-tryon-public-test` only.
+- `SOURCE_DB`: deliberately not bound.
+- No Production catalog binding, no custom domain, no Access policy, and no production deployment in this change.
+- The public customer Worker and private Telegram Manager remain separate and unchanged.
+- Do not merge this Draft PR or publish real products until authentication, Preview deployment, source-data isolation, product fidelity, and Telegram/mobile QA are reviewed.
 
 ## Testing
 
@@ -61,17 +75,6 @@ Do not paste identifiers, credentials, email addresses, private photos or bearer
 cd tryon-publisher
 npm run check
 npm test
-```
+``
 
-Unit tests cover JWT verification, rejection of forged identities, signed images, source read-only queries, same-origin checks, draft state, hash-bound approval, revocation and forbidden manager routes.
-
-## Release gate
-
-- GitHub PR is **draft**; no merge, no production deploy.
-- New publisher Worker `haniel-tryon-publisher-private` has **not** been created/deployed.
-- Verify exact Cloudflare Access policy, authentication and binding environment before any live data exposure.
-- Test actual D1 image payloads and native Telegram behavior.
-- Validate PNG is truly transparent and jewelry matches the source. The server verifies PNG structure; visual fidelity remains an owner QA responsibility.
-- Avoid automatic publication and retain manual approval/revocation.
-
-No new SQL migration is required for the Preview public catalog; it already has the necessary columns. Do not run the storefront schema against the manager D1.
+Unit tests cover login/session signing, tamper and expiry rejection, rate-limit failure, CSRF, unauthenticated DB isolation, source SELECT-only query behavior, draft/approval/revocation, and forbidden Manager/accounting routes.
