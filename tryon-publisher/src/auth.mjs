@@ -97,7 +97,7 @@ async function createSession(env, now) {
   return { token: `${payload}.${encodeBase64Url(new Uint8Array(signature))}`, csrf: claims.csrf };
 }
 async function parseJson(request, maxBytes = 2048) {
-  if (!/^application\\/json(?:\\s*;|$)/i.test(request.headers.get('content-type') || '')) return null;
+  if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') || '')) return null;
   const length = Number(request.headers.get('content-length') || 0);
   if (length > maxBytes) return null;
   const text = await request.text();
