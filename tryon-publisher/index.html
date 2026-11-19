@@ -10,13 +10,13 @@
   <div><span class="eyebrow">HANI-EL GOLD / PRIVATE STUDIO</span><h1>مدیریت انتشار پرو مجازی</h1><p>پنل اختصاصی مالک — اطلاعات مالی و مدیریتی به کاتالوگ عمومی منتقل نمی‌شود.</p></div>
   <button id="logout" class="logout" type="button" hidden>خروج امن</button>
 </header>
-<section id="loginPanel" class="login-card" aria-labelledby="loginTitle" hidden>
+<section id="loginPanel" class="login-card" aria-labelledby="loginTitle">
   <span class="private">OWNER ONLY</span>
   <h2 id="loginTitle">ورود به پنل مالک</h2>
   <p>برای دسترسی به مدیریت انتشار محصولات، رمز عبور اختصاصی را وارد کن.</p>
   <form id="loginForm">
     <label for="ownerPassword">رمز عبور</label>
-    <input id="ownerPassword" type="password" autocomplete="current-password" maxlength="256" required>
+    <input id="ownerPassword" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" maxlength="256" required>
     <button id="loginButton" class="primary" type="submit">ورود امن</button>
   </form>
   <p id="loginNotice" class="login-notice" role="status" aria-live="polite"></p>
