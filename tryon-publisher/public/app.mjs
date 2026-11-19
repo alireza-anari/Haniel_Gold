@@ -2,9 +2,66 @@
 const $=id=>document.getElementById(id);
 const state={selected:null,imageId:null,cutout:null,items:[],reviewHash:null,reviewed:false};
 let objectUrl=null;
+let csrfToken='';
+function showLogin(message=''){
+ csrfToken='';
+ $('dashboard').hidden=true;
+ $('logout').hidden=true;
+ $('loginPanel').hidden=false;
+ $('loginNotice').textContent=message;
+ $('ownerPassword').value='';
+}
+function showDashboard(csrf){
+ csrfToken=csrf;
+ $('loginPanel').hidden=true;
+ $('dashboard').hidden=false;
+ $('logout').hidden=false;
+ $('loginForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const button=$('loginButton');
+ button.disabled=true;
+ $('loginNotice').textContent='در حال بررسی…';
+ try{
+  const res=await fetch('/api/auth/login',{
+   method:'POST',
+   headers:{'content-type':'application/json'},
+   body:JSON.stringify({password:$('ownerPassword').value}),
+   cache:'no-store',
+   credentials:'same-origin'
+  });
+  const data=await res.json();
+  if(!res.ok){
+   const messages={401:'رمز عبور صحیح نیست.',429:'تعداد تلاش‌ها زیاد است؛ یک دقیقه بعد دوباره تلاش کن.',503:'تنظیمات امن ورود روی Worker کامل نشده است.'};
+   $('loginNotice').textContent=messages[res.status]||'ورود انجام نشد.';
+   return;
+  }
+  $('ownerPassword').value='';
+  showDashboard(data.csrf);
+ }catch{$('loginNotice').textContent='ارتباط با سرور برقرار نشد.';}
+ finally{button.disabled=false;}
+});
+$('logout').addEventListener('click',async()=>{
+ try{
+  await fetch('/api/auth/logout',{method:'POST',headers:{'x-csrf-token':csrfToken},cache:'no-store',credentials:'same-origin'});
+ }finally{showLogin('از پنل خارج شدی.');}
+});
+void initAuth();
+}
+async function initAuth(){
+ try{
+  const res=await fetch('/api/auth/session',{cache:'no-store',credentials:'same-origin'});
+  const data=await res.json();
+  if(!res.ok){showLogin('احراز هویت هنوز روی Worker پیکربندی نشده است.');return;}
+  if(data.authenticated&&typeof data.csrf==='string')showDashboard(data.csrf);
+  else showLogin();
+ }catch{showLogin('ارتباط با سرویس ورود برقرار نشد. دوباره تلاش کن.');}
+}
 function notice(s){$('notice').textContent=s;}
 async function api(path,opts={}){
- const res=await fetch(path,{...opts,cache:'no-store',credentials:'same-origin'});
+ const headers=new Headers(opts.headers||{});
+ if(opts.method==='PUT')headers.set('x-csrf-token',csrfToken);
+ const res=await fetch(path,{...opts,headers,cache:'no-store',credentials:'same-origin'});
+ if(res.status===401)showLogin('نشست ورود منقضی شده است؛ دوباره وارد شو.');
  if(!res.ok){let e='HTTP '+res.status;try{e=(await res.json()).error||e;}catch{}throw Error(e);}
  return res.json();
 }
