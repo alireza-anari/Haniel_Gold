@@ -26,7 +26,7 @@ jobs:
           node --check tryon-miniapp/public/geometry.mjs
           node --check tryon-miniapp/public/asset-quality.mjs
           node --check tryon-sync/src/index.js
-          node --check tryon-publisher/src/access.mjs
+          node --check tryon-publisher/src/auth.mjs
           node --check tryon-publisher/src/images.mjs
           node --check tryon-publisher/src/publisher.mjs
           node --check tryon-publisher/public/app.mjs
