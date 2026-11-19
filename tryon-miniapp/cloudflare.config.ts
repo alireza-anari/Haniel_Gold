@@ -1,7 +1,8 @@
 import { bindings, defineConfig } from 'cf/config';
 
-// A separate Worker and separate catalog database. NEVER bind to haniel-gold-db.
-// No BOT_TOKEN, OWNER_TELEGRAM_ID, manager Worker service binding or accounting DB.
+// This Worker is independent from the private Telegram Manager.
+// Before launch, Production has NO database binding and its public API is disabled.
+// Only Preview binds the separate customer test catalog, NEVER the Manager D1.
 export default defineConfig(({ isPreview }) => ({
   worker: {
     name: 'haniel-gold-tryon',
@@ -11,7 +12,7 @@ export default defineConfig(({ isPreview }) => ({
     assets: { runWorkerFirst: ['/api/*'] },
     env: {
       ASSETS: bindings.assets(),
-      CATALOG_DB: bindings.d1({ name: isPreview ? 'haniel-tryon-public-test' : 'haniel-tryon-public' }),
+      ...(isPreview ? { CATALOG_DB: bindings.d1({ name: 'haniel-tryon-public-test' }) } : {}),
       TRYON_PUBLIC_ENABLED: bindings.text(isPreview ? '1' : '0')
     }
   }
