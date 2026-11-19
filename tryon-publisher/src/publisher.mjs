@@ -33,13 +33,34 @@ async function hashReview(sku, asset) {
     [sku, asset.product_type, asset.source_image_id, cutoutHash, photoHash].join('|'),
   )));
 }
-const product = (db, sku) => db.prepare('SELECT id,sku,name FROM products WHERE sku=? LIMIT 1').bind(sku).first();
-async function photo(db, selectedProduct, id) {
+const SOURCE_HEADER = 'x-hg-source-secret';
+async function sourceRequest(env, path) {
+  if (!env.SOURCE_API || typeof env.SOURCE_API.fetch !== 'function'
+    || typeof env.SOURCE_API_SECRET !== 'string' || env.SOURCE_API_SECRET.length < 32) return null;
+  return env.SOURCE_API.fetch(new Request('https://source.internal' + path, {
+    method: 'GET',
+    headers: { [SOURCE_HEADER]: env.SOURCE_API_SECRET },
+  }));
+}
+async function sourceProduct(env, sku) {
+  const response = await sourceRequest(env, '/internal/products/' + encodeURIComponent(sku));
+  if (!response) throw new Error('SOURCE_API_NOT_CONFIGURED');
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error('SOURCE_API_UNAVAILABLE');
+  const product = await response.json();
+  if (product?.sku !== sku || !imageId(product.id) || typeof product.name !== 'string') return null;
+  return { id: product.id, sku: product.sku, name: product.name.slice(0, 120) };
+}
+async function sourcePhoto(env, sku, id) {
   if (!imageId(id)) return null;
-  const row = await db.prepare('SELECT mime,image_blob FROM images WHERE id=? AND product_id=? LIMIT 1')
-    .bind(id, selectedProduct.id).first();
-  const blob = bytes(row?.image_blob);
-  return validSourcePhoto(blob, row?.mime) ? { blob, mime: row.mime } : null;
+  const response = await sourceRequest(env,
+    '/internal/products/' + encodeURIComponent(sku) + '/images/' + String(id));
+  if (!response) throw new Error('SOURCE_API_NOT_CONFIGURED');
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error('SOURCE_API_UNAVAILABLE');
+  const mime = response.headers.get('content-type') || '';
+  const blob = new Uint8Array(await response.arrayBuffer());
+  return validSourcePhoto(blob, mime) ? { blob, mime } : null;
 }
 async function bodyJson(request) {
   if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type') || '')) return null;
@@ -61,14 +82,16 @@ export async function publishApi(request, env, { getSession = readOwnerSession }
   }
 
   if (path === '/admin/api/products' && method === 'GET') {
-    if (!env.SOURCE_DB) return fail('SOURCE_DB_NOT_CONFIGURED', 503);
     try {
       const query = (url.searchParams.get('q') || '').trim().slice(0, 60);
-      const rows = (await env.SOURCE_DB.prepare(
-        'SELECT sku,name FROM products WHERE sku LIKE ? OR name LIKE ? ORDER BY id DESC LIMIT 40',
-      ).bind('%' + query + '%', '%' + query + '%').all()).results || [];
-      return json({ items: rows.filter((row) => SKU.test(row.sku))
-        .map((row) => ({ sku: row.sku, name: String(row.name || '').slice(0, 120) })) });
+      const response = await sourceRequest(env, '/internal/products?q=' + encodeURIComponent(query));
+      if (!response) return fail('SOURCE_API_NOT_CONFIGURED', 503);
+      if (!response.ok) return fail('SOURCE_UNAVAILABLE', 503);
+      const data = await response.json();
+      const items = Array.isArray(data.items) ? data.items.filter((row) => SKU.test(row?.sku || '')
+        && typeof row?.name === 'string').slice(0, 40)
+        .map((row) => ({ sku: row.sku, name: row.name.slice(0, 120) })) : [];
+      return json({ items });
     } catch {
       return fail('SOURCE_UNAVAILABLE', 503);
     }
@@ -94,25 +117,23 @@ export async function publishApi(request, env, { getSession = readOwnerSession }
   }
   const list = path.match(/^\/admin\/api\/products\/(HG-[A-F0-9]{12})\/images$/);
   if (list && method === 'GET') {
-    if (!env.SOURCE_DB) return fail('SOURCE_DB_NOT_CONFIGURED', 503);
     try {
-      const selectedProduct = await product(env.SOURCE_DB, list[1]);
-      if (!selectedProduct) return fail('PRODUCT_NOT_FOUND', 404);
-      const rows = (await env.SOURCE_DB.prepare('SELECT id,mime FROM images WHERE product_id=? ORDER BY id LIMIT 20')
-        .bind(selectedProduct.id).all()).results || [];
-      return json({ images: rows.filter((row) => imageId(row.id)
-        && ['image/png', 'image/jpeg', 'image/webp'].includes(row.mime)) });
+      const response = await sourceRequest(env, '/internal/products/' + encodeURIComponent(list[1]) + '/images');
+      if (!response) return fail('SOURCE_API_NOT_CONFIGURED', 503);
+      if (response.status === 404) return fail('PRODUCT_NOT_FOUND', 404);
+      if (!response.ok) return fail('SOURCE_UNAVAILABLE', 503);
+      const data = await response.json();
+      const images = Array.isArray(data.images) ? data.images.filter((row) => imageId(row?.id)
+        && ['image/png', 'image/jpeg', 'image/webp'].includes(row?.mime)).slice(0, 20) : [];
+      return json({ images });
     } catch {
       return fail('SOURCE_UNAVAILABLE', 503);
     }
   }
   const ref = path.match(/^\/admin\/api\/products\/(HG-[A-F0-9]{12})\/images\/([1-9][0-9]*)$/);
   if (ref && method === 'GET') {
-    if (!env.SOURCE_DB) return fail('SOURCE_DB_NOT_CONFIGURED', 503);
     try {
-      const selectedProduct = await product(env.SOURCE_DB, ref[1]);
-      if (!selectedProduct) return fail('PRODUCT_NOT_FOUND', 404);
-      const image = await photo(env.SOURCE_DB, selectedProduct, Number(ref[2]));
+      const image = await sourcePhoto(env, ref[1], Number(ref[2]));
       if (!image) return fail('IMAGE_NOT_AVAILABLE', 404);
       return new Response(image.blob, { headers: { ...NO_STORE, 'content-type': image.mime } });
     } catch {
@@ -144,18 +165,18 @@ export async function publishApi(request, env, { getSession = readOwnerSession }
   }
   const item = path.match(/^\/admin\/api\/catalog\/(HG-[A-F0-9]{12})$/);
   if (item && method === 'PUT') {
-    if (!env.SOURCE_DB || !env.CATALOG_DB) return fail('DATABASE_NOT_CONFIGURED', 503);
+    if (!env.SOURCE_API || typeof env.SOURCE_API_SECRET !== 'string' || env.SOURCE_API_SECRET.length < 32 || !env.CATALOG_DB) return fail('DATABASE_NOT_CONFIGURED', 503);
     const data = await bodyJson(request);
     if (!data || typeof data !== 'object' || Array.isArray(data)) return fail('INVALID_JSON', 400);
     const sku = item[1];
     try {
-      const selectedProduct = await product(env.SOURCE_DB, sku);
+      const selectedProduct = await sourceProduct(env, sku);
       if (!selectedProduct) return fail('PRODUCT_NOT_FOUND', 404);
       if (data.action === 'draft') {
         if (!TYPES.has(data.productType) || !imageId(data.sourceImageId)) return fail('INVALID_SELECTION', 400);
         const cutout = decodePngBase64(data.cutoutBase64);
         if (!cutout) return fail('INVALID_RGBA_PNG', 422);
-        const source = await photo(env.SOURCE_DB, selectedProduct, data.sourceImageId);
+        const source = await sourcePhoto(env, sku, data.sourceImageId);
         if (!source) return fail('SOURCE_IMAGE_REQUIRED', 422);
         await env.CATALOG_DB.prepare(
           'INSERT INTO tryon_public_catalog (sku,name,product_type,cutout_mime,cutout_blob,source_image_id,source_mime,source_blob,approved,reviewed_at,updated_at) '
@@ -177,7 +198,7 @@ export async function publishApi(request, env, { getSession = readOwnerSession }
         const hash = asset ? await hashReview(sku, asset) : null;
         if (!hash) return fail('ASSET_NOT_READY', 409);
         if (hash !== data.confirmReviewHash) return fail('REVIEWED_ASSET_CHANGED', 409);
-        const current = await photo(env.SOURCE_DB, selectedProduct, asset.source_image_id);
+        const current = await sourcePhoto(env, sku, asset.source_image_id);
         if (!current || current.mime !== asset.source_mime || !equals(current.blob, bytes(asset.source_blob))) {
           return fail('SOURCE_CHANGED', 409);
         }
