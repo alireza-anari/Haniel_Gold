@@ -1,12 +1,13 @@
-/* Private one-way manager -> customer catalog integrity check.
- * This scheduled Worker never serves customer/admin routes.
- * It reads only the owner-selected SKU/name/image from Manager D1.
- * After approval, source content is immutable: changes revoke publication instead of silently replacing reviewed media.
- * The separate PUBLIC catalog is the ONLY DB accessible to customer Worker.
+/* Private Manager -> publisher source service and public-catalog integrity checker.
+ * This Worker has no public route. Publisher calls its narrow read API via Service Binding.
+ * Manager D1 is bound ONLY here. Queries are fixed, parameterized SELECT statements.
+ * Scheduled validation never replaces reviewed public content; stale approvals are revoked.
  */
 const SKU = /^HG-[A-F0-9]{12}$/;
 const MAX_SYNC = 100;
 const MAX_BLOB = 400 * 1024;
+const SECRET_HEADER = 'x-hg-source-secret';
+const encoder = new TextEncoder();
 
 const bytes = (value) => value instanceof Uint8Array
   ? value
@@ -16,16 +17,39 @@ const bytes = (value) => value instanceof Uint8Array
       ? Uint8Array.from(value)
       : null;
 
-const equalBytes = (left, right) => {
-  const a = bytes(left);
-  const b = bytes(right);
-  if (!a || !b || a.length !== b.length) return false;
-  let difference = 0;
-  for (let i = 0; i < a.length; i++) difference |= a[i] ^ b[i];
-  return difference === 0;
-};
+const json = (value, status = 200) => new Response(JSON.stringify(value), {
+  status,
+  headers: {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'private, no-store',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+  },
+});
+const notFound = () => new Response('Not Found', {
+  status: 404,
+  headers: { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
+});
+const unavailable = () => json({ error: 'SOURCE_UNAVAILABLE' }, 503);
 
-const isProductPhoto = (blob, mime) => {
+function constantTimeEqual(left, right) {
+  const a = encoder.encode(String(left));
+  const b = encoder.encode(String(right));
+  let difference = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i++) difference |= (a[i] || 0) ^ (b[i] || 0);
+  return difference === 0;
+}
+
+function authorizedInternalRequest(request, env) {
+  const expected = env.SOURCE_API_SECRET;
+  const supplied = request.headers.get(SECRET_HEADER) || '';
+  return typeof expected === 'string' && expected.length >= 32
+    && supplied.length >= 32 && supplied.length <= 128
+    && constantTimeEqual(supplied, expected);
+}
+
+function isProductPhoto(blob, mime) {
   if (!blob || blob.length < 16 || blob.length > MAX_BLOB) return false;
   if (mime === 'image/png') return [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => blob[index] === value);
   if (mime === 'image/jpeg') return blob[0] === 255 && blob[1] === 216 && blob[2] === 255;
@@ -34,6 +58,88 @@ const isProductPhoto = (blob, mime) => {
       && blob[8] === 87 && blob[9] === 69 && blob[10] === 66 && blob[11] === 80;
   }
   return false;
+}
+
+async function internalSourceApi(request, env) {
+  if (request.method !== 'GET' || !authorizedInternalRequest(request, env)) return notFound();
+  if (!env.SOURCE_DB) return unavailable();
+
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  try {
+    if (path === '/internal/products') {
+      const query = (url.searchParams.get('q') || '').trim().slice(0, 60);
+      const rows = (await env.SOURCE_DB.prepare(
+        'SELECT id,sku,name FROM products WHERE sku LIKE ? OR name LIKE ? ORDER BY id DESC LIMIT 40',
+      ).bind('%' + query + '%', '%' + query + '%').all()).results || [];
+      return json({
+        items: rows.filter((row) => SKU.test(String(row.sku || '')) && typeof row.name === 'string')
+          .map((row) => ({ sku: row.sku, name: row.name.slice(0, 120) })),
+      });
+    }
+
+    const image = path.match(/^\/internal\/products\/(HG-[A-F0-9]{12})\/images\/([1-9][0-9]*)$/);
+    if (image) {
+      const product = await env.SOURCE_DB.prepare(
+        'SELECT id FROM products WHERE sku=? LIMIT 1',
+      ).bind(image[1]).first();
+      if (!product || !Number.isSafeInteger(product.id)) return notFound();
+      const row = await env.SOURCE_DB.prepare(
+        'SELECT mime,image_blob FROM images WHERE id=? AND product_id=? LIMIT 1',
+      ).bind(Number(image[2]), product.id).first();
+      const blob = bytes(row?.image_blob);
+      if (!isProductPhoto(blob, row?.mime)) return notFound();
+      return new Response(blob, {
+        status: 200,
+        headers: {
+          'content-type': row.mime,
+          'cache-control': 'private, no-store',
+          'x-content-type-options': 'nosniff',
+          'referrer-policy': 'no-referrer',
+          'content-disposition': 'inline',
+        },
+      });
+    }
+
+    const imageList = path.match(/^\/internal\/products\/(HG-[A-F0-9]{12})\/images$/);
+    if (imageList) {
+      const product = await env.SOURCE_DB.prepare(
+        'SELECT id FROM products WHERE sku=? LIMIT 1',
+      ).bind(imageList[1]).first();
+      if (!product || !Number.isSafeInteger(product.id)) return notFound();
+      const rows = (await env.SOURCE_DB.prepare(
+        'SELECT id,mime FROM images WHERE product_id=? ORDER BY id LIMIT 20',
+      ).bind(product.id).all()).results || [];
+      return json({
+        images: rows.filter((row) => Number.isSafeInteger(row.id) && row.id > 0
+          && ['image/png', 'image/jpeg', 'image/webp'].includes(row.mime))
+          .map((row) => ({ id: row.id, mime: row.mime })),
+      });
+    }
+
+    const selected = path.match(/^\/internal\/products\/(HG-[A-F0-9]{12})$/);
+    if (selected) {
+      const row = await env.SOURCE_DB.prepare(
+        'SELECT id,sku,name FROM products WHERE sku=? LIMIT 1',
+      ).bind(selected[1]).first();
+      if (!row || row.sku !== selected[1] || typeof row.name !== 'string') return notFound();
+      return json({ id: row.id, sku: row.sku, name: row.name.slice(0, 120) });
+    }
+
+    return notFound();
+  } catch {
+    return unavailable();
+  }
+}
+
+const equalBytes = (left, right) => {
+  const a = bytes(left);
+  const b = bytes(right);
+  if (!a || !b || a.length !== b.length) return false;
+  let difference = 0;
+  for (let i = 0; i < a.length; i++) difference |= a[i] ^ b[i];
+  return difference === 0;
 };
 
 async function revokeStaleApproval(catalogDb, record) {
@@ -108,11 +214,8 @@ export async function syncApprovedNamesAndImages(sourceDb, catalogDb) {
 }
 
 export default {
-  async fetch() {
-    return new Response('Not Found', {
-      status: 404,
-      headers: { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
-    });
+  async fetch(request, env) {
+    return internalSourceApi(request, env);
   },
 
   async scheduled(_event, env) {
