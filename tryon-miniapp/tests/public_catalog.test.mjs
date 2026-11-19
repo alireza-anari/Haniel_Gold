@@ -88,3 +88,24 @@ test('unreviewed or invalid original photo never becomes public',async()=>{
  assert.equal(Object.hasOwn(p,'photoUrl'),false);
  assert.equal((await customerApi(request('/api/v1/photos/'+SKU),env)).status,404);
 });
+
+test('catalog readiness only checks public table, returns no data or counts',async()=>{
+ const queries=[];
+ const db={prepare(sql){queries.push(sql);return {async first(){return null}}}};
+ const result=await customerApi(request('/api/health/catalog'),{
+  CATALOG_DB:db,TRYON_PUBLIC_ENABLED:'1'
+ });
+ assert.equal(result.status,200);
+ assert.deepEqual(await result.json(),{status:'ok',catalog:'connected'});
+ assert.deepEqual(queries,['SELECT 1 FROM tryon_public_catalog LIMIT 1']);
+});
+test('catalog readiness rejects missing binding or absent table',async()=>{
+ const unbound=await customerApi(request('/api/health/catalog'),{TRYON_PUBLIC_ENABLED:'1'});
+ assert.equal(unbound.status,503);
+ const disabled=await customerApi(request('/api/health/catalog'),{TRYON_PUBLIC_ENABLED:'0',CATALOG_DB:{}});
+ assert.equal(disabled.status,503);
+ const invalid=await customerApi(request('/api/health/catalog'),{
+  TRYON_PUBLIC_ENABLED:'1',CATALOG_DB:{prepare(){throw Error('table missing')}}
+ });
+ assert.equal(invalid.status,503);
+});
