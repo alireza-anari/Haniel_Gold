@@ -8,6 +8,7 @@ export default defineConfig(({ isPreview }) => ({
     name: 'haniel-gold-tryon',
     entrypoint: './src/index.js',
     compatibilityDate: '2026-11-13',
+    observability: { enabled: true, traces: { enabled: true } },
     workersDev: true,
     assets: { runWorkerFirst: ['/api/*'] },
     env: {
