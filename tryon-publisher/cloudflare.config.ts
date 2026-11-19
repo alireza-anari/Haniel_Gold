@@ -7,6 +7,7 @@ export default defineConfig(({ isPreview }) => ({
     name: 'haniel-tryon-publisher-private',
     entrypoint: './src/publisher.mjs',
     compatibilityDate: '2026-11-13',
+    observability: { enabled: true, traces: { enabled: true } },
     workersDev: isPreview,
     assets: { runWorkerFirst: ['/*'] },
     env: {
