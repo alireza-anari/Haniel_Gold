@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>انتشار خصوصی محصولات پرو | HANI-EL GOLD</title>
+<link rel="stylesheet" href="/styles.css"><script type="module" src="/app.mjs"></script>
+</head><body>
+<main class="shell">
+<header>
+  <div><span class="eyebrow">HANI-EL GOLD / PRIVATE STUDIO</span><h1>مدیریت انتشار پرو مجازی</h1><p>پنل اختصاصی مالک — اطلاعات مالی و مدیریتی به کاتالوگ عمومی منتقل نمی‌شود.</p></div>
+  <button id="logout" class="logout" type="button" hidden>خروج امن</button>
+</header>
+<section id="loginPanel" class="login-card" aria-labelledby="loginTitle">
+  <span class="private">OWNER ONLY</span>
+  <h2 id="loginTitle">ورود به پنل مالک</h2>
+  <p>برای دسترسی به مدیریت انتشار محصولات، رمز عبور اختصاصی را وارد کن.</p>
+  <form id="loginForm">
+    <label for="ownerPassword">رمز عبور</label>
+    <input id="ownerPassword" type="password" autocomplete="current-password" autocapitalize="off" spellcheck="false" maxlength="256" required>
+    <button id="loginButton" class="primary" type="submit">ورود امن</button>
+  </form>
+  <p id="loginNotice" class="login-notice" role="status" aria-live="polite"></p>
+  <small>نشست ورود به‌صورت امن و محدود به همین مرورگر نگهداری می‌شود.</small>
+</section>
+<div id="dashboard" hidden>
+<div class="columns">
+<section class="panel">
+<h2><span>01</span> انتخاب محصول</h2>
+<div class="search"><input id="q" maxlength="60" placeholder="نام محصول یا کد SKU"><button id="search" type="button">جستجو</button></div>
+<div class="list" id="products">برای شروع، محصول را جستجو کن.</div>
+<h2><span>02</span> عکس اصلی</h2>
+<div id="selection" class="selection">محصولی انتخاب نشده است.</div>
+<div id="images" class="photos">ابتدا محصول را انتخاب کن.</div>
+<label for="type">دسته زیورآلات</label>
+<select id="type"><option value="">انتخاب کن</option><option value="necklace">گردنبند</option><option value="earring">گوشواره</option><option value="bracelet">دستبند</option><option value="ring">انگشتر</option></select>
+<label for="cutout">PNG شفاف همان محصول (حداکثر ۴۰۰ کیلوبایت)</label><input type="file" id="cutout" accept="image/png">
+<div class="imageview" id="cutout-preview">فایل شفاف انتخاب نشده است.</div>
+<button type="button" class="primary" id="draft" disabled>ذخیره پیش‌نویس (غیرعمومی)</button>
+</section>
+<section class="panel">
+<h2><span>03</span> بازبینی دو تصویر</h2>
+<div class="comparison">
+<figure><figcaption>مرجع ثبت‌شده</figcaption><div class="imageview" id="source-review">هنوز پیش‌نویسی وجود ندارد.</div></figure>
+<figure><figcaption>برش شفاف ثبت‌شده</figcaption><div class="imageview" id="cutout-review">هنوز پیش‌نویسی وجود ندارد.</div></figure>
+</div>
+<label class="check"><input type="checkbox" id="confirmVisual"> عکس مرجع و برش شفاف را بررسی کردم؛ فرم، رنگ و جزئیات زیورآلات یکسان است.</label>
+<label for="confirmSku">برای تأیید، SKU محصول را دقیق وارد کن</label>
+<input id="confirmSku" autocapitalize="characters" autocomplete="off" placeholder="HG-XXXXXXXXXXXX">
+<div class="actions"><button id="approve" class="primary" type="button" disabled>تأیید و انتشار</button><button id="revoke" class="danger" type="button" disabled>لغو انتشار</button></div>
+<hr><h2><span>04</span> وضعیت محصولات پرو</h2>
+<div class="list" id="catalog">در حال دریافت وضعیت کاتالوگ…</div>
+</section>
+</div>
+<p id="notice" role="status" aria-live="polite"></p>
+</div>
+<footer>HANI-EL GOLD · Internal product publishing · No customer photos are stored.</footer>
+</main>
+</body></html>

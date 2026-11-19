@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS tryon_public_catalog (
+  sku TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  product_type TEXT NOT NULL CHECK(product_type IN ('earring','necklace','bracelet','ring')),
+  cutout_mime TEXT NOT NULL CHECK(cutout_mime IN ('image/png','image/webp')),
+  cutout_blob BLOB NOT NULL,
+  source_image_id INTEGER,
+  source_mime TEXT CHECK(source_mime IS NULL OR source_mime IN ('image/jpeg','image/png','image/webp')),
+  source_blob BLOB,
+  approved INTEGER NOT NULL DEFAULT 0 CHECK(approved IN (0,1)),
+  reviewed_at TEXT,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  CHECK(approved=0 OR reviewed_at IS NOT NULL)
+);
+CREATE INDEX IF NOT EXISTS idx_public_tryon_approved ON tryon_public_catalog(approved);

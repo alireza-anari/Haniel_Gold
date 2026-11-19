@@ -21,6 +21,17 @@ jobs:
       - name: Verify frontend and Cloudflare server JavaScript
         run: |
           node --check frontend/app.js
+          node --check tryon-miniapp/src/index.js
+          node --check tryon-miniapp/public/app.mjs
+          node --check tryon-miniapp/public/geometry.mjs
+          node --check tryon-miniapp/public/asset-quality.mjs
+          node --check tryon-sync/src/index.js
+          node --check tryon-publisher/src/auth.mjs
+          node --check tryon-publisher/src/images.mjs
+          node --check tryon-publisher/src/publisher.mjs
+          node --check tryon-publisher/public/app.mjs
+          node --test tryon-publisher/tests/*.test.mjs
+          node --test tryon-miniapp/tests/*.test.mjs tryon-sync/tests/*.test.mjs
           node --check frontend/admin.js
           node --check functions/_lib/cloudflare-api.js
           node --check functions/_lib/request-inquiries.js
@@ -31,6 +42,20 @@ jobs:
           node tools/build_gold_scheduler.mjs --check
           node --check 'functions/api/[[path]].js'
           node --test tests/cloudflare_api.test.mjs tests/frontend_catalog.test.mjs tests/admin_form.test.mjs tests/gold_market.test.mjs tests/showcase_detail.test.mjs tests/request_inquiries.test.mjs
+      - name: Build isolated publisher Preview Worker
+        working-directory: tryon-publisher
+        run: |
+          npm install --no-audit --no-fund
+          npm run check
+          npm test
+          npx cf build --mode preview
+      - name: Build private source service Preview Worker
+        working-directory: tryon-sync
+        run: |
+          npm install --no-audit --no-fund
+          npm run check
+          npm test
+          npx cf build --mode preview
       - name: Verify real Cloudflare Pages staging build
         run: |
           bash tools/build_cloudflare_pages.sh

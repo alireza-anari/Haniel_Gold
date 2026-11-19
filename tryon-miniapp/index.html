@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f7f5f0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://telegram.org https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' https://cdn.jsdelivr.net https://storage.googleapis.com; worker-src 'self' blob:; font-src 'self' data:; base-uri 'self'; object-src 'none'; frame-ancestors 'none'">
+  <title>پرو مجازی آزمایشی | HANI-EL GOLD</title>
+  
+  <link rel="stylesheet" href="/brand-fonts.css">
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script type="module" src="/app.mjs"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><img src="/assets/logo.png" alt="لوگوی رسمی هانی‌ال" /></div>
+      <div class="topbar-copy"><span>HANI-EL GOLD / ATELIER</span><strong>پرو مجازی طلا</strong></div>
+      <span class="pilot-badge">پرو مجازی | نسخه آزمایشی</span>
+    </header>
+    <main>
+      <div class="intro">
+        <div><p class="eyebrow">A PERSONAL JEWELRY EXPERIENCE</p><h1>زیبایی را روی تصویر خودت ببین.</h1>
+        <p>محصول انتخاب‌شده از پست تلگرام دریافت می‌شود. عکس خودت را انتخاب کن، جای‌گذاری را تنظیم کن و نتیجه را فقط روی گوشی ذخیره کن.</p></div>
+        <div class="intro-rule"><span>01 / PHOTO TRY-ON</span><span>PRIVACY FIRST</span></div>
+      </div>
+      <div id="startapp-notice" class="notice" role="status" hidden></div>
+      <a id="catalog-product-link" class="catalog-link" href="#" hidden>صفحه محصول</a>
+      <div class="workspace">
+        <section class="panel controls" aria-labelledby="setup-title">
+          <div class="panel-heading"><span class="step-number">01</span><h2 id="setup-title">انتخاب تصاویر</h2></div>
+          <div class="field" hidden><label for="product-type">نوع زیورآلات</label><select id="product-type"><option value="earring">گوشواره — آزمایش اولیه</option><option value="necklace">گردنبند — آزمایش اولیه</option><option value="bracelet">دستبند — فقط تنظیم دستی</option><option value="ring">انگشتر — فقط تنظیم دستی</option></select></div>
+          <label class="upload" for="photo-file"><span class="upload-icon" aria-hidden="true">＋</span><span><strong>۱. عکس خودت را انتخاب کن</strong><small>JPG / PNG / WebP · حداکثر ۱۲ مگابایت</small></span><span id="photo-name" class="file-name">انتخاب عکس</span></label>
+          <input id="photo-file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+          <p class="sub-note" id="catalog-hint">محصول فقط از لینک تأییدشده همان پست تلگرام بارگذاری می‌شود.</p><span id="jewelry-name" hidden>محصول انتخاب نشده است</span>
+          <input id="jewelry-file" type="file" accept="image/png,image/webp" hidden>
+          <div class="safety"><span class="safety-dot"></span><span>در این نسخه، عکس شخصی شما از گوشی خارج نمی‌شود. برای تشخیص خودکار فقط فایل‌های مدل بارگیری می‌شوند؛ پردازش روی دستگاه انجام می‌شود.</span></div>
+          <p class="sub-note">برای نتیجه معتبر، در محل موردنظر گوشواره یا گردنبند دیگری نپوش. نسخه آزمایشی فعلاً زیورآلات موجود در عکس را حذف نمی‌کند.</p>
+          <div id="asset-quality" class="notice" role="status" hidden></div>
+          <div class="section-break"></div>
+          <div class="panel-heading compact"><span class="step-number">02</span><h2>اصلاح جای‌گذاری</h2></div>
+          <button type="button" id="auto-place" class="secondary full" disabled>تشخیص خودکار موقعیت (آزمایشی)</button>
+          <p class="sub-note">اگر تشخیص در دستگاه شما در دسترس نباشد، محصول را روی عکس بکش و اندازه‌اش را تنظیم کن.</p>
+          <div class="field"><label for="ear-side">سمت قرارگیری گوشواره</label><select id="ear-side"><option value="right">سمت راست تصویر</option><option value="left">سمت چپ تصویر</option></select></div>
+          <div class="range-field"><label for="size-range">اندازه نمایشی <output id="size-value">100٪</output></label><input id="size-range" type="range" min="25" max="250" value="100" step="1"></div>
+          <div class="range-field"><label for="rotate-range">چرخش <output id="rotate-value">0°</output></label><input id="rotate-range" type="range" min="-70" max="70" value="0" step="1"></div>
+          <div class="range-field"><label for="shadow-range">سایه ملایم <output id="shadow-value">25٪</output></label><input id="shadow-range" type="range" min="0" max="65" value="25" step="5"></div>
+          <button id="reset" type="button" class="text-button" disabled>بازنشانی جای‌گذاری</button>
+        </section>
+        <section class="panel preview-panel" aria-labelledby="preview-title">
+          <div class="preview-top"><div><p class="eyebrow">LIVE COMPOSITION</p><h2 id="preview-title">پیش‌نمایش شما</h2></div><span id="preview-state" class="state">منتظر انتخاب دو تصویر</span></div>
+          <div class="canvas-wrap" id="canvas-wrap"><canvas id="tryon-canvas" width="720" height="900" aria-label="پیش‌نمایش محصول روی عکس آپلودشده"></canvas><div id="empty-canvas" class="empty"><span class="empty-symbol">✧</span><strong>عکس شما، انتخاب شما</strong><p>پس از انتخاب عکس و محصول، پیش‌نمایش در همین قسمت نمایش داده می‌شود.</p></div></div>
+          <div class="preview-instructions" id="canvas-instructions">بعد از انتخاب تصاویر، محصول را با انگشت روی عکس جابه‌جا کن.</div>
+          <div class="action-row"><button id="compare" type="button" class="secondary" disabled>مقایسه قبل / بعد</button><button id="download" type="button" class="primary" disabled>ذخیره تصویر</button></div>
+          <p class="disclaimer">این تصویر یک شبیه‌سازی آزمایشی است؛ اندازه و محل قرارگیری ممکن است با واقعیت تفاوت داشته باشد. کیفیت و طبیعی‌بودن هنوز تأیید نشده است.</p>
+        </section>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite">تصاویر تنها پس از انتخاب شما در حافظه همین صفحه پردازش می‌شوند.</p>
+    </main>
+    <footer><span>HANI-EL GOLD</span><span>PRIVATE RENDER · NO PHOTO UPLOAD</span></footer>
+  </div>
+</body>
+</html>

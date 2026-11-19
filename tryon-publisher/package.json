@@ -1,0 +1,19 @@
+{
+  "name": "haniel-tryon-publisher-private",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/auth.mjs && node --check src/images.mjs && node --check src/publisher.mjs && node --check public/app.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "cf": "1.0.0-beta.30",
+    "@cloudflare/vite-plugin": "2.0.0-beta.v.15",
+    "vite": "^7.1.0",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}
