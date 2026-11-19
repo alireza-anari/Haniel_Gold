@@ -1,14 +1,10 @@
--- Dedicated PUBLIC-only snapshot of owner-approved products.
--- DO NOT run on the production Manager DB haniel-gold-db.
--- Preview target: haniel-tryon-public-test (new isolated customer catalog test database).
--- Production requires separate haniel-tryon-public D1; do not copy sales/users.
 CREATE TABLE IF NOT EXISTS tryon_public_catalog (
   sku TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   product_type TEXT NOT NULL CHECK(product_type IN ('earring','necklace','bracelet','ring')),
   cutout_mime TEXT NOT NULL CHECK(cutout_mime IN ('image/png','image/webp')),
   cutout_blob BLOB NOT NULL,
-  source_image_id INTEGER, -- exact owner-approved image ID from private Manager DB
+  source_image_id INTEGER,
   source_mime TEXT CHECK(source_mime IS NULL OR source_mime IN ('image/jpeg','image/png','image/webp')),
   source_blob BLOB,
   approved INTEGER NOT NULL DEFAULT 0 CHECK(approved IN (0,1)),
