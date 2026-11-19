@@ -46,7 +46,7 @@ test('owner login creates an HttpOnly Secure Strict cookie and CSRF token', asyn
   assert.match(cookie, /HttpOnly/);
   assert.match(cookie, /Secure/);
   assert.match(cookie, /SameSite=Strict/);
-  assert.match(cookie, /Path=\\//);
+  assert.match(cookie, /Path=\//);
   assert.equal(f.calls.length, 1);
   const session = await handleAuthRequest(request('/api/auth/session', 'GET', undefined, { cookie: cookieFrom(response) }), f.env, { now: now + 1 });
   assert.deepEqual(await session.json(), { authenticated: true, csrf: data.csrf });
