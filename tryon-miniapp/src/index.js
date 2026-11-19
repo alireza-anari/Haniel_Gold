@@ -39,6 +39,14 @@ export async function customerApi(req,env){
  const u=new URL(req.url), path=u.pathname;
  if(req.method!=='GET')return missing();
  if(path==='/api/health')return response({status:'ok',service:'haniel-tryon-public'});
+ if(path==='/api/health/catalog'){
+  // Verify the exact public catalog table exists without returning any data or counts.
+  if(env.TRYON_PUBLIC_ENABLED!=='1'||!env.CATALOG_DB)return bad();
+  try{
+   await env.CATALOG_DB.prepare('SELECT 1 FROM tryon_public_catalog LIMIT 1').first();
+   return response({status:'ok',catalog:'connected'});
+  }catch{return bad();}
+ }
  if(env.TRYON_PUBLIC_ENABLED!=='1'||!env.CATALOG_DB)return missing();
  const match=path.match(/^\/api\/v1\/(products|assets|photos)\/(HG-[A-Fa-f0-9]{12})$/);
  if(!match||!SKU.test(match[2].toUpperCase()))return missing();
