@@ -1,10 +1,10 @@
 {
   "name": "haniel-tryon-publisher-private",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check src/access.mjs && node --check src/images.mjs && node --check src/publisher.mjs && node --check public/app.mjs",
+    "check": "node --check src/auth.mjs && node --check src/images.mjs && node --check src/publisher.mjs && node --check public/app.mjs",
     "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
