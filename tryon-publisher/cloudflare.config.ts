@@ -1,16 +1,23 @@
-import {bindings,defineConfig} from 'cf/config';
-// Separate OWNER-ONLY publisher, not customer or manager. No production bindings or URL.
-// Preview intentionally has no SOURCE_DB until read-only access security is approved.
-export default defineConfig(({isPreview})=>({
- worker:{
-  name:'haniel-tryon-publisher-private',
-  entrypoint:'./src/publisher.mjs',
-  compatibilityDate:'2026-11-13',
-  workersDev:false,
-  assets:{runWorkerFirst:['/*']},
-  env:{
-   ASSETS:bindings.assets(),
-   ...(isPreview?{CATALOG_DB:bindings.d1({name:'haniel-tryon-public-test'})}:{}),
-  }
- }
+import { bindings, defineConfig } from 'cf/config';
+
+// Dedicated owner-only publisher. It is independent from both Telegram Manager and customer Worker.
+// Preview receives only the separate public catalog; SOURCE_DB is deliberately not bound.
+export default defineConfig(({ isPreview }) => ({
+  worker: {
+    name: 'haniel-tryon-publisher-private',
+    entrypoint: './src/publisher.mjs',
+    compatibilityDate: '2026-11-13',
+    workersDev: isPreview,
+    assets: { runWorkerFirst: ['/*'] },
+    env: {
+      ASSETS: bindings.assets(),
+      LOGIN_LIMITER: bindings.rateLimit({
+        namespace: '7311192026',
+        simple: { limit: 5, period: 60 },
+      }),
+      ...(isPreview ? {
+        CATALOG_DB: bindings.d1({ name: 'haniel-tryon-public-test' }),
+      } : {}),
+    },
+  },
 }));
