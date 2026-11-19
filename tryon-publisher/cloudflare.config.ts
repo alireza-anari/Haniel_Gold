@@ -1,17 +1,21 @@
 import { bindings, defineConfig } from 'cf/config';
 
-// Dedicated owner-only publisher. It is independent from both Telegram Manager and customer Worker.
-// Preview receives only the separate public catalog; SOURCE_DB is deliberately not bound.
+// Dedicated owner-only publisher. It does not bind the Manager D1 directly.
+// Manager product/image reads go through the private source Worker Service Binding.
 export default defineConfig(({ isPreview }) => ({
   worker: {
     name: 'haniel-tryon-publisher-private',
     entrypoint: './src/publisher.mjs',
     compatibilityDate: '2026-11-13',
-    observability: { enabled: true, traces: { enabled: true } },
     workersDev: isPreview,
+    observability: { enabled: true, traces: { enabled: true } },
     assets: { runWorkerFirst: ['/*'] },
     env: {
       ASSETS: bindings.assets(),
+      SOURCE_API: bindings.worker({
+        worker: isPreview ? 'haniel-tryon-catalog-sync-preview' : 'haniel-tryon-catalog-sync',
+      }),
+      SOURCE_API_SECRET: bindings.secret(),
       LOGIN_LIMITER: bindings.rateLimit({
         namespace: '7311192026',
         simple: { limit: 5, period: 60 },
