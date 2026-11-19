@@ -42,7 +42,7 @@ function constantTimeEqual(left, right) {
 }
 
 function authorizedInternalRequest(request, env) {
-  const expected = env.SOURCE_API_SECRET;
+  const expected = env?.SOURCE_API_SECRET;
   const supplied = request.headers.get(SECRET_HEADER) || '';
   return typeof expected === 'string' && expected.length >= 32
     && supplied.length >= 32 && supplied.length <= 128
