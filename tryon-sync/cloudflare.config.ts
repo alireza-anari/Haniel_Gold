@@ -6,6 +6,7 @@ export default defineConfig(({isPreview})=>({
   name:'haniel-tryon-catalog-sync',
   entrypoint:'./src/index.js',
   compatibilityDate:'2026-11-13',
+  observability:{enabled:true,traces:{enabled:true}},
   workersDev:false,
   env:{
    SOURCE_DB:bindings.d1({name:isPreview?'haniel-gold-tryon-test':'haniel-gold-db'}),
