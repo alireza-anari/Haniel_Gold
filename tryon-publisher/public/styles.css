@@ -28,3 +28,15 @@ figure{margin:0}figcaption{margin-bottom:10px;color:#81745e}.check{display:flex;
 hr{border:0;border-top:1px solid #e2dfd7;margin-top:35px}
 #notice{border-top:1px solid #e3ded4;margin-top:24px;min-height:40px;padding-top:10px}footer{text-align:center;font:11px Georgia,serif;letter-spacing:1px;color:#a08a66;margin-top:24px}
 @media(max-width:800px){.columns{grid-template-columns:1fr}.shell{padding:22px 12px}.panel{padding:16px}.comparison{gap:8px}.photos{grid-template-columns:repeat(2,1fr)}h1{font-size:24px}}
+
+
+[hidden]{display:none!important}
+.logout{white-space:nowrap;background:transparent;color:#77674d}
+.login-card{max-width:460px;margin:7vh auto 10vh;padding:34px;background:#fffdfa;border:1px solid #ddd8ce;text-align:right}
+.login-card h2{font-size:22px;margin:24px 0 8px}
+.login-card .private{display:inline-block}
+.login-card form{margin-top:24px}
+.login-card .primary{margin-top:12px}
+.login-card small{display:block;color:#94866e;line-height:1.9;margin-top:20px}
+.login-notice{min-height:28px;margin:10px 0 0;color:#8a6246}
+@media(max-width:800px){.login-card{margin:4vh 0 8vh;padding:24px}}
