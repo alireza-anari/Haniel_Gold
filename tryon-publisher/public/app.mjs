@@ -1,4 +1,4 @@
-// HANI-EL GOLD — only on the private Access-protected publisher Worker.
+// HANI-EL GOLD — owner-session protected publisher UI.
 const $=id=>document.getElementById(id);
 const state={selected:null,imageId:null,cutout:null,items:[],reviewHash:null,reviewed:false};
 let objectUrl=null;
