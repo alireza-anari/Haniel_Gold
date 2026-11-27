@@ -20,9 +20,8 @@ test('public price uses the private manager fixed-point formula and converts Ria
     show_profit: 0
   }, 270000000, { observedAt: '2026-11-27T08:00:00.000Z', validUntil: '2026-11-27T08:40:00.000Z' }, 900);
 
-  assert.equal(result.breakdown.finalToman, '13004304');
-  assert.equal(result.breakdown.taxToman, '204304');
-  assert.equal(result.breakdown.taxPercent, '9');
+  assert.equal(result.breakdown.finalToman, '12800000');
+  assert.equal(Object.hasOwn(result.breakdown, 'taxToman'), false);
   assert.equal(result.breakdown.rawGoldToman, '10530000');
   assert.equal(result.breakdown.laborPercent, '7');
   assert.equal(result.breakdown.profitPercent, null);
