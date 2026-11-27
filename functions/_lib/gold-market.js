@@ -42,16 +42,35 @@ export function parseServixQuote(data,now=nowMs()){
  return {rialPerGram:rial,observedAt};
 }
 export async function fetchServix(env,fetcher=fetch,now=nowMs()){
- if(!env.SERVIX_API_KEY||String(env.SERVIX_API_KEY).trim().length<8)
+ const apiKey=String(env.SERVIX_API_KEY??'').trim();
+ if(apiKey.length<8)
    throw new MarketError('NOT_CONFIGURED','کلید Servix در Secrets تنظیم نشده است.');
  let response;
  try{
-  response=await fetcher(SERVIX_URL,{method:'GET',headers:{'X-API-Key':env.SERVIX_API_KEY,'Accept':'application/json'},
+  response=await fetcher(SERVIX_URL,{method:'GET',headers:{'X-API-Key':apiKey,'Accept':'application/json'},
    redirect:'manual',signal:AbortSignal.timeout(9000)});
  }catch{throw new MarketError('NETWORK','دسترسی به سرویکس ممکن نیست.');}
  if(response.status===429)throw new MarketError('QUOTA','سهمیه دریافت نرخ تمام شده است.');
  if(response.status===401||response.status===403)throw new MarketError('AUTH','کلید یا دسترسی Servix نامعتبر است.');
- if(response.status!==200)throw new MarketError(Number.isInteger(response.status)&&response.status>=100&&response.status<=599?'PROVIDER_HTTP_'+response.status:'PROVIDER','سرویکس پاسخ معتبر برنگرداند.');
+ if(response.status!==200){
+  let code=Number.isInteger(response.status)&&response.status>=100&&response.status<=599?'PROVIDER_HTTP_'+response.status:'PROVIDER';
+  // Only documented fixed error identifiers are retained, never message/body/key.
+  if(response.status===400){
+   try{
+    const reader=response.body?.getReader();
+    if(reader){
+     const decoder=new TextDecoder();let size=0,body='';
+     while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>8192){await reader.cancel();body='';break;}body+=decoder.decode(value,{stream:true});}
+     if(body){const obj=JSON.parse(body+decoder.decode());
+      const allowed=new Set(['VALIDATION_FAILED','MISSING_REQUEST_PARAMETER','INVALID_REQUEST_PARAMETER','BAD_REQUEST']);
+      const providerCode=obj?.code??obj?.error?.code;
+      if(allowed.has(providerCode))code+='_'+providerCode;
+     }
+    }
+   }catch{}
+  }
+  throw new MarketError(code,'سرویکس پاسخ معتبر برنگرداند.');
+ }
  if(Number(response.headers.get('content-length')||0)>100_000)throw new MarketError('TOO_LARGE','پاسخ منبع بیش از حد بزرگ است.');
  let text;
  try{text=await response.text();}catch{throw new MarketError('NETWORK','پاسخ سرویکس کامل دریافت نشد.');}
