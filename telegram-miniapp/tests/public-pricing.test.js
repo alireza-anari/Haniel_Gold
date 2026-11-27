@@ -9,6 +9,7 @@ test('public pricing configuration is owner-only and stored separately from sale
   const app = read('../public/app.js');
   const migration = read('../db/migrations/0003_public_pricing.sql');
   assert.match(worker, /product_public_pricing/);
+  assert.match(worker, /SELECT id,labor_pct,profit_pct,accessories,discount FROM sales WHERE product_id=\? AND voided=0 ORDER BY id DESC LIMIT 1/);
   assert.match(worker, /id\.id!==String\(env\.OWNER_TELEGRAM_ID\)/);
   assert.doesNotMatch(worker, /SELECT role,display_name FROM users WHERE telegram_id/);
   assert.match(worker, /if\(publicPricing&&m==='GET'\)\s*\{\s*only\(roles\)/);
