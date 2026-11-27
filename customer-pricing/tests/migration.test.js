@@ -19,7 +19,7 @@ test('customer Worker never exposes manager-only financial columns in its public
   const worker = read('../src/index.js');
   assert.match(worker, /JOIN product_public_pricing pp ON pp\.product_id=p\.id AND pp\.enabled=1/);
   assert.doesNotMatch(worker, /SELECT[^;]*(supplier|customer|purchase_cost|net_profit)/is);
-  assert.doesNotMatch(worker, /p\\.purchase_gold_rate|p\\.purchase_labor_pct/);
+  assert.ok(!worker.includes('p.purchase_gold_rate') && !worker.includes('p.purchase_labor_pct'));
   assert.match(worker, /fetchServix/);
   assert.match(worker, /scheduled\(controller, env, ctx\)/);
 });
