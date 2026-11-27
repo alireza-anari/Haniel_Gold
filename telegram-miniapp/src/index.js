@@ -232,7 +232,7 @@ async function apiRequest(req,env,url,user){
    VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
    ON CONFLICT(product_id) DO UPDATE SET labor_pct=excluded.labor_pct,profit_pct=excluded.profit_pct,
    accessories=excluded.accessories,discount=excluded.discount,enabled=excluded.enabled,
-   show_profit=excluded.show_profit,updated_at=CURRENT_TIMESTAMP`,
+   show_profit=excluded.show_profit,source_sale_id=NULL,updated_at=CURRENT_TIMESTAMP`,
    id,labor,profit,accessories,discount,enabled,showProfit);
   await auditBatch(db,user,'product.public_pricing','product',id,enabled?'public_enabled':'public_pricing_updated');
   return reply({ok:true,enabled:!!enabled});
