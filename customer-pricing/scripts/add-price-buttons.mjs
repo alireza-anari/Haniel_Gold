@@ -10,7 +10,7 @@ if (!mappingPath || !BOT_TOKEN || !CHANNEL_ID || !PRICE_APP_LINK) {
 }
 
 const appBase = new URL(PRICE_APP_LINK);
-if (appBase.protocol !== 'https:' || appBase.hostname !== 't.me' || appBase.pathname.split('/').filter(Boolean).length !== 2) {
+if (appBase.protocol !== 'https:' || appBase.hostname !== 't.me' || appBase.pathname.split('/').filter(Boolean).length !== 2 || appBase.search || appBase.hash) {
   throw new Error('PRICE_APP_LINK must be a Telegram Direct Mini App URL: https://t.me/<bot_username>/<short_name>');
 }
 
@@ -19,9 +19,12 @@ if (!Array.isArray(entries) || entries.length < 1 || entries.length > 200) {
   throw new Error('Mapping file must contain 1..200 post entries.');
 }
 
+const seenMessages = new Set();
 for (const item of entries) {
   const messageId = Number(item.message_id);
   const productId = Number(item.product_id);
+  if (seenMessages.has(messageId)) throw new Error('Each channel message_id must appear only once in the mapping file.');
+  seenMessages.add(messageId);
   if (!Number.isSafeInteger(messageId) || messageId < 1 ||
       !Number.isSafeInteger(productId) || productId < 1) {
     throw new Error('Each entry requires positive integer message_id and product_id.');
