@@ -21,9 +21,9 @@ assert "gold_rate_policy" in tables
 assert "gold_rate_state" not in tables
 assert db.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
 assert db.execute("SELECT COUNT(*) FROM product_public_pricing").fetchone()[0] == 0
-assert db.execute("SELECT blocked FROM gold_market_state WHERE id=1").fetchone()[0] == 1
-assert db.execute("SELECT approved FROM pricing_policy WHERE id=1").fetchone()[0] == 0
-assert db.execute("SELECT approved FROM gold_rate_policy WHERE id=1").fetchone()[0] == 0
+assert db.execute("SELECT COUNT(*) FROM gold_market_state").fetchone()[0] == 0
+assert db.execute("SELECT COUNT(*) FROM pricing_policy").fetchone()[0] == 0
+assert db.execute("SELECT COUNT(*) FROM gold_rate_policy").fetchone()[0] == 0
 
 db.execute("""
   INSERT INTO products(sku,name,weight,purchase_gold_rate,purchase_labor_pct,purchased_qty)
@@ -38,4 +38,4 @@ row = db.execute("""
   FROM product_public_pricing WHERE product_id=1
 """).fetchone()
 assert row == ("7", "8", "0", "0", 0, 0)
-print("OK: manager schema, public pricing and shared gold-market migrations execute cleanly in SQLite")
+print("OK: manager schema, public pricing and shared gold-market migrations execute cleanly without inserting data rows")
