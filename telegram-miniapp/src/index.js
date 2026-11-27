@@ -218,6 +218,8 @@ async function apiRequest(req,env,url,user){
   only(user.role==='owner');
   const body=await readJson(req);
   if(body.confirmReviewed!==true)err('بررسی مستقل و تأیید صریح نرخ لازم است.',400);
+  const market=await marketAdmin(env);
+  if(!market.ratePolicy?.approved)err('ابتدا سقف تغییر خودکار نرخ را ثبت و تأیید کن.',409);
   return reply(await approvePendingRate(env));
  }
  if(path==='/api/market/rate-policy'&&m==='POST'){
