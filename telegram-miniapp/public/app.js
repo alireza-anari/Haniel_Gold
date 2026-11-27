@@ -264,15 +264,47 @@ function productForm(p){
 }
 async function productDetail(id){
  const p=products.find(p=>p.id===Number(id));if(!p)return;
- let imgs=await api(`/api/products/${p.id}/images`);
+ const [imgs,pricing]=await Promise.all([
+  api(`/api/products/${p.id}/images`),
+  isManager()?api(`/api/products/${p.id}/public-pricing`):Promise.resolve(null)
+ ]);
+ const pricingSource=pricing?.source_sale_id
+  ?`مقادیر اولیه از آخرین فروش ثبت‌شده محصول (شماره ${pricing.source_sale_id}) آمده‌اند؛ قبل از فعال‌سازی حتماً بازبینی کن.`
+  :`اجرت اولیه از فیلد اجرت خرید محصول پیشنهاد شده است؛ این مقدار لزوماً اجرت فروش نیست و باید بررسی شود.`;
  showModal(p.name,`<div class="form"><div class="row-actions"><span class="badge-role mono">${esc(p.sku)}</span><span class="pill ${p.available?'':'zero'}">${p.available?'موجود':'ناموجود'}</span></div>
  <div class="photo-grid">${imgs.map(i=>`<div class="photo-item"><img data-photo="${i.id}" alt="تصویر محصول">${isManager()?`<button data-action="deletePhoto" data-id="${i.id}" data-product="${p.id}">حذف</button>`:''}</div>`).join('')}</div>
  ${isManager()?`<form id="photo-form" class="field"><label>افزودن تصویر (JPG / PNG / WebP؛ فشرده‌سازی خودکار برای ذخیره امن در D1)</label><input class="input" type="file" name="image" accept="image/png,image/jpeg,image/webp" required><button class="btn outline" type="submit">آپلود تصویر</button></form>`:''}
  <div class="summary-lines"><div class="line"><span class="name">وزن واحد</span><span>${number(p.weight,5)} گرم</span></div><div class="line"><span class="name">موجودی</span><span>${number(p.available,0)} عدد</span></div>
  ${isManager()?`<div class="line"><span class="name">تعداد خرید</span><span>${number(p.purchased_qty,0)}</span></div><div class="line"><span class="name">نرخ خرید طلا</span><span>${rial(p.purchase_gold_rate)}</span></div><div class="line"><span class="name">اجرت خرید</span><span>${number(p.purchase_labor_pct)}٪</span></div><div class="line"><span class="name">بهای خرید هر عدد</span><span>${rial(p.purchase_unit_cost)}</span></div><div class="line"><span class="name">تأمین‌کننده</span><span>${esc(p.supplier||'—')}</span></div>`:''}</div>
+ ${isManager()?`<section class="public-pricing-settings">
+  <div class="form-section-title"><span class="form-section-index">۰۴</span><div><strong>قیمت‌گذاری قابل نمایش به مشتری</strong><small>تنظیمات عمومی مستقل از سوابق فروش</small></div></div>
+  <p class="form-hint">${pricingSource} این تنظیمات فقط برای محاسبه قیمت در Mini App عمومی استفاده می‌شوند؛ اطلاعات خرید و سود داخلی افشا نمی‌شوند.</p>
+  <form id="public-pricing-form" class="form">
+   <div class="form-grid">
+    ${field('درصد اجرت فروش','labor_pct',pricing?.labor_pct??p.default_labor_pct??'','number','required')}
+    ${field('درصد سود فروش','profit_pct',pricing?.profit_pct??'','number','')}
+    ${field('متعلقات هر واحد (ریال)','accessories',pricing?.accessories??'0','number','required')}
+    ${field('تخفیف هر واحد (ریال)','discount',pricing?.discount??'0','number','required')}
+   </div>
+   <label class="public-price-check"><input type="checkbox" name="enabled" ${pricing?.enabled===1?'checked':''}><span>فعال‌سازی نمایش قیمت این محصول برای مشتریان</span></label>
+   <label class="public-price-check"><input type="checkbox" name="show_profit" ${pricing?.show_profit===1?'checked':''}><span>نمایش درصد سود در جزئیات قیمت مشتری</span></label>
+   <p class="tiny muted">برای فعال‌سازی، درصد سود باید وارد شود. قیمت نهایی با نرخ ذخیره‌شده طلا در لحظه درخواست محاسبه می‌شود؛ قیمت محصول ذخیره نخواهد شد.</p>
+   <button class="btn outline" type="submit">ذخیره تنظیمات قیمت عمومی</button>
+  </form>
+ </section>`:''}
  <div class="row-actions">${isManager()?button('ویرایش','editProduct',p.id,'outline'):''}${isSeller()?button('محاسبه / فروش','quickSale',p.id,'ghost'):''}</div></div>`);
  const photoForm=document.getElementById('photo-form');photoForm?.addEventListener('submit',async e=>{
- e.preventDefault();const fd=new FormData(photoForm);try{const file=fd.get('image');if(!(file instanceof File))throw Error('تصویری انتخاب نشده است.');const compressed=await compressProductImage(file);fd.set('image',compressed,compressed.name);await api(`/api/products/${p.id}/images`,{method:'POST',body:fd});closeModal();await go('products');await productDetail(p.id);notice('تصویر اضافه شد.')}catch(err){loadError(err)}
+  e.preventDefault();const fd=new FormData(photoForm);try{const file=fd.get('image');if(!(file instanceof File))throw Error('تصویری انتخاب نشده است.');const compressed=await compressProductImage(file);fd.set('image',compressed,compressed.name);await api(`/api/products/${p.id}/images`,{method:'POST',body:fd});closeModal();await go('products');await productDetail(p.id);notice('تصویر اضافه شد.')}catch(err){loadError(err)}
+ });
+ const pricingForm=document.getElementById('public-pricing-form');pricingForm?.addEventListener('submit',async e=>{
+  e.preventDefault();const data=formObject(pricingForm);
+  data.enabled=pricingForm.elements.enabled.checked;
+  data.show_profit=pricingForm.elements.show_profit.checked;
+  try{
+   await api(`/api/products/${p.id}/public-pricing`,{method:'PUT',body:JSON.stringify(data)});
+   closeModal();await go('products');await productDetail(p.id);
+   notice(data.enabled?'قیمت عمومی محصول فعال شد.':'تنظیمات قیمت عمومی ذخیره شد.');
+  }catch(err){loadError(err)}
  });
 }
 async function renderSales(){
