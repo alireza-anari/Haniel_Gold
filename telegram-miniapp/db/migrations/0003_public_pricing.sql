@@ -1,4 +1,4 @@
--- 0003: Public, per-product price presentation settings and cached 18K gold rate.
+-- 0003: Public, per-product price presentation settings.
 -- Schema only: no product, sale, customer, or price data is inserted or rewritten.
 PRAGMA foreign_keys = ON;
 
@@ -15,14 +15,3 @@ CREATE TABLE IF NOT EXISTS product_public_pricing (
 
 CREATE INDEX IF NOT EXISTS idx_product_public_pricing_enabled
   ON product_public_pricing(enabled, product_id);
-
-CREATE TABLE IF NOT EXISTS gold_rate_state (
-  id INTEGER PRIMARY KEY CHECK(id=1),
-  rate_rial_per_gram INTEGER,
-  observed_at INTEGER,
-  fetched_at INTEGER,
-  valid_until INTEGER,
-  last_attempt_at INTEGER NOT NULL DEFAULT 0,
-  last_error TEXT NOT NULL DEFAULT '',
-  version INTEGER NOT NULL DEFAULT 1
-);
