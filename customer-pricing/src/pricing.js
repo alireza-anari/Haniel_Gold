@@ -17,7 +17,8 @@ export function rialPerGramToToman(value) {
 // Uses the same fixed-point formula as the private manager's sale calculator.
 // Only public fields are returned; purchase cost and net profit are discarded.
 export function buildPublicPrice(product, pricing, rateRial, rateMeta = {}) {
-  const q = quote(product, {
+  const calculationProduct = { ...product, purchase_gold_rate: '0', purchase_labor_pct: '0' };
+  const q = quote(calculationProduct, {
     quantity: 1,
     gold_rate: String(rateRial),
     labor_pct: pricing.labor_pct,
