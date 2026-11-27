@@ -44,7 +44,7 @@ function row(label, value, options = {}) {
 function render(data) {
   const p = data.product, b = data.breakdown, rate = data.rate;
   const profitLabel = b.profitPercent === null
-    ? 'سهم قیمت‌گذاری فروشگاه'
+    ? 'سهم فروشگاه'
     : `سود فروشگاه · ${escapeHtml(b.profitPercent)}٪`;
   const image = p.imageUrl
     ? `<img class="product-image" src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.name)}">`
