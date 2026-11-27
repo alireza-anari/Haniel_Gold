@@ -71,7 +71,6 @@ function render(data) {
       ${row('ارزش طلای خام', b.rawGoldToman, { money: true })}
       ${row(`اجرت فروش · ${escapeHtml(b.laborPercent)}٪`, b.laborToman, { money: true })}
       ${row(profitLabel, b.profitToman, { money: true })}
-      ${row(`مالیات بر اجرت و سود · ${escapeHtml(b.taxPercent)}٪`, b.taxToman, { money: true })}
       ${BigInt(b.accessoriesToman || '0') > 0n ? row('متعلقات', b.accessoriesToman, { money: true }) : ''}
       ${BigInt(b.discountToman || '0') > 0n ? row('تخفیف', b.discountToman, { money: true }) : ''}
       <div class="final-price">
