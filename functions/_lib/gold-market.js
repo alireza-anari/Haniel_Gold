@@ -195,6 +195,7 @@ export async function approveRatePolicy(env,data,now=nowMs()){
  const threshold=percentBps(data.maxRateChangePercent,'سقف تغییر خودکار نرخ',{allowZero:false});
  await env.DB.prepare("UPDATE gold_rate_policy SET auto_change_bps=?,approved=1,approved_at=? WHERE id=1")
   .bind(threshold,now).run();
+ await audit(env.DB,'approved',null,null,now,'rate_change_policy');
  return {status:'approved',message:'سیاست پذیرش خودکار تغییر نرخ ثبت شد.'};
 }
 export async function approvePricingPolicy(env,data,now=nowMs()){
