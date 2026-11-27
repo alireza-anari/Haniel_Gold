@@ -4,13 +4,14 @@ import { readFileSync } from 'node:fs';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('pricing and market controls are owner-only while existing team roles remain supported', () => {
+test('private manager and pricing controls require the configured owner', () => {
   const worker = read('../src/index.js');
   const app = read('../public/app.js');
   const migration = read('../db/migrations/0003_public_pricing.sql');
   assert.match(worker, /product_public_pricing/);
   assert.match(worker, /SELECT id,labor_pct,profit_pct,accessories,discount FROM sales WHERE product_id=\? AND voided=0 ORDER BY id DESC LIMIT 1/);
-  assert.ok(worker.includes("SELECT role,display_name FROM users WHERE telegram_id=?"));
+  assert.ok(!worker.includes("SELECT role,display_name FROM users WHERE telegram_id=?"));
+  assert.match(worker,/فقط مالک دسترسی دارد/);
   assert.ok(worker.includes("if(publicPricing&&m==='GET'){\n  only(user.role==='owner');"));
   assert.ok(worker.includes("if(publicPricing&&m==='PUT'){\n  only(user.role==='owner');"));
   assert.ok(worker.includes("if(path==='/api/market'&&m==='GET'){\n  only(user.role==='owner');"));
