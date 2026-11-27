@@ -1,4 +1,4 @@
-import { dynamicContext, marketPublic, syncRate } from '../../functions/_lib/gold-market.js';
+import { marketRateContext, syncRate } from '../../functions/_lib/gold-market.js';
 import { buildPublicPrice } from './pricing.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -35,20 +35,12 @@ async function productQuote(env, productId) {
     return json({ error: 'تنظیمات قیمت این محصول کامل نیست.', code: 'PRICING_NOT_READY' }, 409);
   }
 
-  const market = await marketPublic(env);
-  if (!market.pricingReady) {
-    if (market.status === 'blocked') {
-      return json({ error: 'نرخ جدید طلا در انتظار بررسی و تأیید مالک است.', code: 'RATE_PENDING_REVIEW' }, 503);
-    }
-    if (!market.policyApproved) {
-      return json({ error: 'سیاست محاسبه و مالیات هنوز توسط مالک تأیید نشده است.', code: 'POLICY_NOT_APPROVED' }, 503);
-    }
-    return json({ error: 'نرخ معتبر طلا در دسترس نیست. پس از به‌روزرسانی نرخ دوباره تلاش کن.', code: 'RATE_STALE' }, 503);
+  const context = await marketRateContext(env);
+  if (context.status === 'blocked') {
+    return json({ error: 'نرخ جدید طلا در انتظار بررسی و تأیید مالک است.', code: 'RATE_PENDING_REVIEW' }, 503);
   }
-
-  const context = await dynamicContext(env);
-  if (!context) {
-    return json({ error: 'نرخ یا سیاست قیمت‌گذاری در حال حاضر معتبر نیست.', code: 'PRICING_NOT_READY' }, 503);
+  if (context.status !== 'ready') {
+    return json({ error: 'نرخ معتبر طلا در دسترس نیست. پس از به‌روزرسانی نرخ دوباره تلاش کن.', code: 'RATE_STALE' }, 503);
   }
 
   let result;
@@ -59,7 +51,7 @@ async function productQuote(env, productId) {
       accessories: product.accessories,
       discount: product.discount,
       show_profit: product.show_profit
-    }, context.rateRial, context, context.taxBps);
+    }, context.rateRial, context);
   } catch {
     return json({
       error: 'تنظیمات قیمت این محصول معتبر نیست. لطفاً با مدیریت تماس بگیر.',
@@ -102,8 +94,8 @@ export default {
 
     if (path === '/api/v1/health') {
       try {
-        const market = await marketPublic(env);
-        return json({ ok: true, marketStatus: market.status, pricingReady: !!market.pricingReady });
+        const market = await marketRateContext(env);
+        return json({ ok: true, marketStatus: market.status, rateReady: market.status === 'ready' });
       } catch {
         return json({ ok: false, code: 'MARKET_NOT_INITIALIZED' }, 503);
       }
