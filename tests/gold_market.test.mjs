@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
  SERVIX_URL,parseServixQuote,fetchServix,calculatePrice,MarketError,
- marketPublic,approvePricingPolicy,syncRate,normalizeRialValue
+ marketPublic,approvePricingPolicy,approveRatePolicy,marketRateContext,syncRate,syncRateWithRatePolicy,normalizeRialValue
 } from '../functions/_lib/gold-market.js';
 
 const now=Date.parse('2026-10-23T08:00:00Z');
@@ -97,6 +97,54 @@ test('public market stays unavailable when the database is missing',async()=>{
 });
 
 
+
+test('Mini App rate policy is separate from tax policy and requires explicit owner review',async()=>{
+ let sqlSeen='',argsSeen=null;
+ const env={DB:{prepare(sql){return {bind(...args){if(sql.includes('UPDATE gold_rate_policy')){sqlSeen=sql;argsSeen=args;}return this;},async run(){return {meta:{changes:1}};}};}}};
+ await assert.rejects(()=>approveRatePolicy(env,{maxRateChangePercent:5,confirmReviewed:false},now),{code:'RATE_POLICY_INVALID'});
+ assert.equal(sqlSeen,'');
+ const r=await approveRatePolicy(env,{maxRateChangePercent:5,confirmReviewed:true},now);
+ assert.equal(r.status,'approved');
+ assert.match(sqlSeen,/UPDATE gold_rate_policy/);
+ assert.deepEqual(argsSeen,[500,now]);
+});
+test('Mini App rate context serves only a fresh, approved, unblocked rate',async()=>{
+ const row={rate_rial_per_gram:123456780,observed_at:now-5*60_000,valid_until:now+20*60_000,blocked:0};
+ const env={DB:{prepare(sql){return {async first(){assert.match(sql,/gold_market_state/);return row;}};}}};
+ const ready=await marketRateContext(env,now);
+ assert.equal(ready.status,'ready');
+ assert.equal(ready.rateRial,123456780);
+ assert.equal(ready.observedAt,new Date(row.observed_at).toISOString());
+ row.blocked=1;
+ const blocked=await marketRateContext(env,now);
+ assert.equal(blocked.status,'blocked');
+ assert.equal(blocked.rateRial,null);
+});
+test('Mini App rate scheduler auto-accepts only within the separately approved rate threshold',async()=>{
+ const stateRow={version:0,last_attempt_at:null,paused_until:null,rate_rial_per_gram:100000000,observed_at:now-10*60_000,valid_until:now+20*60_000,blocked:0,pending_rate_rial:null,pending_observed_at:null};
+ const policyRow={auto_change_bps:500,approved:1};
+ const env={SERVIX_API_KEY:'fake-test-api-key',DB:{prepare(sql){
+  return {bind(...args){this.args=args;return this;},
+   async first(){
+    if(sql.includes('gold_market_state'))return {...stateRow};
+    if(sql.includes('gold_rate_policy'))return policyRow;
+    return null;
+   },
+   async run(){
+    if(sql.includes('SET last_attempt_at=')){stateRow.last_attempt_at=this.args[0];stateRow.version+=1;return {meta:{changes:1}};}
+    if(sql.includes('SET rate_rial_per_gram=')){stateRow.rate_rial_per_gram=this.args[0];stateRow.observed_at=this.args[1];stateRow.valid_until=this.args[3];stateRow.blocked=0;stateRow.pending_rate_rial=null;return {meta:{changes:1}};}
+    return {meta:{changes:1}};
+   }};
+ }}};
+ const r=await syncRateWithRatePolicy(env,{now,fetcher:async(url,opts)=>{
+  assert.equal(url,SERVIX_URL);
+  assert.equal(opts.headers['X-API-Key'],'fake-test-api-key');
+  return {status:200,headers:new Headers(),async text(){return JSON.stringify({...valid,value:'101000000'});}};
+ }});
+ assert.equal(r.status,'accepted');
+ assert.equal(stateRow.rate_rial_per_gram,101000000);
+});
+
 test('scheduled sync records a safe AUTH code after provider rejection without exposing secrets',async()=>{
  let recorded='';
  const env={SERVIX_API_KEY:'fake-test-api-key',DB:{prepare(sql){
@@ -126,4 +174,16 @@ test('scheduled sync uses quota status distinctly from provider errors',async()=
  assert.equal(r.errorCode,'QUOTA');
  assert.equal(recorded,'QUOTA');
  assert.equal(pause,now+24*60*60*1000);
+});
+
+ test('Servix non-success provider HTTP statuses are recorded safely',async()=>{
+ for(const status of [302,404,417,500,503]) await assert.rejects(()=>fetchServix({SERVIX_API_KEY:'fake-test-api-key'},async()=>({status}),now),{code:'PROVIDER_HTTP_'+status});
+ });
+
+test('trim surrounding whitespace on Servix key, retain only documented 400 error code',async()=>{
+ await assert.rejects(()=>fetchServix({SERVIX_API_KEY:'  fake-test-api-key  '},async(url,opts)=>{
+  assert.equal(opts.headers['X-API-Key'],'fake-test-api-key');
+  return new Response(JSON.stringify({code:'INVALID_REQUEST_PARAMETER',message:'do not log this body'}),{status:400,headers:{'content-type':'application/json'}});
+ },now),{code:'PROVIDER_HTTP_400_INVALID_REQUEST_PARAMETER'});
+ await assert.rejects(()=>fetchServix({SERVIX_API_KEY:'fake-test-api-key'},async()=>new Response(JSON.stringify({code:'untrusted-secret-value'}),{status:400}),now),{code:'PROVIDER_HTTP_400'});
 });

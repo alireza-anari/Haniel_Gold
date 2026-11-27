@@ -54,6 +54,7 @@ function formObject(form){
  return result;
 }
 const isManager=()=>['owner','manager'].includes(session?.user.role);
+const isOwner=()=>session?.user.role==='owner';
 const isSeller=()=>session?.user.role!=='viewer';
 
 const iconPaths={
@@ -64,10 +65,11 @@ const iconPaths={
  reports:'<path d="M4 20V13h4v7M10 20V7h4v13M16 20V4h4v16M2 20h20"/>',
  excel:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M12 10v10"/>',
  team:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+ market:'<path d="M3 9h18M5 9V6l7-3 7 3v3M5 9v10h14V9M9 19v-5h6v5"/>',
  help:'<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4M12 17.4h.01"/>'
 };
 const iconSvg=(name)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]||iconPaths.dashboard}</svg>`;
-const labels={dashboard:'داشبورد',products:'محصولات',sales:'فروش',quote:'محاسبه قیمت',reports:'گزارش‌ها',excel:'اکسل',team:'کاربران',help:'راهنما'};
+const labels={dashboard:'داشبورد',products:'محصولات',sales:'فروش',quote:'محاسبه قیمت',reports:'گزارش‌ها',excel:'اکسل',team:'کاربران',market:'نرخ طلا',help:'راهنما'};
 async function api(url,opts={}){
  const h={...headers(),...(opts.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(opts.headers||{})};
  const r=await fetch(url,{...opts,headers:h,cache:'no-store'});
@@ -82,9 +84,9 @@ function loadError(err){notice(err?.message||'خطای ناشناخته','error'
 function loading(){view.innerHTML='<div class="loading"><span class="loader"></span> دریافت اطلاعات…</div>'}
 function blank(text='هنوز اطلاعاتی وجود ندارد.') {return `<div class="empty"><img class="empty-logo" src="/assets/logo.png" alt="HANI-EL GOLD"><h3>${esc(text)}</h3><p>اطلاعات واقعی پس از ثبت یا ورود اکسل اینجا نمایش داده می‌شوند.</p>${isManager()?`<div class="empty-actions">${button('افزودن محصول','addProduct','','outline')} ${button('ورود اکسل','nav','excel','ghost')}</div>`:''}</div>`}
 function button(text,action,id='',kind='outline',extra=''){return `<button class="btn ${kind}" type="button" data-action="${action}" data-id="${esc(id)}" ${extra}>${text}</button>`}
-function canSee(page){return (!['excel','reports'].includes(page)||isManager()) && (page!=='team'||session?.user.role==='owner') &&(!['sales','quote'].includes(page)||isSeller())}
+function canSee(page){return (!['excel','reports'].includes(page)||isManager()) && (page!=='team'||session?.user.role==='owner') && (page!=='market'||session?.user.role==='owner') &&(!['sales','quote'].includes(page)||isSeller())}
 function menus(){
- const pages=['dashboard','products','sales','quote','reports','excel','team','help'].filter(canSee);
+ const pages=['dashboard','products','sales','quote','market','reports','excel','team','help'].filter(canSee);
  navSide.innerHTML=pages.map(p=>`<button type="button" class="nav-btn ${p===current?'active':''}" data-nav="${p}" ${p===current?'aria-current="page"':''}><span class="nav-icon">${iconSvg(p)}</span><span>${labels[p]}</span></button>`).join('');
  const mobile=['dashboard','products','sales','quote',isManager()?'excel':'help'].filter(canSee);
  navMobile.innerHTML=mobile.map(p=>`<button type="button" class="${p===current?'active':''}" data-nav="${p}" ${p===current?'aria-current="page"':''}><span class="mobile-nav-icon">${iconSvg(p)}</span><span class="mobile-nav-label">${p==='quote'?'قیمت':labels[p]}</span></button>`).join('');
@@ -111,7 +113,7 @@ async function go(page,{remember=true}={}){
  try {if(['dashboard','products','sales','quote','reports'].includes(page))await refreshData();
   if(page==='dashboard')dashboard();if(page==='products')renderProducts();
   if(page==='sales')await renderSales();if(page==='quote')renderQuote();
-  if(page==='reports')renderReports();if(page==='excel')renderExcel();
+  if(page==='reports')renderReports();if(page==='excel')renderExcel();if(page==='market')await renderMarket();
   if(page==='team')await renderTeam();if(page==='help')renderHelp();
  }catch(e){view.innerHTML=blank('نمایش اطلاعات ممکن نشد.');loadError(e)}
 }
@@ -145,6 +147,7 @@ function dashboard(){
   <div><span class="section-kicker">HANI-EL GOLD / OVERVIEW</span><h2>وضعیت موجودی و فروش</h2><p>خلاصه اعداد واقعی ثبت‌شده در سیستم</p></div>
   <img src="/assets/clover.png" alt="" aria-hidden="true">
  </section>
+ ${session?.user.role==='owner'?`<div class="row-actions dashboard-market-action">${button('مدیریت نرخ طلا','nav','market','outline')}</div>`:''}
  <div class="metric-grid dashboard-grid ${isManager()?'':'dashboard-compact'}">
  ${isManager()?metric('طلای کل ثبت‌شده از ابتدا',number(summary.total_purchased_weight,4),'گرم · مجموع خرید ثبت‌شده، پیش از کسر فروش',true,'reports').replace('class="metric gold ', 'class="metric gold metric-total-gold '):''}
  ${metric('وزن طلای موجود',number(summary.available_weight,4),'گرم · موجودی فعلی',false,'reports')}
@@ -264,17 +267,92 @@ function productForm(p){
 }
 async function productDetail(id){
  const p=products.find(p=>p.id===Number(id));if(!p)return;
- let imgs=await api(`/api/products/${p.id}/images`);
+ const [imgs,pricing]=await Promise.all([
+  api(`/api/products/${p.id}/images`),
+  isOwner()?api(`/api/products/${p.id}/public-pricing`):Promise.resolve(null)
+ ]);
+ const pricingSource=pricing?.source_sale_id
+  ?`مقادیر اولیه از آخرین فروش ثبت‌شده محصول (شماره ${pricing.source_sale_id}) پیشنهاد شده‌اند؛ پیش از فعال‌سازی حتماً بازبینی و ذخیره کن.`
+  :pricing?.configured
+   ?`تنظیمات قیمت عمومی این محصول ذخیره شده است؛ قبل از فعال‌سازی یا انتشار، وزن و مقادیر را بازبینی کن.`
+   :`تنظیمات قیمت فروش این محصول هنوز کامل نیست. اجرت اولیه از فیلد اجرت خرید فقط به‌عنوان پیشنهاد آمده و باید با اجرت فروش واقعی جایگزین یا تأیید شود.`;
  showModal(p.name,`<div class="form"><div class="row-actions"><span class="badge-role mono">${esc(p.sku)}</span><span class="pill ${p.available?'':'zero'}">${p.available?'موجود':'ناموجود'}</span></div>
  <div class="photo-grid">${imgs.map(i=>`<div class="photo-item"><img data-photo="${i.id}" alt="تصویر محصول">${isManager()?`<button data-action="deletePhoto" data-id="${i.id}" data-product="${p.id}">حذف</button>`:''}</div>`).join('')}</div>
  ${isManager()?`<form id="photo-form" class="field"><label>افزودن تصویر (JPG / PNG / WebP؛ فشرده‌سازی خودکار برای ذخیره امن در D1)</label><input class="input" type="file" name="image" accept="image/png,image/jpeg,image/webp" required><button class="btn outline" type="submit">آپلود تصویر</button></form>`:''}
  <div class="summary-lines"><div class="line"><span class="name">وزن واحد</span><span>${number(p.weight,5)} گرم</span></div><div class="line"><span class="name">موجودی</span><span>${number(p.available,0)} عدد</span></div>
  ${isManager()?`<div class="line"><span class="name">تعداد خرید</span><span>${number(p.purchased_qty,0)}</span></div><div class="line"><span class="name">نرخ خرید طلا</span><span>${rial(p.purchase_gold_rate)}</span></div><div class="line"><span class="name">اجرت خرید</span><span>${number(p.purchase_labor_pct)}٪</span></div><div class="line"><span class="name">بهای خرید هر عدد</span><span>${rial(p.purchase_unit_cost)}</span></div><div class="line"><span class="name">تأمین‌کننده</span><span>${esc(p.supplier||'—')}</span></div>`:''}</div>
+ ${isOwner()?`<section class="public-pricing-settings">
+  <div class="form-section-title"><span class="form-section-index">۰۴</span><div><strong>قیمت‌گذاری قابل نمایش به مشتری</strong><small>تنظیمات عمومی مستقل از سوابق فروش</small></div></div>
+  <p class="form-hint">${pricingSource} این تنظیمات فقط برای محاسبه قیمت در Mini App عمومی استفاده می‌شوند؛ اطلاعات خرید و سود داخلی افشا نمی‌شوند.</p>
+  <form id="public-pricing-form" class="form">
+   <div class="form-grid">
+    ${field('درصد اجرت فروش','labor_pct',pricing?.labor_pct??p.default_labor_pct??'','number','required')}
+    ${field('درصد سود فروش','profit_pct',pricing?.profit_pct??'','number','')}
+    ${field('متعلقات هر واحد (ریال)','accessories',pricing?.accessories??'0','number','required')}
+    ${field('تخفیف هر واحد (ریال)','discount',pricing?.discount??'0','number','required')}
+   </div>
+   <label class="public-price-check"><input type="checkbox" name="enabled" ${pricing?.enabled===1?'checked':''}><span>فعال‌سازی نمایش قیمت این محصول برای مشتریان</span></label>
+   <label class="public-price-check"><input type="checkbox" name="show_profit" ${pricing?.show_profit===1?'checked':''}><span>نمایش درصد سود در جزئیات قیمت مشتری</span></label>
+   <p class="tiny muted">برای فعال‌سازی، درصد سود باید وارد شود. قیمت نهایی با نرخ ذخیره‌شده طلا در لحظه درخواست محاسبه می‌شود؛ قیمت محصول ذخیره نخواهد شد.</p>
+   <button class="btn outline" type="submit">ذخیره تنظیمات قیمت عمومی</button>
+  </form>
+ </section>`:''}
  <div class="row-actions">${isManager()?button('ویرایش','editProduct',p.id,'outline'):''}${isSeller()?button('محاسبه / فروش','quickSale',p.id,'ghost'):''}</div></div>`);
  const photoForm=document.getElementById('photo-form');photoForm?.addEventListener('submit',async e=>{
- e.preventDefault();const fd=new FormData(photoForm);try{const file=fd.get('image');if(!(file instanceof File))throw Error('تصویری انتخاب نشده است.');const compressed=await compressProductImage(file);fd.set('image',compressed,compressed.name);await api(`/api/products/${p.id}/images`,{method:'POST',body:fd});closeModal();await go('products');await productDetail(p.id);notice('تصویر اضافه شد.')}catch(err){loadError(err)}
+  e.preventDefault();const fd=new FormData(photoForm);try{const file=fd.get('image');if(!(file instanceof File))throw Error('تصویری انتخاب نشده است.');const compressed=await compressProductImage(file);fd.set('image',compressed,compressed.name);await api(`/api/products/${p.id}/images`,{method:'POST',body:fd});closeModal();await go('products');await productDetail(p.id);notice('تصویر اضافه شد.')}catch(err){loadError(err)}
+ });
+ const pricingForm=document.getElementById('public-pricing-form');pricingForm?.addEventListener('submit',async e=>{
+  e.preventDefault();const data=formObject(pricingForm);
+  data.enabled=pricingForm.elements.enabled.checked;
+  data.show_profit=pricingForm.elements.show_profit.checked;
+  try{
+   await api(`/api/products/${p.id}/public-pricing`,{method:'PUT',body:JSON.stringify(data)});
+   closeModal();await go('products');await productDetail(p.id);
+   notice(data.enabled?'قیمت عمومی محصول فعال شد.':'تنظیمات قیمت عمومی ذخیره شد.');
+  }catch(err){loadError(err)}
  });
 }
+async function renderMarket(){
+ const data=await api('/api/market'),m=data.market,p=data.ratePolicy||{approved:false,maxRateChangePercent:null};
+ const statusLabel=m.status==='blocked'?'در انتظار تأیید مالک':m.status==='ready'?'فعال و معتبر':m.status==='expired'?'منقضی':'آماده نیست';
+ const reasons={initial_review:'نرخ اولیه باید توسط مالک بررسی شود',rate_policy_not_approved:'سیاست پذیرش خودکار نرخ هنوز تأیید نشده است',large_change:'تغییر نرخ از سقف مجاز بیشتر است',existing_pending_review:'یک نرخ قبلی هنوز در انتظار بررسی است'};
+ view.innerHTML=`<div class="section-head"><div><span class="section-kicker">GOLD MARKET / CONTROL</span><h2>مدیریت نرخ طلا</h2><p>منبع نرخ: Servix · طلای ۱۸ عیار · واحد محاسباتی: ریال</p></div><div class="buttons">${button('تازه‌سازی','refreshMarket','','outline')}</div></div>
+ <div class="panel market-panel">
+  <div class="summary-lines">
+   <div class="line"><span class="name">وضعیت نرخ</span><strong>${esc(statusLabel)}</strong></div>
+   <div class="line"><span class="name">نرخ تأییدشده هر گرم</span><strong>${m.rateTomanPerGram==null?'—':number(m.rateTomanPerGram,1)+' تومان'}</strong></div>
+   <div class="line"><span class="name">زمان ثبت منبع</span><span>${m.observedAt?esc(new Date(m.observedAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">اعتبار نرخ تا</span><span>${m.validUntil?esc(new Date(m.validUntil).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">آخرین تلاش دریافت</span><span>${m.lastAttemptAt?esc(new Date(m.lastAttemptAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">سیاست پذیرش خودکار</span><strong>${p.approved?'تأیید شده':'تأیید نشده'}</strong></div>
+  </div>
+  ${m.pendingTomanPerGram!=null?`<div class="divider"></div><div class="summary-lines"><div class="line"><span class="name">نرخ پیشنهادی در انتظار بررسی</span><strong>${number(m.pendingTomanPerGram,1)} تومان</strong></div><div class="line"><span class="name">زمان نرخ پیشنهادی</span><span>${m.pendingObservedAt?esc(new Date(m.pendingObservedAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div><p class="form-hint">${esc(reasons[m.pendingReason]||m.pendingReason||'تأیید مالک لازم است')}</p><div class="row-actions">${p?.approved?button('تأیید نرخ پیشنهادی','approveMarketRate','','outline'):'<p class="form-hint">ابتدا سقف تغییر خودکار نرخ را ثبت و تأیید کن.</p>'}</div></div>`:''}
+  ${m.lastError?`<p class="form-hint">آخرین وضعیت دریافت: <bdi>${esc(m.lastError)}</bdi></p>`:''}
+ </div>
+ <div class="panel market-panel">
+  <div class="form-section-title"><span class="form-section-index">۰۱</span><div><strong>سقف پذیرش خودکار تغییر نرخ</strong><small>این مقدار مستقل از فرمول مالیات است</small></div></div>
+  <p class="form-hint">تغییرات نرخ کمتر یا مساوی این سقف، پس از تأیید اولیه، خودکار پذیرفته می‌شوند. تغییر بزرگ‌تر از سقف یا نرخ اولیه تا زمان بررسی و تأیید مالک منتشر نمی‌شود. این تنظیم هیچ درصد مالیات یا هزینه جدیدی به فرمول قیمت محصول اضافه نمی‌کند.</p>
+  <form id="market-policy-form" class="form">
+   <label class="field">حداکثر تغییر خودکار نرخ (%)<input class="input" type="text" inputmode="decimal" dir="ltr" autocomplete="off" name="maxRateChangePercent" placeholder="مثلاً ۵" value="${p.maxRateChangePercent??''}" data-numeric required><small>مقدار را خودت براساس سیاست کنترل ریسک انتخاب کن؛ پیش‌فرضی اعمال نمی‌شود.</small></label>
+   <label class="public-price-check"><input type="checkbox" name="confirmReviewed" required><span>سقف تغییر خودکار نرخ را بررسی و تأیید می‌کنم.</span></label>
+   <button class="btn outline" type="submit">ذخیره و تأیید سیاست نرخ</button>
+  </form>
+ </div>
+ <p class="tiny muted">قیمت مشتری فقط با نرخ تأییدشده و معتبر محاسبه می‌شود. فرمول قیمت همان فرمول محاسبات فروش پنل مدیریت است؛ قیمت محصول ذخیره نمی‌شود.</p>`;
+ const form=document.getElementById('market-policy-form');
+ form?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const body=formObject(form);
+  body.confirmReviewed=form.elements.confirmReviewed.checked;
+  if(!body.confirmReviewed){notice('برای ثبت سیاست، تأیید صریح لازم است.','warn');return;}
+  try{
+   await api('/api/market/rate-policy',{method:'POST',body:JSON.stringify(body)});
+   notice('سیاست پذیرش خودکار نرخ ثبت و تأیید شد.');
+   await renderMarket();
+  }catch(error){loadError(error);}
+ });
+}
+
 async function renderSales(){
  sales=await api('/api/sales');
  view.innerHTML=`<div class="section-head"><div><h2>سوابق فروش</h2><p>هر سند شامل نرخ تاریخی طلاست و با تغییر قیمت روز بازنویسی نمی‌شود.</p></div><div class="buttons">${button('+ ثبت فروش','nav','quote','')}</div></div>
@@ -436,6 +514,14 @@ document.addEventListener('click',async e=>{
   if(a==='editUser')userForm(id);
   if(a==='voidSale')await voidSale(id);
   if(a==='deletePhoto')await deletePhoto(id,action.dataset.product);
+  if(a==='refreshMarket')await renderMarket();
+  if(a==='approveMarketRate'){
+   if(confirm('نرخ پیشنهادی Servix را پس از بررسی مستقل تأیید می‌کنی؟')){
+    await api('/api/market/approve',{method:'POST',body:JSON.stringify({confirmReviewed:true})});
+    notice('نرخ پیشنهادی تأیید شد.');
+    await renderMarket();
+   }
+  }
  }catch(err){loadError(err)}
 });
 document.getElementById('close-modal').addEventListener('click',closeModal);

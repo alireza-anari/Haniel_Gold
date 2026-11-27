@@ -1,3 +1,4 @@
+import { marketAdmin, approvePendingRate, approveRatePolicy } from '../../functions/_lib/gold-market.js';
 import {asciiDigits,dec,fmt,valid,quantity,purchaseUnitCost,quote} from './finance.js';
 
 const STOCK_SQL=`SELECT p.*,p.purchased_qty-COALESCE((SELECT SUM(s.quantity) FROM sales s WHERE s.product_id=p.id AND s.voided=0),0) available,
@@ -36,9 +37,7 @@ async function authenticate(req,env){
   await run(env.DB,"INSERT INTO users(telegram_id,display_name,role) VALUES(?,?,'owner') ON CONFLICT(telegram_id) DO UPDATE SET role='owner',display_name=excluded.display_name",id.id,id.name);
   return {...id,role:'owner'};
  }
- const u=await first(env.DB,'SELECT role,display_name FROM users WHERE telegram_id=?',id.id);
- if(!u||u.role==='disabled')err('دسترسی شما فعال نشده است؛ با مالک تماس بگیرید.',403);
- return {...id,role:u.role};
+ err('این پنل خصوصی است و فقط مالک دسترسی دارد.',403);
 }
 const manager=u=>['owner','manager'].includes(u.role),seller=u=>['owner','manager','sales'].includes(u.role);
 const only=(c,msg='مجوز انجام این عملیات را نداری.')=>{if(!c)err(msg,403)};
@@ -208,6 +207,53 @@ async function apiRequest(req,env,url,user){
  if(image&&m==='DELETE'){
   only(roles);const row=await first(db,'SELECT * FROM images WHERE id=?',Number(image[1]));if(!row)err('تصویر یافت نشد.',404);
   await run(db,'DELETE FROM images WHERE id=?',row.id);await auditBatch(db,user,'image.delete','product',row.product_id,String(row.id));return reply({ok:true});
+ }
+ if(path==='/api/market'&&m==='GET'){
+  only(user.role==='owner');
+  return reply(await marketAdmin(env));
+ }
+ if(path==='/api/market/approve'&&m==='POST'){
+  only(user.role==='owner');
+  const body=await readJson(req);
+  if(body.confirmReviewed!==true)err('بررسی مستقل و تأیید صریح نرخ لازم است.',400);
+  const market=await marketAdmin(env);
+  if(!market.ratePolicy?.approved)err('ابتدا سقف تغییر خودکار نرخ را ثبت و تأیید کن.',409);
+  return reply(await approvePendingRate(env));
+ }
+ if(path==='/api/market/rate-policy'&&m==='POST'){
+  only(user.role==='owner');
+  return reply(await approveRatePolicy(env,await readJson(req)));
+ }
+ const publicPricing=path.match(/^\/api\/products\/(\d+)\/public-pricing$/);
+ if(publicPricing&&m==='GET'){
+  only(user.role==='owner');
+  const p=await product(db,Number(publicPricing[1]));if(!p)err('محصول یافت نشد.',404);
+  const row=await first(db,'SELECT * FROM product_public_pricing WHERE product_id=?',p.id);
+  if(!row){
+   const sale=await first(db,'SELECT id,labor_pct,profit_pct,accessories,discount FROM sales WHERE product_id=? AND voided=0 ORDER BY id DESC LIMIT 1',p.id);
+   return reply({product_id:p.id,labor_pct:sale?.labor_pct??p.purchase_labor_pct,profit_pct:sale?.profit_pct??'',accessories:sale?.accessories??'0',discount:sale?.discount??'0',enabled:0,show_profit:0,configured:false,source_sale_id:sale?.id??null});
+  }
+  return reply({...row,configured:row.profit_pct!==null&&String(row.profit_pct).trim()!==''});
+ }
+ if(publicPricing&&m==='PUT'){
+  only(user.role==='owner');
+  const id=Number(publicPricing[1]),p=await product(db,id);if(!p)err('محصول یافت نشد.',404);
+  const body=await readJson(req);
+  const labor=fmt(valid(body.labor_pct,'درصد اجرت فروش',{max:'100'}));
+  const profitText=String(body.profit_pct??'').trim();
+  const profit=profitText?fmt(valid(profitText,'درصد سود فروش',{max:'100'})):null;
+  const accessories=fmt(valid(body.accessories??'0','متعلقات'));
+  const discount=fmt(valid(body.discount??'0','تخفیف'));
+  const enabled=body.enabled===true?1:0,showProfit=body.show_profit===true?1:0;
+  if(enabled&&profit===null)err('برای فعال‌سازی قیمت عمومی، درصد سود فروش را وارد کن.');
+  await run(db,`INSERT INTO product_public_pricing(product_id,labor_pct,profit_pct,accessories,discount,enabled,show_profit,updated_at)
+   VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+   ON CONFLICT(product_id) DO UPDATE SET labor_pct=excluded.labor_pct,profit_pct=excluded.profit_pct,
+   accessories=excluded.accessories,discount=excluded.discount,enabled=excluded.enabled,
+   show_profit=excluded.show_profit,updated_at=CURRENT_TIMESTAMP`,
+   id,labor,profit,accessories,discount,enabled,showProfit);
+  await auditBatch(db,user,'product.public_pricing','product',id,enabled?'public_enabled':'public_pricing_updated');
+  return reply({ok:true,enabled:!!enabled});
  }
  if(path==='/api/quote'&&m==='POST'){
   only(seller(user));const body=await readJson(req),p=await product(db,Number(body.product_id));if(!p)err('محصول یافت نشد.',404);
