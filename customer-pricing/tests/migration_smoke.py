@@ -3,18 +3,25 @@ import sqlite3
 
 root = Path(__file__).resolve().parents[2]
 schema = (root / "telegram-miniapp/db/schema.sql").read_text(encoding="utf-8")
-migration = (root / "telegram-miniapp/db/migrations/0003_public_pricing.sql").read_text(encoding="utf-8")
+public_migration = (root / "telegram-miniapp/db/migrations/0003_public_pricing.sql").read_text(encoding="utf-8")
+market_migration = (root / "telegram-miniapp/db/migrations/0004_gold_market_policy.sql").read_text(encoding="utf-8")
 
 db = sqlite3.connect(":memory:")
 db.execute("PRAGMA foreign_keys = ON")
 db.executescript(schema)
-db.executescript(migration)
+db.executescript(public_migration)
+db.executescript(market_migration)
 
 tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
 assert "product_public_pricing" in tables
-assert "gold_rate_state" in tables
+assert "gold_market_state" in tables
+assert "gold_rate_audit" in tables
+assert "pricing_policy" in tables
+assert "gold_rate_state" not in tables
 assert db.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
 assert db.execute("SELECT COUNT(*) FROM product_public_pricing").fetchone()[0] == 0
+assert db.execute("SELECT blocked FROM gold_market_state WHERE id=1").fetchone()[0] == 1
+assert db.execute("SELECT approved FROM pricing_policy WHERE id=1").fetchone()[0] == 0
 
 db.execute("""
   INSERT INTO products(sku,name,weight,purchase_gold_rate,purchase_labor_pct,purchased_qty)
@@ -29,7 +36,4 @@ row = db.execute("""
   FROM product_public_pricing WHERE product_id=1
 """).fetchone()
 assert row == ("7", "8", "0", "0", 0, 0)
-
-db.execute("INSERT OR IGNORE INTO gold_rate_state(id,last_attempt_at,last_error,version) VALUES(1,0,'',1)")
-assert db.execute("SELECT COUNT(*) FROM gold_rate_state").fetchone()[0] == 1
-print("OK: manager schema and public pricing migration execute cleanly in SQLite")
+print("OK: manager schema, public pricing and shared gold-market migrations execute cleanly in SQLite")
