@@ -41,6 +41,7 @@ jobs:
           node-version: '22.18.0'
       - run: npm run check
       - run: npm test
+      - run: python3 tests/migration_smoke.py
       - name: Bundle Cloudflare Worker (dry run)
         run: |
           trap 'rm -f wrangler.ci.toml' EXIT
