@@ -312,7 +312,7 @@ async function productDetail(id){
  });
 }
 async function renderMarket(){
- const data=await api('/api/market'),m=data.market,p=data.ratePolicy;
+ const data=await api('/api/market'),m=data.market,p=data.ratePolicy||{approved:false,maxRateChangePercent:null};
  const statusLabel=m.status==='blocked'?'در انتظار تأیید مالک':m.status==='ready'?'فعال و معتبر':m.status==='expired'?'منقضی':'آماده نیست';
  const reasons={initial_review:'نرخ اولیه باید توسط مالک بررسی شود',rate_policy_not_approved:'سیاست پذیرش خودکار نرخ هنوز تأیید نشده است',large_change:'تغییر نرخ از سقف مجاز بیشتر است',existing_pending_review:'یک نرخ قبلی هنوز در انتظار بررسی است'};
  view.innerHTML=`<div class="section-head"><div><span class="section-kicker">GOLD MARKET / CONTROL</span><h2>مدیریت نرخ طلا</h2><p>منبع نرخ: Servix · طلای ۱۸ عیار · واحد محاسباتی: ریال</p></div><div class="buttons">${button('تازه‌سازی','refreshMarket','','outline')}</div></div>
