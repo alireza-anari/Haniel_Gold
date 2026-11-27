@@ -1,4 +1,4 @@
-import { quote, dec, mul, div, fmt } from '../../telegram-miniapp/src/finance.js';
+import { quote, dec, mul, fmt } from '../../telegram-miniapp/src/finance.js';
 
 const SCALE = 1000000000000000n;
 
@@ -14,10 +14,9 @@ export function rialPerGramToToman(value) {
   return tenth === 0n ? whole.toString() : `${whole}.${tenth}`;
 }
 
-// Uses the exact private manager sale formula, then applies the owner-approved
-// tax policy to the making-fee + profit basis. No purchase or net-profit data
-// is read or returned to the public Worker.
-export function buildPublicPrice(product, pricing, rateRial, rateMeta = {}, taxBps = 0) {
+// Exact same approved manager formula: raw gold + labor + profit + accessories - discount.
+// No new tax rate or customer-only fee is introduced by this Mini App.
+export function buildPublicPrice(product, pricing, rateRial, rateMeta = {}) {
   const calculationProduct = { ...product, purchase_gold_rate: '0', purchase_labor_pct: '0' };
   const q = quote(calculationProduct, {
     quantity: 1,
@@ -29,9 +28,6 @@ export function buildPublicPrice(product, pricing, rateRial, rateMeta = {}, taxB
   });
 
   const laborRial = fmt(mul(dec(q.labor_gold), dec(q.gold_rate)));
-  const taxBaseRial = dec(laborRial) + dec(q.profit_rial);
-  const taxRial = div(mul(taxBaseRial, dec(taxBps)), dec('10000'));
-  const finalRial = dec(q.final_price) + taxRial;
 
   return {
     product: {
@@ -56,11 +52,9 @@ export function buildPublicPrice(product, pricing, rateRial, rateMeta = {}, taxB
       laborToman: rialToToman(laborRial),
       profitPercent: Number(pricing.show_profit) === 1 ? q.profit_pct : null,
       profitToman: rialToToman(q.profit_rial),
-      taxPercent: fmt(div(dec(taxBps), dec('100'))),
-      taxToman: rialToToman(fmt(taxRial)),
       accessoriesToman: rialToToman(q.accessories),
       discountToman: rialToToman(q.discount),
-      finalToman: rialToToman(fmt(finalRial))
+      finalToman: rialToToman(q.final_price)
     }
   };
 }
