@@ -1,3 +1,4 @@
+import { marketAdmin, approvePendingRate, approvePricingPolicy } from '../../functions/_lib/gold-market.js';
 import {asciiDigits,dec,fmt,valid,quantity,purchaseUnitCost,quote} from './finance.js';
 
 const STOCK_SQL=`SELECT p.*,p.purchased_qty-COALESCE((SELECT SUM(s.quantity) FROM sales s WHERE s.product_id=p.id AND s.voided=0),0) available,
@@ -204,6 +205,20 @@ async function apiRequest(req,env,url,user){
  if(image&&m==='DELETE'){
   only(roles);const row=await first(db,'SELECT * FROM images WHERE id=?',Number(image[1]));if(!row)err('تصویر یافت نشد.',404);
   await run(db,'DELETE FROM images WHERE id=?',row.id);await auditBatch(db,user,'image.delete','product',row.product_id,String(row.id));return reply({ok:true});
+ }
+ if(path==='/api/market'&&m==='GET'){
+  only(user.role==='owner');
+  return reply(await marketAdmin(env));
+ }
+ if(path==='/api/market/approve'&&m==='POST'){
+  only(user.role==='owner');
+  const body=await readJson(req);
+  if(body.confirmReviewed!==true)err('بررسی مستقل و تأیید صریح نرخ لازم است.',400);
+  return reply(await approvePendingRate(env));
+ }
+ if(path==='/api/market/policy'&&m==='POST'){
+  only(user.role==='owner');
+  return reply(await approvePricingPolicy(env,await readJson(req)));
  }
  const publicPricing=path.match(/^\/api\/products\/(\d+)\/public-pricing$/);
  if(publicPricing&&m==='GET'){
