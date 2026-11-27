@@ -37,9 +37,7 @@ async function authenticate(req,env){
   await run(env.DB,"INSERT INTO users(telegram_id,display_name,role) VALUES(?,?,'owner') ON CONFLICT(telegram_id) DO UPDATE SET role='owner',display_name=excluded.display_name",id.id,id.name);
   return {...id,role:'owner'};
  }
- const u=await first(env.DB,'SELECT role,display_name FROM users WHERE telegram_id=?',id.id);
- if(!u||u.role==='disabled')err('دسترسی شما فعال نشده است؛ با مالک تماس بگیرید.',403);
- return {...id,name:u.display_name||id.name,role:u.role};
+ err('این پنل خصوصی است و فقط مالک دسترسی دارد.',403);
 }
 const manager=u=>['owner','manager'].includes(u.role),seller=u=>['owner','manager','sales'].includes(u.role);
 const only=(c,msg='مجوز انجام این عملیات را نداری.')=>{if(!c)err(msg,403)};
