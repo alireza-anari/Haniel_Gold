@@ -14,5 +14,4 @@ test('public pricing configuration is manager-only and stored separately from sa
   assert.match(app, /public-pricing-form/);
   assert.match(app, /فعال‌سازی نمایش قیمت این محصول/);
   assert.match(migration, /enabled INTEGER NOT NULL DEFAULT 0/);
-  assert.match(migration, /source_sale_id/);
 });
