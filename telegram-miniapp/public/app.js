@@ -268,9 +268,11 @@ async function productDetail(id){
   api(`/api/products/${p.id}/images`),
   isManager()?api(`/api/products/${p.id}/public-pricing`):Promise.resolve(null)
  ]);
- const pricingSource=pricing?.configured
-  ?`تنظیمات قیمت عمومی این محصول ذخیره شده است؛ قبل از فعال‌سازی یا انتشار، وزن و مقادیر را بازبینی کن.`
-  :`تنظیمات قیمت فروش این محصول هنوز کامل نیست. اجرت اولیه از فیلد اجرت خرید فقط به‌عنوان پیشنهاد آمده و باید با اجرت فروش واقعی جایگزین یا تأیید شود.`;
+ const pricingSource=pricing?.source_sale_id
+  ?`مقادیر اولیه از آخرین فروش ثبت‌شده محصول (شماره ${pricing.source_sale_id}) پیشنهاد شده‌اند؛ پیش از فعال‌سازی حتماً بازبینی و ذخیره کن.`
+  :pricing?.configured
+   ?`تنظیمات قیمت عمومی این محصول ذخیره شده است؛ قبل از فعال‌سازی یا انتشار، وزن و مقادیر را بازبینی کن.`
+   :`تنظیمات قیمت فروش این محصول هنوز کامل نیست. اجرت اولیه از فیلد اجرت خرید فقط به‌عنوان پیشنهاد آمده و باید با اجرت فروش واقعی جایگزین یا تأیید شود.`;
  showModal(p.name,`<div class="form"><div class="row-actions"><span class="badge-role mono">${esc(p.sku)}</span><span class="pill ${p.available?'':'zero'}">${p.available?'موجود':'ناموجود'}</span></div>
  <div class="photo-grid">${imgs.map(i=>`<div class="photo-item"><img data-photo="${i.id}" alt="تصویر محصول">${isManager()?`<button data-action="deletePhoto" data-id="${i.id}" data-product="${p.id}">حذف</button>`:''}</div>`).join('')}</div>
  ${isManager()?`<form id="photo-form" class="field"><label>افزودن تصویر (JPG / PNG / WebP؛ فشرده‌سازی خودکار برای ذخیره امن در D1)</label><input class="input" type="file" name="image" accept="image/png,image/jpeg,image/webp" required><button class="btn outline" type="submit">آپلود تصویر</button></form>`:''}
