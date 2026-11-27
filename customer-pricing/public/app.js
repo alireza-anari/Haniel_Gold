@@ -64,7 +64,7 @@ function render(data) {
     </section>
     <section class="rate-card">
       <div><span class="rate-label">نرخ هر گرم طلای ۱۸ عیار</span><strong>${group(rate.tomanPerGram)} <small>تومان</small></strong></div>
-      <div class="rate-time">آخرین به‌روزرسانی نرخ<br><bdi>${timeLabel(rate.observedAt)}</bdi></div>
+      <div class="rate-time">آخرین دریافت نرخ<br><bdi>${timeLabel(rate.fetchedAt)}</bdi></div>
     </section>
     <section class="breakdown-card">
       <div class="section-title">جزئیات محاسبه قیمت</div>
