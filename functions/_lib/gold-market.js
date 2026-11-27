@@ -63,6 +63,11 @@ export async function fetchServix(env,fetcher=fetch,now=nowMs()){
 const state=async db=>db.prepare('SELECT * FROM gold_market_state WHERE id=1').first();
 const policy=async db=>db.prepare('SELECT * FROM pricing_policy WHERE id=1').first();
 const ratePolicy=async db=>db.prepare('SELECT * FROM gold_rate_policy WHERE id=1').first();
+async function ensureMarketRows(db){
+ await db.prepare("INSERT OR IGNORE INTO gold_market_state(id,blocked) VALUES(1,1)").run();
+ await db.prepare("INSERT OR IGNORE INTO pricing_policy(id,approved) VALUES(1,0)").run();
+ await db.prepare("INSERT OR IGNORE INTO gold_rate_policy(id,approved) VALUES(1,0)").run();
+}
 const audit=(db,event,rate,observed,now,detail='')=>
  db.prepare('INSERT INTO gold_rate_audit(event,rate_rial_per_gram,observed_at,created_at,detail) VALUES(?,?,?,?,?)')
    .bind(event,rate??null,observed??null,now,String(detail).slice(0,180)).run();
@@ -79,6 +84,7 @@ export async function marketPublic(env,now=nowMs()){
   policyApproved:rules?.approved===1};
 }
 export async function marketAdmin(env,now=nowMs()){
+ await ensureMarketRows(env.DB);
  const [row,rules]=await Promise.all([state(env.DB),policy(env.DB)]);
  let rateRules=null;
  try{rateRules=await ratePolicy(env.DB);}catch{}
@@ -99,6 +105,7 @@ export async function marketAdmin(env,now=nowMs()){
 }
 async function syncRateUsingPolicy(env,readPolicy,notApprovedReason,{fetcher=fetch,now=nowMs()}={}){
  if(!env.DB)throw new MarketError('DB_SETUP','D1 متصل نیست.');
+ await ensureMarketRows(env.DB);
  if(!env.SERVIX_API_KEY||String(env.SERVIX_API_KEY).trim().length<8)
   throw new MarketError('NOT_CONFIGURED','کلید Servix هنوز در Secrets تنظیم نشده است.');
  const old=await state(env.DB);
@@ -154,6 +161,7 @@ export async function syncRateWithRatePolicy(env,options={}) {
  return syncRateUsingPolicy(env,ratePolicy,'rate_policy_not_approved',options);
 }
 export async function approvePendingRate(env,now=nowMs()){
+ await ensureMarketRows(env.DB);
  const old=await state(env.DB);
  if(!old?.pending_rate_rial||!old.pending_observed_at)throw new MarketError('NO_CANDIDATE','نرخ پیشنهادی برای تأیید وجود ندارد.');
  if(old.pending_observed_at>now+120000||now-old.pending_observed_at>SOURCE_MAX_AGE_MS)
@@ -193,6 +201,7 @@ export async function approveRatePolicy(env,data,now=nowMs()){
  if(data.confirmReviewed!==true)
   throw new MarketError('RATE_POLICY_INVALID','تأیید صریح سقف پذیرش خودکار نرخ لازم است.');
  const threshold=percentBps(data.maxRateChangePercent,'سقف تغییر خودکار نرخ',{allowZero:false});
+ await ensureMarketRows(env.DB);
  await env.DB.prepare("UPDATE gold_rate_policy SET auto_change_bps=?,approved=1,approved_at=? WHERE id=1")
   .bind(threshold,now).run();
  await audit(env.DB,'approved',null,null,now,'rate_change_policy');
