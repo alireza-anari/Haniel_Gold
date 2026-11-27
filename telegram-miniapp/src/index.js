@@ -214,7 +214,7 @@ async function apiRequest(req,env,url,user){
   only(roles);
   const p=await product(db,Number(publicPricing[1]));if(!p)err('محصول یافت نشد.',404);
   const row=await first(db,'SELECT * FROM product_public_pricing WHERE product_id=?',p.id);
-  if(!row)return reply({product_id:p.id,labor_pct:p.purchase_labor_pct,profit_pct:'',accessories:'0',discount:'0',enabled:0,show_profit:0,source_sale_id:null,configured:false});
+  if(!row)return reply({product_id:p.id,labor_pct:p.purchase_labor_pct,profit_pct:'',accessories:'0',discount:'0',enabled:0,show_profit:0,configured:false});
   return reply({...row,configured:row.profit_pct!==null&&String(row.profit_pct).trim()!==''});
  }
  if(publicPricing&&m==='PUT'){
@@ -232,7 +232,7 @@ async function apiRequest(req,env,url,user){
    VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
    ON CONFLICT(product_id) DO UPDATE SET labor_pct=excluded.labor_pct,profit_pct=excluded.profit_pct,
    accessories=excluded.accessories,discount=excluded.discount,enabled=excluded.enabled,
-   show_profit=excluded.show_profit,source_sale_id=NULL,updated_at=CURRENT_TIMESTAMP`,
+   show_profit=excluded.show_profit,updated_at=CURRENT_TIMESTAMP`,
    id,labor,profit,accessories,discount,enabled,showProfit);
   await auditBatch(db,user,'product.public_pricing','product',id,enabled?'public_enabled':'public_pricing_updated');
   return reply({ok:true,enabled:!!enabled});
