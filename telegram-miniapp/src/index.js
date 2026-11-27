@@ -1,4 +1,4 @@
-import { marketAdmin, approvePendingRate, approvePricingPolicy } from '../../functions/_lib/gold-market.js';
+import { marketAdmin, approvePendingRate, approveRatePolicy } from '../../functions/_lib/gold-market.js';
 import {asciiDigits,dec,fmt,valid,quantity,purchaseUnitCost,quote} from './finance.js';
 
 const STOCK_SQL=`SELECT p.*,p.purchased_qty-COALESCE((SELECT SUM(s.quantity) FROM sales s WHERE s.product_id=p.id AND s.voided=0),0) available,
@@ -220,9 +220,9 @@ async function apiRequest(req,env,url,user){
   if(body.confirmReviewed!==true)err('بررسی مستقل و تأیید صریح نرخ لازم است.',400);
   return reply(await approvePendingRate(env));
  }
- if(path==='/api/market/policy'&&m==='POST'){
+ if(path==='/api/market/rate-policy'&&m==='POST'){
   only(user.role==='owner');
-  return reply(await approvePricingPolicy(env,await readJson(req)));
+  return reply(await approveRatePolicy(env,await readJson(req)));
  }
  const publicPricing=path.match(/^\/api\/products\/(\d+)\/public-pricing$/);
  if(publicPricing&&m==='GET'){
