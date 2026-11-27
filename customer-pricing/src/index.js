@@ -1,8 +1,5 @@
-import { fetchServix } from '../../functions/_lib/gold-market.js';
+import { dynamicContext, marketPublic, syncRate } from '../../functions/_lib/gold-market.js';
 import { buildPublicPrice } from './pricing.js';
-
-const RATE_MAX_AGE_MS = 40 * 60 * 1000;
-const RATE_COOLDOWN_MS = 25 * 60 * 1000;
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -18,22 +15,7 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
 const first = (db, sql, ...args) =>
   (args.length ? db.prepare(sql).bind(...args) : db.prepare(sql)).first();
 
-async function rateState(db) {
-  return first(db, 'SELECT * FROM gold_rate_state WHERE id=1');
-}
-
-async function currentRate(db, now = Date.now()) {
-  const row = await rateState(db);
-  if (!row || !Number.isSafeInteger(Number(row.rate_rial_per_gram)) ||
-      Number(row.rate_rial_per_gram) < 1 || !Number(row.observed_at) ||
-      !Number(row.valid_until) || Number(row.valid_until) <= now ||
-      now - Number(row.observed_at) > RATE_MAX_AGE_MS) {
-    return null;
-  }
-  return row;
-}
-
-async function productQuote(env, productId, now = Date.now()) {
+async function productQuote(env, productId) {
   const product = await first(env.DB, `
     SELECT
       p.id, p.sku, p.name, p.weight,
@@ -53,12 +35,20 @@ async function productQuote(env, productId, now = Date.now()) {
     return json({ error: 'تنظیمات قیمت این محصول کامل نیست.', code: 'PRICING_NOT_READY' }, 409);
   }
 
-  const rate = await currentRate(env.DB, now);
-  if (!rate) {
-    return json({
-      error: 'نرخ معتبر طلا در دسترس نیست. پس از به‌روزرسانی نرخ دوباره تلاش کن.',
-      code: 'RATE_STALE'
-    }, 503);
+  const market = await marketPublic(env);
+  if (!market.pricingReady) {
+    if (market.status === 'blocked') {
+      return json({ error: 'نرخ جدید طلا در انتظار بررسی و تأیید مالک است.', code: 'RATE_PENDING_REVIEW' }, 503);
+    }
+    if (!market.policyApproved) {
+      return json({ error: 'سیاست محاسبه و مالیات هنوز توسط مالک تأیید نشده است.', code: 'POLICY_NOT_APPROVED' }, 503);
+    }
+    return json({ error: 'نرخ معتبر طلا در دسترس نیست. پس از به‌روزرسانی نرخ دوباره تلاش کن.', code: 'RATE_STALE' }, 503);
+  }
+
+  const context = await dynamicContext(env);
+  if (!context) {
+    return json({ error: 'نرخ یا سیاست قیمت‌گذاری در حال حاضر معتبر نیست.', code: 'PRICING_NOT_READY' }, 503);
   }
 
   let result;
@@ -69,10 +59,7 @@ async function productQuote(env, productId, now = Date.now()) {
       accessories: product.accessories,
       discount: product.discount,
       show_profit: product.show_profit
-    }, Number(rate.rate_rial_per_gram), {
-      observedAt: Number(rate.observed_at),
-      fetchedAt: Number(rate.fetched_at)
-    });
+    }, context.rateRial, context, context.taxBps);
   } catch {
     return json({
       error: 'تنظیمات قیمت این محصول معتبر نیست. لطفاً با مدیریت تماس بگیر.',
@@ -81,59 +68,6 @@ async function productQuote(env, productId, now = Date.now()) {
   }
 
   return json(result);
-}
-
-export async function syncGoldRate(env, { fetcher = fetch, now = Date.now() } = {}) {
-  if (!env.DB) throw new Error('D1 binding DB is missing');
-  await env.DB.prepare("INSERT OR IGNORE INTO gold_rate_state(id,last_attempt_at,last_error,version) VALUES(1,0,'',1)").run();
-  const old = await rateState(env.DB);
-  if (!old) throw new Error('gold_rate_state migration is missing');
-  if (Number(old.last_attempt_at || 0) && now - Number(old.last_attempt_at) < RATE_COOLDOWN_MS) {
-    return { status: 'cooldown' };
-  }
-
-  const claim = await env.DB.prepare(`
-    UPDATE gold_rate_state
-    SET last_attempt_at=?, version=version+1
-    WHERE id=1 AND (last_attempt_at=0 OR last_attempt_at<=?)
-  `).bind(now, now - RATE_COOLDOWN_MS).run();
-
-  if (claim.meta?.changes !== 1) return { status: 'already_claimed' };
-
-  let quote;
-  try {
-    quote = await fetchServix(env, fetcher, now);
-  } catch (error) {
-    const code = String(error?.code || 'RATE_PROVIDER_ERROR').slice(0, 60);
-    await env.DB.prepare('UPDATE gold_rate_state SET last_error=?, version=version+1 WHERE id=1')
-      .bind(code).run();
-    return { status: 'failed', errorCode: code };
-  }
-
-  const current = await rateState(env.DB);
-  if (current?.observed_at && quote.observedAt < Number(current.observed_at)) {
-    await env.DB.prepare("UPDATE gold_rate_state SET last_error='NON_NEWER_OBSERVATION', version=version+1 WHERE id=1").run();
-    return { status: 'unchanged' };
-  }
-
-  const validUntil = Math.min(now + RATE_MAX_AGE_MS, quote.observedAt + RATE_MAX_AGE_MS);
-  if (current?.observed_at && quote.observedAt === Number(current.observed_at)) {
-    if (Number(quote.rialPerGram) !== Number(current.rate_rial_per_gram)) {
-      await env.DB.prepare("UPDATE gold_rate_state SET last_error='OBSERVATION_CONFLICT', version=version+1 WHERE id=1").run();
-      return { status: 'unchanged' };
-    }
-    await env.DB.prepare("UPDATE gold_rate_state SET fetched_at=?, valid_until=?, last_error='', version=version+1 WHERE id=1")
-      .bind(now, validUntil).run();
-    return { status: 'unchanged', observedAt: quote.observedAt, fetchedAt: now };
-  }
-  await env.DB.prepare(`
-    UPDATE gold_rate_state
-    SET rate_rial_per_gram=?, observed_at=?, fetched_at=?, valid_until=?,
-        last_error='', version=version+1
-    WHERE id=1
-  `).bind(quote.rialPerGram, quote.observedAt, now, validUntil).run();
-
-  return { status: 'updated', observedAt: quote.observedAt, rateRialPerGram: quote.rialPerGram };
 }
 
 async function imageResponse(env, productId) {
@@ -167,18 +101,22 @@ export default {
     if (request.method !== 'GET') return json({ error: 'روش درخواست پشتیبانی نمی‌شود.' }, 405);
 
     if (path === '/api/v1/health') {
-      const rate = await currentRate(env.DB);
-      return json({ ok: true, rateReady: !!rate, rateObservedAt: rate?.observed_at ?? null });
+      try {
+        const market = await marketPublic(env);
+        return json({ ok: true, marketStatus: market.status, pricingReady: !!market.pricingReady });
+      } catch {
+        return json({ ok: false, code: 'MARKET_NOT_INITIALIZED' }, 503);
+      }
     }
 
-    const imageMatch = /^\/api\/v1\/products\/(\d+)\/image$/.exec(path);
+    const imageMatch = /^\\/api\\/v1\\/products\\/(\\d+)\\/image$/.exec(path);
     if (imageMatch) {
       const imageProductId = Number(imageMatch[1]);
       if (!Number.isSafeInteger(imageProductId) || imageProductId < 1) return json({ error: 'شناسه محصول معتبر نیست.' }, 400);
       return imageResponse(env, imageProductId);
     }
 
-    const productMatch = /^\/api\/v1\/products\/(\d+)$/.exec(path);
+    const productMatch = /^\\/api\\/v1\\/products\\/(\\d+)$/.exec(path);
     if (productMatch) {
       const id = Number(productMatch[1]);
       if (!Number.isSafeInteger(id) || id < 1) return json({ error: 'شناسه محصول معتبر نیست.' }, 400);
@@ -194,10 +132,17 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(syncGoldRate(env).then(result => {
-      console.log(JSON.stringify({ type: 'gold_rate_cron', ...result }));
+    ctx.waitUntil(syncRate(env).then(result => {
+      console.log(JSON.stringify({
+        type: 'gold_rate_cron',
+        status: result.status,
+        errorCode: result.errorCode || null
+      }));
     }).catch(error => {
-      console.error(JSON.stringify({ type: 'gold_rate_cron_error', code: String(error?.code || 'INTERNAL') }));
+      console.error(JSON.stringify({
+        type: 'gold_rate_cron_error',
+        code: String(error?.code || 'INTERNAL')
+      }));
     }));
   }
 };
