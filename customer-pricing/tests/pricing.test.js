@@ -18,7 +18,7 @@ test('public price uses the private manager fixed-point formula and converts Ria
     accessories: '0',
     discount: '453',
     show_profit: 0
-  }, 270000000, { observedAt: '2026-11-27T08:00:00.000Z', validUntil: '2026-11-27T08:40:00.000Z' }, 900);
+  }, 270000000, { observedAt: '2026-11-27T08:00:00.000Z', validUntil: '2026-11-27T08:40:00.000Z' });
 
   assert.equal(result.breakdown.finalToman, '12800000');
   assert.equal(Object.hasOwn(result.breakdown, 'taxToman'), false);
@@ -36,7 +36,7 @@ test('public price uses the private manager fixed-point formula and converts Ria
 test('profit percentage is returned only when the owner explicitly enables it', () => {
   const result = buildPublicPrice(product, {
     labor_pct: '7', profit_pct: '13.6055', accessories: '0', discount: '0', show_profit: 1
-  }, 270000000, {}, 900);
+  }, 270000000, {});
   assert.equal(result.breakdown.profitPercent, '13.6055');
 });
 
