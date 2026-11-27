@@ -79,8 +79,10 @@ export async function marketPublic(env,now=nowMs()){
   policyApproved:rules?.approved===1};
 }
 export async function marketAdmin(env,now=nowMs()){
- const [row,rules,rateRules]=await Promise.all([state(env.DB),policy(env.DB),ratePolicy(env.DB)]);
- if(!row||!rules||!rateRules)throw new MarketError('DB_SETUP','جداول نرخ در D1 هنوز ایجاد نشده‌اند.');
+ const [row,rules]=await Promise.all([state(env.DB),policy(env.DB)]);
+ let rateRules=null;
+ try{rateRules=await ratePolicy(env.DB);}catch{}
+ if(!row||!rules)throw new MarketError('DB_SETUP','جداول نرخ در D1 هنوز ایجاد نشده‌اند.');
  return {market:{status:row.blocked?'blocked':row.valid_until>now?'ready':'expired',
    rateTomanPerGram:row.rate_rial_per_gram?row.rate_rial_per_gram/10:null,
    observedAt:row.observed_at?new Date(row.observed_at).toISOString():null,
@@ -93,9 +95,9 @@ export async function marketAdmin(env,now=nowMs()){
    lastError:row.last_error},
   policy:{taxPercent:rules.tax_bps==null?null:rules.tax_bps/100,taxBasis:rules.tax_basis,
    maxRateChangePercent:rules.auto_change_bps==null?null:rules.auto_change_bps/100,approved:!!rules.approved},
-  ratePolicy:{maxRateChangePercent:rateRules.auto_change_bps==null?null:rateRules.auto_change_bps/100,approved:!!rateRules.approved}};
+  ratePolicy:rateRules?{maxRateChangePercent:rateRules.auto_change_bps==null?null:rateRules.auto_change_bps/100,approved:!!rateRules.approved}:null};
 }
-export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
+async function syncRateUsingPolicy(env,readPolicy,notApprovedReason,{fetcher=fetch,now=nowMs()}={}){
  if(!env.DB)throw new MarketError('DB_SETUP','D1 متصل نیست.');
  if(!env.SERVIX_API_KEY||String(env.SERVIX_API_KEY).trim().length<8)
   throw new MarketError('NOT_CONFIGURED','کلید Servix هنوز در Secrets تنظیم نشده است.');
@@ -104,7 +106,6 @@ export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
  if(old.paused_until>now)return {status:'paused',message:'ارسال درخواست به‌خاطر سهمیه متوقف است.'};
  if(old.last_attempt_at&&now-old.last_attempt_at<RATE_COOLDOWN_MS)
    return {status:'cooldown',message:'دریافت نرخ کمتر از ۲۰ دقیقه قبل انجام شده است؛ از مصرف سهمیه اضافی جلوگیری شد.'};
- // Atomic compare-and-set reserves this interval so two simultaneous schedulers do not double-bill.
  const claimed=await env.DB.prepare('UPDATE gold_market_state SET last_attempt_at=?,version=version+1 WHERE id=1 AND version=? AND (last_attempt_at IS NULL OR last_attempt_at<=?) AND (paused_until IS NULL OR paused_until<=?)')
   .bind(now,old.version,now-RATE_COOLDOWN_MS,now).run();
  if(claimed.meta?.changes!==1)return {status:'cooldown',message:'دریافت هم‌زمان در حال انجام است.'};
@@ -124,10 +125,10 @@ export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
  }
  if(cur.pending_rate_rial===q.rialPerGram&&cur.pending_observed_at===q.observedAt)
    return {status:'pending',message:'نرخ منتظر تأیید است.'};
- const rules=await ratePolicy(env.DB);
+ const rules=await readPolicy(env.DB);
  let pendingReason=cur.blocked&&cur.pending_rate_rial?'existing_pending_review':'initial_review';
  if(cur.rate_rial_per_gram&&!cur.blocked){
-  if(!rules?.approved||!rules.auto_change_bps)pendingReason='rate_policy_not_approved';
+  if(!rules?.approved||!rules.auto_change_bps)pendingReason=notApprovedReason;
   else {
    const diff=(BigInt(q.rialPerGram)-BigInt(cur.rate_rial_per_gram));
    const change=(diff<0n?-diff:diff)*10000n;
@@ -145,6 +146,12 @@ export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
   .bind(q.rialPerGram,q.observedAt,now,until).run();
  await audit(env.DB,'accepted',q.rialPerGram,q.observedAt,now,'within_owner_approved_limit');
  return {status:'accepted',message:'نرخ جدید با سقف تغییر تأییدشده پذیرفته شد.'};
+}
+export async function syncRate(env,options={}) {
+ return syncRateUsingPolicy(env,policy,'policy_not_approved',options);
+}
+export async function syncRateWithRatePolicy(env,options={}) {
+ return syncRateUsingPolicy(env,ratePolicy,'rate_policy_not_approved',options);
 }
 export async function approvePendingRate(env,now=nowMs()){
  const old=await state(env.DB);
