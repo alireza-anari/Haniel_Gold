@@ -26,7 +26,7 @@ test('customer Worker never exposes manager-only financial columns in its public
 test('30-minute cron only writes the cached gold rate, never recalculates or stores product prices', () => {
   const worker = read('../src/index.js');
   const config = read('../wrangler.toml');
-  assert.match(config, /crons = \["\*\/30 \* \* \* \*"]\//);
+  assert.ok(config.includes('crons = ["*/30 * * * *"]'));
   assert.doesNotMatch(worker, /UPDATE\s+(products|sales)|INSERT\s+INTO\s+(products|sales)/i);
   assert.match(worker, /UPDATE gold_rate_state/);
   assert.match(worker, /request\.method !== 'GET'/);
