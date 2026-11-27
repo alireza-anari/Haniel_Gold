@@ -111,12 +111,21 @@ export async function syncGoldRate(env, { fetcher = fetch, now = Date.now() } = 
   }
 
   const current = await rateState(env.DB);
-  if (current?.observed_at && quote.observedAt <= Number(current.observed_at)) {
+  if (current?.observed_at && quote.observedAt < Number(current.observed_at)) {
     await env.DB.prepare("UPDATE gold_rate_state SET last_error='NON_NEWER_OBSERVATION', version=version+1 WHERE id=1").run();
     return { status: 'unchanged' };
   }
 
   const validUntil = Math.min(now + RATE_MAX_AGE_MS, quote.observedAt + RATE_MAX_AGE_MS);
+  if (current?.observed_at && quote.observedAt === Number(current.observed_at)) {
+    if (Number(quote.rialPerGram) !== Number(current.rate_rial_per_gram)) {
+      await env.DB.prepare("UPDATE gold_rate_state SET last_error='OBSERVATION_CONFLICT', version=version+1 WHERE id=1").run();
+      return { status: 'unchanged' };
+    }
+    await env.DB.prepare("UPDATE gold_rate_state SET fetched_at=?, valid_until=?, last_error='', version=version+1 WHERE id=1")
+      .bind(now, validUntil).run();
+    return { status: 'unchanged', observedAt: quote.observedAt, fetchedAt: now };
+  }
   await env.DB.prepare(`
     UPDATE gold_rate_state
     SET rate_rial_per_gram=?, observed_at=?, fetched_at=?, valid_until=?,
