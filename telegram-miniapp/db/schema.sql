@@ -41,6 +41,15 @@ CREATE TABLE IF NOT EXISTS gold_market_state (
 );
 INSERT OR IGNORE INTO gold_market_state(id,blocked) VALUES(1,1);
 
+CREATE TABLE IF NOT EXISTS gold_rate_policy (
+  id INTEGER PRIMARY KEY CHECK(id=1),
+  auto_change_bps INTEGER CHECK(auto_change_bps IS NULL OR auto_change_bps BETWEEN 1 AND 10000),
+  approved INTEGER NOT NULL DEFAULT 0 CHECK(approved IN (0,1)),
+  approved_at INTEGER,
+  CHECK(approved=0 OR (auto_change_bps IS NOT NULL AND approved_at IS NOT NULL))
+);
+INSERT OR IGNORE INTO gold_rate_policy(id,approved) VALUES(1,0);
+
 CREATE TABLE IF NOT EXISTS gold_rate_audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   event TEXT NOT NULL CHECK(event IN ('pending','accepted','unchanged','rejected','failed','quota','approved')),
