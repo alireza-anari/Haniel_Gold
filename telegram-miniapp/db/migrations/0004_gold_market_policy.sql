@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS gold_market_state (
   CHECK ((pending_rate_rial IS NULL AND pending_observed_at IS NULL)
          OR (pending_rate_rial IS NOT NULL AND pending_observed_at IS NOT NULL))
 );
-INSERT OR IGNORE INTO gold_market_state(id,blocked) VALUES(1,1);
 
 CREATE TABLE IF NOT EXISTS gold_rate_policy (
   id INTEGER PRIMARY KEY CHECK(id=1),
@@ -31,7 +30,6 @@ CREATE TABLE IF NOT EXISTS gold_rate_policy (
   approved_at INTEGER,
   CHECK(approved=0 OR (auto_change_bps IS NOT NULL AND approved_at IS NOT NULL))
 );
-INSERT OR IGNORE INTO gold_rate_policy(id,approved) VALUES(1,0);
 
 CREATE TABLE IF NOT EXISTS gold_rate_audit (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,4 +50,3 @@ CREATE TABLE IF NOT EXISTS pricing_policy (
   approved_at INTEGER,
   CHECK(approved=0 OR (tax_bps IS NOT NULL AND tax_basis='fee_profit' AND auto_change_bps IS NOT NULL AND approved_at IS NOT NULL))
 );
-INSERT OR IGNORE INTO pricing_policy(id,approved) VALUES(1,0);
