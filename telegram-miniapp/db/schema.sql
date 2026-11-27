@@ -20,6 +20,65 @@ CREATE TABLE IF NOT EXISTS products (
  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_products_name ON products(name);
+CREATE TABLE IF NOT EXISTS gold_market_state (
+  id INTEGER PRIMARY KEY CHECK (id=1),
+  version INTEGER NOT NULL DEFAULT 0,
+  blocked INTEGER NOT NULL DEFAULT 1 CHECK(blocked IN (0,1)),
+  rate_rial_per_gram INTEGER CHECK(rate_rial_per_gram IS NULL OR rate_rial_per_gram>0),
+  observed_at INTEGER,
+  verified_at INTEGER,
+  valid_until INTEGER,
+  pending_rate_rial INTEGER CHECK(pending_rate_rial IS NULL OR pending_rate_rial>0),
+  pending_observed_at INTEGER,
+  pending_reason TEXT NOT NULL DEFAULT '',
+  last_attempt_at INTEGER,
+  paused_until INTEGER,
+  last_error TEXT NOT NULL DEFAULT '',
+  CHECK ((rate_rial_per_gram IS NULL AND observed_at IS NULL AND verified_at IS NULL AND valid_until IS NULL)
+         OR (rate_rial_per_gram IS NOT NULL AND observed_at IS NOT NULL AND verified_at IS NOT NULL AND valid_until IS NOT NULL)),
+  CHECK ((pending_rate_rial IS NULL AND pending_observed_at IS NULL)
+         OR (pending_rate_rial IS NOT NULL AND pending_observed_at IS NOT NULL))
+);
+
+CREATE TABLE IF NOT EXISTS gold_rate_policy (
+  id INTEGER PRIMARY KEY CHECK(id=1),
+  auto_change_bps INTEGER CHECK(auto_change_bps IS NULL OR auto_change_bps BETWEEN 1 AND 10000),
+  approved INTEGER NOT NULL DEFAULT 0 CHECK(approved IN (0,1)),
+  approved_at INTEGER,
+  CHECK(approved=0 OR (auto_change_bps IS NOT NULL AND approved_at IS NOT NULL))
+);
+
+CREATE TABLE IF NOT EXISTS gold_rate_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event TEXT NOT NULL CHECK(event IN ('pending','accepted','unchanged','rejected','failed','quota','approved')),
+  rate_rial_per_gram INTEGER,
+  observed_at INTEGER,
+  created_at INTEGER NOT NULL,
+  detail TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_gold_rate_audit_time ON gold_rate_audit(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS pricing_policy (
+  id INTEGER PRIMARY KEY CHECK (id=1),
+  tax_bps INTEGER CHECK(tax_bps IS NULL OR tax_bps BETWEEN 0 AND 10000),
+  tax_basis TEXT CHECK(tax_basis IS NULL OR tax_basis='fee_profit'),
+  auto_change_bps INTEGER CHECK(auto_change_bps IS NULL OR auto_change_bps BETWEEN 1 AND 10000),
+  approved INTEGER NOT NULL DEFAULT 0 CHECK(approved IN (0,1)),
+  approved_at INTEGER,
+  CHECK(approved=0 OR (tax_bps IS NOT NULL AND tax_basis='fee_profit' AND auto_change_bps IS NOT NULL AND approved_at IS NOT NULL))
+);
+CREATE TABLE IF NOT EXISTS product_public_pricing (
+ product_id INTEGER PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+ labor_pct TEXT NOT NULL,
+ profit_pct TEXT,
+ accessories TEXT NOT NULL DEFAULT '0',
+ discount TEXT NOT NULL DEFAULT '0',
+ enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
+ show_profit INTEGER NOT NULL DEFAULT 0 CHECK(show_profit IN (0,1)),
+ updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_product_public_pricing_enabled
+ ON product_public_pricing(enabled, product_id);
 CREATE TABLE IF NOT EXISTS sales (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  product_id INTEGER NOT NULL REFERENCES products(id),

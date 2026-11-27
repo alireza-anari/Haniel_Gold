@@ -62,6 +62,13 @@ export async function fetchServix(env,fetcher=fetch,now=nowMs()){
 }
 const state=async db=>db.prepare('SELECT * FROM gold_market_state WHERE id=1').first();
 const policy=async db=>db.prepare('SELECT * FROM pricing_policy WHERE id=1').first();
+const ratePolicy=async db=>db.prepare('SELECT * FROM gold_rate_policy WHERE id=1').first();
+async function ensureMarketRows(db){
+ await db.prepare("INSERT OR IGNORE INTO gold_market_state(id,blocked) VALUES(1,1)").run();
+ await db.prepare("INSERT OR IGNORE INTO pricing_policy(id,approved) VALUES(1,0)").run();
+ // The separate rate-change policy is Mini App-specific; older storefront D1s may not have it.
+ try{await db.prepare("INSERT OR IGNORE INTO gold_rate_policy(id,approved) VALUES(1,0)").run();}catch{}
+}
 const audit=(db,event,rate,observed,now,detail='')=>
  db.prepare('INSERT INTO gold_rate_audit(event,rate_rial_per_gram,observed_at,created_at,detail) VALUES(?,?,?,?,?)')
    .bind(event,rate??null,observed??null,now,String(detail).slice(0,180)).run();
@@ -78,7 +85,10 @@ export async function marketPublic(env,now=nowMs()){
   policyApproved:rules?.approved===1};
 }
 export async function marketAdmin(env,now=nowMs()){
+ await ensureMarketRows(env.DB);
  const [row,rules]=await Promise.all([state(env.DB),policy(env.DB)]);
+ let rateRules=null;
+ try{rateRules=await ratePolicy(env.DB);}catch{}
  if(!row||!rules)throw new MarketError('DB_SETUP','جداول نرخ در D1 هنوز ایجاد نشده‌اند.');
  return {market:{status:row.blocked?'blocked':row.valid_until>now?'ready':'expired',
    rateTomanPerGram:row.rate_rial_per_gram?row.rate_rial_per_gram/10:null,
@@ -91,10 +101,12 @@ export async function marketAdmin(env,now=nowMs()){
    lastAttemptAt:row.last_attempt_at?new Date(row.last_attempt_at).toISOString():null,
    lastError:row.last_error},
   policy:{taxPercent:rules.tax_bps==null?null:rules.tax_bps/100,taxBasis:rules.tax_basis,
-   maxRateChangePercent:rules.auto_change_bps==null?null:rules.auto_change_bps/100,approved:!!rules.approved}};
+   maxRateChangePercent:rules.auto_change_bps==null?null:rules.auto_change_bps/100,approved:!!rules.approved},
+  ratePolicy:rateRules?{maxRateChangePercent:rateRules.auto_change_bps==null?null:rateRules.auto_change_bps/100,approved:!!rateRules.approved}:null};
 }
-export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
+async function syncRateUsingPolicy(env,readPolicy,notApprovedReason,{fetcher=fetch,now=nowMs()}={}){
  if(!env.DB)throw new MarketError('DB_SETUP','D1 متصل نیست.');
+ await ensureMarketRows(env.DB);
  if(!env.SERVIX_API_KEY||String(env.SERVIX_API_KEY).trim().length<8)
   throw new MarketError('NOT_CONFIGURED','کلید Servix هنوز در Secrets تنظیم نشده است.');
  const old=await state(env.DB);
@@ -102,7 +114,6 @@ export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
  if(old.paused_until>now)return {status:'paused',message:'ارسال درخواست به‌خاطر سهمیه متوقف است.'};
  if(old.last_attempt_at&&now-old.last_attempt_at<RATE_COOLDOWN_MS)
    return {status:'cooldown',message:'دریافت نرخ کمتر از ۲۰ دقیقه قبل انجام شده است؛ از مصرف سهمیه اضافی جلوگیری شد.'};
- // Atomic compare-and-set reserves this interval so two simultaneous schedulers do not double-bill.
  const claimed=await env.DB.prepare('UPDATE gold_market_state SET last_attempt_at=?,version=version+1 WHERE id=1 AND version=? AND (last_attempt_at IS NULL OR last_attempt_at<=?) AND (paused_until IS NULL OR paused_until<=?)')
   .bind(now,old.version,now-RATE_COOLDOWN_MS,now).run();
  if(claimed.meta?.changes!==1)return {status:'cooldown',message:'دریافت هم‌زمان در حال انجام است.'};
@@ -122,10 +133,10 @@ export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
  }
  if(cur.pending_rate_rial===q.rialPerGram&&cur.pending_observed_at===q.observedAt)
    return {status:'pending',message:'نرخ منتظر تأیید است.'};
- const rules=await policy(env.DB);
+ const rules=await readPolicy(env.DB);
  let pendingReason=cur.blocked&&cur.pending_rate_rial?'existing_pending_review':'initial_review';
  if(cur.rate_rial_per_gram&&!cur.blocked){
-  if(!rules?.approved||!rules.auto_change_bps)pendingReason='policy_not_approved';
+  if(!rules?.approved||!rules.auto_change_bps)pendingReason=notApprovedReason;
   else {
    const diff=(BigInt(q.rialPerGram)-BigInt(cur.rate_rial_per_gram));
    const change=(diff<0n?-diff:diff)*10000n;
@@ -144,7 +155,14 @@ export async function syncRate(env,{fetcher=fetch,now=nowMs()}={}){
  await audit(env.DB,'accepted',q.rialPerGram,q.observedAt,now,'within_owner_approved_limit');
  return {status:'accepted',message:'نرخ جدید با سقف تغییر تأییدشده پذیرفته شد.'};
 }
+export async function syncRate(env,options={}) {
+ return syncRateUsingPolicy(env,policy,'policy_not_approved',options);
+}
+export async function syncRateWithRatePolicy(env,options={}) {
+ return syncRateUsingPolicy(env,ratePolicy,'rate_policy_not_approved',options);
+}
 export async function approvePendingRate(env,now=nowMs()){
+ await ensureMarketRows(env.DB);
  const old=await state(env.DB);
  if(!old?.pending_rate_rial||!old.pending_observed_at)throw new MarketError('NO_CANDIDATE','نرخ پیشنهادی برای تأیید وجود ندارد.');
  if(old.pending_observed_at>now+120000||now-old.pending_observed_at>SOURCE_MAX_AGE_MS)
@@ -158,6 +176,19 @@ export async function approvePendingRate(env,now=nowMs()){
  await audit(env.DB,'approved',old.pending_rate_rial,old.pending_observed_at,now,'manually_approved_by_authenticated_admin');
  return {status:'approved',message:'نرخ بررسی‌شده تأیید شد؛ فقط تا زمان اعتبار منبع نمایش داده می‌شود.'};
 }
+export async function marketRateContext(env,now=nowMs()){
+ if(!env.DB)return {status:'unavailable',rateRial:null,observedAt:null,validUntil:null};
+ const row=await state(env.DB);
+ if(!row)return {status:'not_initialized',rateRial:null,observedAt:null,validUntil:null};
+ const valid=!!row.rate_rial_per_gram&&!row.blocked&&row.valid_until>now&&row.observed_at<=now&&now-row.observed_at<=SOURCE_MAX_AGE_MS;
+ const status=row.blocked?'blocked':valid?'ready':'expired';
+ return {
+  status,
+  rateRial:valid?row.rate_rial_per_gram:null,
+  observedAt:valid?new Date(row.observed_at).toISOString():null,
+  validUntil:valid?new Date(row.valid_until).toISOString():null
+ };
+}
 function percentBps(v,label,{allowZero=true}={}){
  if(v===null||v===undefined||v==='')throw new MarketError('POLICY_INVALID',label+' الزامی است.');
  const str=String(v).trim();
@@ -166,6 +197,16 @@ function percentBps(v,label,{allowZero=true}={}){
  const bps=Number(whole)*100+Number(frac.padEnd(2,'0'));
  if(bps>10000||(!allowZero&&bps<1))throw new MarketError('POLICY_INVALID',label+' از محدوده مجاز خارج است.');
  return bps;
+}
+export async function approveRatePolicy(env,data,now=nowMs()){
+ if(data.confirmReviewed!==true)
+  throw new MarketError('RATE_POLICY_INVALID','تأیید صریح سقف پذیرش خودکار نرخ لازم است.');
+ const threshold=percentBps(data.maxRateChangePercent,'سقف تغییر خودکار نرخ',{allowZero:false});
+ await ensureMarketRows(env.DB);
+ await env.DB.prepare("UPDATE gold_rate_policy SET auto_change_bps=?,approved=1,approved_at=? WHERE id=1")
+  .bind(threshold,now).run();
+ await audit(env.DB,'approved',null,null,now,'rate_change_policy');
+ return {status:'approved',message:'سیاست پذیرش خودکار تغییر نرخ ثبت شد.'};
 }
 export async function approvePricingPolicy(env,data,now=nowMs()){
  if(data.confirmReviewed!==true||data.taxBasis!=='fee_profit')

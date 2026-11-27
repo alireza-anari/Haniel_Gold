@@ -15,6 +15,8 @@ MINIAPP_SCHEMA_ONLY_SQL = {
     'telegram-miniapp/db/schema.sql',
     'telegram-miniapp/db/migrate-r2-to-d1-images.sql',
     'telegram-miniapp/db/migrations/0002_sale_idempotency.sql',
+    'telegram-miniapp/db/migrations/0003_public_pricing.sql',
+    'telegram-miniapp/db/migrations/0004_gold_market_policy.sql',
 }
 ALLOWED_SQL = {
     'cloudflare/schema.sql', 'cloudflare/0002_gold_pricing.sql',

@@ -1,0 +1,59 @@
+:root{
+  color-scheme:light;
+  --paper:#f7f5f0;
+  --surface:#fffefa;
+  --ink:#24251f;
+  --muted:#77776c;
+  --line:#e6e1d7;
+  --gold:#b5965b;
+  --olive:#8e8b73;
+  --green:#60765b;
+  --red:#9c5c50;
+  --font:'Yekan Bakh FaNum',Tahoma,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--font)}
+body{min-height:100svh;-webkit-font-smoothing:antialiased}
+button,a{font:inherit}
+.app-shell{width:min(100%,520px);margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) 17px calc(18px + env(safe-area-inset-bottom))}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:3px 2px 15px;border-bottom:1px solid var(--line)}
+.brand{font-size:12px;font-weight:800;letter-spacing:2px;color:#8e7448}
+.brand-caption{font:600 9px Arial,sans-serif;letter-spacing:2px;color:var(--olive)}
+.product-card{display:grid;grid-template-columns:112px minmax(0,1fr);gap:15px;align-items:center;padding:19px 0 17px}
+.product-image,.image-placeholder{width:112px;height:112px;object-fit:cover;border-radius:15px;background:#eee9df}
+.image-placeholder{display:grid;place-items:center;color:var(--gold);font:600 12px Arial,sans-serif;letter-spacing:2px}
+.product-heading{min-width:0}
+.eyebrow{font:600 8px Arial,sans-serif;letter-spacing:1.8px;color:var(--olive)}
+h1{font-size:17px;line-height:1.65;margin:5px 0 7px;font-weight:700}
+.product-meta{display:flex;flex-wrap:wrap;gap:7px 10px;align-items:center;color:var(--muted);font-size:10px}
+.availability{font-size:9px;border-radius:30px;padding:2px 8px}
+.available{background:#e8eee4;color:var(--green)}
+.unavailable{background:#f3e7e2;color:var(--red)}
+.rate-card{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 15px;border:1px solid #e0d7c5;border-radius:15px;background:#f0ece3}
+.rate-label{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}
+.rate-card strong{font-size:17px;color:#8b6e3e;font-weight:800;font-variant-numeric:tabular-nums}
+.rate-card strong small{font-size:9px;font-weight:500}
+.rate-time{text-align:left;color:var(--muted);font-size:9px;line-height:1.9;white-space:nowrap}
+.rate-time bdi{color:var(--ink);font-variant-numeric:tabular-nums}
+.breakdown-card{margin-top:13px;padding:16px 15px 13px;border:1px solid var(--line);border-radius:15px;background:var(--surface)}
+.section-title{font-size:12px;font-weight:700;margin-bottom:9px}
+.price-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #f0ede7;font-size:10px}
+.row-label{color:var(--muted)}
+.row-value{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.row-value small{font-size:8px;color:var(--muted);font-weight:400}
+.final-price{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-top:14px;margin-top:3px}
+.final-price>span{font-size:11px;font-weight:700}
+.final-price strong{font-size:19px;color:#8b6e3e;font-weight:800;white-space:nowrap}
+.final-price strong small{font-size:9px;font-weight:500}
+.disclaimer{margin:10px 3px 0;color:var(--muted);font-size:9px;line-height:2}
+.footer{padding:14px 3px 0;color:#969184;text-align:center;font-size:8px}
+.loading{min-height:220px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:12px}
+.loading span{width:16px;height:16px;border:2px solid #c7b58d;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+.error-card{margin-top:25px;padding:28px 20px;text-align:center;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.error-mark{width:34px;height:34px;margin:0 auto 12px;border:1px solid #d5c9b2;border-radius:50%;display:grid;place-items:center;color:#8b6e3e;font-weight:700}
+.error-card h1{font-size:15px}
+.error-card p{color:var(--muted);font-size:11px;line-height:2}
+.error-card button{border:1px solid #b5965b;background:transparent;color:#80643a;border-radius:10px;padding:9px 17px;font-size:11px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:360px){.product-card{grid-template-columns:88px minmax(0,1fr)}.product-image,.image-placeholder{width:88px;height:88px}.rate-card{align-items:flex-start;flex-direction:column}.rate-time{text-align:right}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}

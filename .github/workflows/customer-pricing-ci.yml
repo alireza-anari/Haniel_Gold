@@ -1,0 +1,51 @@
+name: HANI-EL customer pricing and manager checks
+on:
+  pull_request:
+    paths:
+      - 'customer-pricing/**'
+      - 'telegram-miniapp/**'
+      - '.github/workflows/customer-pricing-ci.yml'
+  push:
+    branches:
+      - feat/telegram-customer-price-miniapp
+    paths:
+      - 'customer-pricing/**'
+      - 'telegram-miniapp/**'
+      - '.github/workflows/customer-pricing-ci.yml'
+permissions:
+  contents: read
+jobs:
+  manager:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: telegram-miniapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+  customer-pricing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: customer-pricing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+      - run: npm run check
+      - run: npm test
+      - run: python3 tests/migration_smoke.py
+      - name: Bundle Cloudflare Worker (dry run)
+        run: |
+          trap 'rm -f wrangler.ci.toml' EXIT
+          sed 's/PASTE_EXISTING_HANIEL_GOLD_DB_ID_HERE/00000000-0000-0000-0000-000000000000/' wrangler.toml > wrangler.ci.toml
+          npx --yes wrangler@4 deploy --dry-run --config wrangler.ci.toml
