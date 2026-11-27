@@ -41,3 +41,8 @@ jobs:
           node-version: '22.18.0'
       - run: npm run check
       - run: npm test
+      - name: Bundle Cloudflare Worker (dry run)
+        run: |
+          trap 'rm -f wrangler.ci.toml' EXIT
+          sed 's/PASTE_EXISTING_HANIEL_GOLD_DB_ID_HERE/00000000-0000-0000-0000-000000000000/' wrangler.toml > wrangler.ci.toml
+          npx --yes wrangler@4 deploy --dry-run --config wrangler.ci.toml
