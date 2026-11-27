@@ -44,8 +44,8 @@ async function productQuote(env, productId, now = Date.now()) {
       pp.labor_pct, pp.profit_pct, pp.accessories, pp.discount, pp.show_profit,
       (SELECT i.id FROM images i WHERE i.product_id=p.id ORDER BY i.id LIMIT 1) AS cover_id
     FROM products p
-    JOIN product_public_pricing pp ON pp.product_id=p.id
-    WHERE p.id=? AND pp.enabled=1
+    JOIN product_public_pricing pp ON pp.product_id=p.id AND pp.enabled=1
+    WHERE p.id=?
   `, productId);
 
   if (!product) return json({ error: 'قیمت این محصول برای نمایش عمومی فعال نشده است.', code: 'PRODUCT_NOT_PUBLIC' }, 404);
