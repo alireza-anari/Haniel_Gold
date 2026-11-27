@@ -36,7 +36,7 @@ async function currentRate(db, now = Date.now()) {
 async function productQuote(env, productId, now = Date.now()) {
   const product = await first(env.DB, `
     SELECT
-      p.id, p.sku, p.name, p.weight, p.purchase_gold_rate, p.purchase_labor_pct,
+      p.id, p.sku, p.name, p.weight,
       p.purchased_qty - COALESCE((
         SELECT SUM(s.quantity) FROM sales s
         WHERE s.product_id=p.id AND s.voided=0
@@ -122,13 +122,14 @@ async function imageResponse(env, productId) {
   const row = await first(env.DB, `
     SELECT i.mime, i.image_blob
     FROM images i
-    JOIN product_public_pricing pp ON pp.product_id=i.product_id AND pp.enabled=1
+    JOIN product_public_pricing pp ON pp.product_id=i.product_id AND pp.enabled=1 AND pp.profit_pct IS NOT NULL
     WHERE i.product_id=?
     ORDER BY i.id
     LIMIT 1
   `, productId);
 
-  if (!row?.image_blob) return json({ error: 'تصویر عمومی برای این محصول ثبت نشده است.' }, 404);
+  const allowedMime = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!row?.image_blob || !allowedMime.has(row.mime)) return json({ error: 'تصویر عمومی برای این محصول ثبت نشده است.' }, 404);
   return new Response(new Uint8Array(row.image_blob), {
     headers: {
       'content-type': row.mime,
