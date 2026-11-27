@@ -77,6 +77,7 @@ async function productQuote(env, productId, now = Date.now()) {
 
 export async function syncGoldRate(env, { fetcher = fetch, now = Date.now() } = {}) {
   if (!env.DB) throw new Error('D1 binding DB is missing');
+  await env.DB.prepare("INSERT OR IGNORE INTO gold_rate_state(id,last_attempt_at,last_error,version) VALUES(1,0,'',1)").run();
   const old = await rateState(env.DB);
   if (!old) throw new Error('gold_rate_state migration is missing');
   if (Number(old.last_attempt_at || 0) && now - Number(old.last_attempt_at) < RATE_COOLDOWN_MS) {
