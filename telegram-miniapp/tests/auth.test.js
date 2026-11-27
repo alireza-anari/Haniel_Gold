@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import nodeCrypto from 'node:crypto';
-import {verifyTelegram} from '../src/index.js';
+import worker,{verifyTelegram} from '../src/index.js';
 
 function signedInitData(token,authDate,firstName='آرزو',signature){
  const params=new URLSearchParams();
@@ -47,4 +47,13 @@ test('rejects valid initData when using a different bot token',async()=>{
  const now=1800000000;
  const data=signedInitData(token,now-20,'آرزو','signed-value');
  await assert.rejects(()=>verifyTelegram(data,'another-bot-token',86400,now),/امضای ورود تلگرام معتبر نیست/);
+});
+
+test('private manager denies valid Telegram identity different from configured owner before reading D1',async()=>{
+ const data=signedInitData(token,Math.floor(Date.now()/1000)-5);
+ const response=await worker.fetch(new Request('https://example.test/api/products',{headers:{'X-Telegram-Init-Data':data}}),{
+  BOT_TOKEN:token,OWNER_TELEGRAM_ID:'999999999',DB:{prepare(){assert.fail('Non-owner must not access D1');}}
+ });
+ assert.equal(response.status,403);
+ assert.match((await response.json()).error,/فقط مالک/);
 });
