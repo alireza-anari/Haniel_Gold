@@ -333,7 +333,7 @@ async function renderMarket(){
   <div class="form-section-title"><span class="form-section-index">۰۱</span><div><strong>سقف پذیرش خودکار تغییر نرخ</strong><small>این مقدار مستقل از فرمول مالیات است</small></div></div>
   <p class="form-hint">تغییرات نرخ کمتر یا مساوی این سقف، پس از تأیید اولیه، خودکار پذیرفته می‌شوند. تغییر بزرگ‌تر از سقف یا نرخ اولیه تا زمان بررسی و تأیید مالک منتشر نمی‌شود. این تنظیم هیچ درصد مالیات یا هزینه جدیدی به فرمول قیمت محصول اضافه نمی‌کند.</p>
   <form id="market-policy-form" class="form">
-   <label class="field">حداکثر تغییر خودکار نرخ (%)<input class="input" type="number" name="maxRateChangePercent" min="0.01" max="100" step="0.01" value="${p.maxRateChangePercent??''}" data-numeric required><small>مقدار را خودت براساس سیاست کنترل ریسک انتخاب کن؛ پیش‌فرضی اعمال نمی‌شود.</small></label>
+   <label class="field">حداکثر تغییر خودکار نرخ (%)<input class="input" type="text" inputmode="decimal" dir="ltr" autocomplete="off" name="maxRateChangePercent" placeholder="مثلاً ۵" value="${p.maxRateChangePercent??''}" data-numeric required><small>مقدار را خودت براساس سیاست کنترل ریسک انتخاب کن؛ پیش‌فرضی اعمال نمی‌شود.</small></label>
    <label class="public-price-check"><input type="checkbox" name="confirmReviewed" required><span>سقف تغییر خودکار نرخ را بررسی و تأیید می‌کنم.</span></label>
    <button class="btn outline" type="submit">ذخیره و تأیید سیاست نرخ</button>
   </form>
