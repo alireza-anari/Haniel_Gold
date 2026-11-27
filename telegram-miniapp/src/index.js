@@ -209,7 +209,7 @@ async function apiRequest(req,env,url,user){
   only(roles);const row=await first(db,'SELECT * FROM images WHERE id=?',Number(image[1]));if(!row)err('تصویر یافت نشد.',404);
   await run(db,'DELETE FROM images WHERE id=?',row.id);await auditBatch(db,user,'image.delete','product',row.product_id,String(row.id));return reply({ok:true});
  }
- const publicPricing=path.match(/^\\/api\\/products\\/(\\d+)\\/public-pricing$/);
+ const publicPricing=path.match(/^\/api\/products\/(\d+)\/public-pricing$/);
  if(publicPricing&&m==='GET'){
   only(roles);
   const p=await product(db,Number(publicPricing[1]));if(!p)err('محصول یافت نشد.',404);
