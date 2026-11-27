@@ -61,16 +61,24 @@ async function productQuote(env, productId, now = Date.now()) {
     }, 503);
   }
 
-  const result = buildPublicPrice(product, {
-    labor_pct: product.labor_pct,
-    profit_pct: product.profit_pct,
-    accessories: product.accessories,
-    discount: product.discount,
-    show_profit: product.show_profit
-  }, Number(rate.rate_rial_per_gram), {
-    observedAt: Number(rate.observed_at),
-    fetchedAt: Number(rate.fetched_at)
-  });
+  let result;
+  try {
+    result = buildPublicPrice(product, {
+      labor_pct: product.labor_pct,
+      profit_pct: product.profit_pct,
+      accessories: product.accessories,
+      discount: product.discount,
+      show_profit: product.show_profit
+    }, Number(rate.rate_rial_per_gram), {
+      observedAt: Number(rate.observed_at),
+      fetchedAt: Number(rate.fetched_at)
+    });
+  } catch {
+    return json({
+      error: 'تنظیمات قیمت این محصول معتبر نیست. لطفاً با مدیریت تماس بگیر.',
+      code: 'PRICING_INVALID'
+    }, 409);
+  }
 
   return json(result);
 }
