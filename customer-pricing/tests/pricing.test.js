@@ -7,8 +7,6 @@ const product = {
   sku: 'HG-TEST-15',
   name: 'محصول آزمایشی',
   weight: '0.39',
-  purchase_gold_rate: '180500000',
-  purchase_labor_pct: '7',
   available: 2,
   cover_id: 8
 };
