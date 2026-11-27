@@ -33,9 +33,13 @@ export async function verifyTelegram(raw,token,maxAge=86400,now=Math.floor(Date.
 async function authenticate(req,env){
  if(!env.BOT_TOKEN||!env.OWNER_TELEGRAM_ID)err('تنظیمات محرمانه ربات روی سرور کامل نیست.',503);
  const id=await verifyTelegram(req.headers.get('X-Telegram-Init-Data'),env.BOT_TOKEN);
- if(id.id!==String(env.OWNER_TELEGRAM_ID))err('این پنل خصوصی است و فقط مالک دسترسی دارد.',403);
- await run(env.DB,"INSERT INTO users(telegram_id,display_name,role) VALUES(?,?,'owner') ON CONFLICT(telegram_id) DO UPDATE SET role='owner',display_name=excluded.display_name",id.id,id.name);
- return {...id,role:'owner'};
+ if(id.id===String(env.OWNER_TELEGRAM_ID)){
+  await run(env.DB,"INSERT INTO users(telegram_id,display_name,role) VALUES(?,?,'owner') ON CONFLICT(telegram_id) DO UPDATE SET role='owner',display_name=excluded.display_name",id.id,id.name);
+  return {...id,role:'owner'};
+ }
+ const u=await first(env.DB,'SELECT role,display_name FROM users WHERE telegram_id=?',id.id);
+ if(!u||u.role==='disabled')err('دسترسی شما فعال نشده است؛ با مالک تماس بگیرید.',403);
+ return {...id,name:u.display_name||id.name,role:u.role};
 }
 const manager=u=>['owner','manager'].includes(u.role),seller=u=>['owner','manager','sales'].includes(u.role);
 const only=(c,msg='مجوز انجام این عملیات را نداری.')=>{if(!c)err(msg,403)};
@@ -222,7 +226,7 @@ async function apiRequest(req,env,url,user){
  }
  const publicPricing=path.match(/^\/api\/products\/(\d+)\/public-pricing$/);
  if(publicPricing&&m==='GET'){
-  only(roles);
+  only(user.role==='owner');
   const p=await product(db,Number(publicPricing[1]));if(!p)err('محصول یافت نشد.',404);
   const row=await first(db,'SELECT * FROM product_public_pricing WHERE product_id=?',p.id);
   if(!row){
@@ -232,7 +236,7 @@ async function apiRequest(req,env,url,user){
   return reply({...row,configured:row.profit_pct!==null&&String(row.profit_pct).trim()!==''});
  }
  if(publicPricing&&m==='PUT'){
-  only(roles);
+  only(user.role==='owner');
   const id=Number(publicPricing[1]),p=await product(db,id);if(!p)err('محصول یافت نشد.',404);
   const body=await readJson(req);
   const labor=fmt(valid(body.labor_pct,'درصد اجرت فروش',{max:'100'}));
