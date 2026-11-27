@@ -54,6 +54,7 @@ function formObject(form){
  return result;
 }
 const isManager=()=>['owner','manager'].includes(session?.user.role);
+const isOwner=()=>session?.user.role==='owner';
 const isSeller=()=>session?.user.role!=='viewer';
 
 const iconPaths={
@@ -267,7 +268,7 @@ async function productDetail(id){
  const p=products.find(p=>p.id===Number(id));if(!p)return;
  const [imgs,pricing]=await Promise.all([
   api(`/api/products/${p.id}/images`),
-  isManager()?api(`/api/products/${p.id}/public-pricing`):Promise.resolve(null)
+  isOwner()?api(`/api/products/${p.id}/public-pricing`):Promise.resolve(null)
  ]);
  const pricingSource=pricing?.source_sale_id
   ?`مقادیر اولیه از آخرین فروش ثبت‌شده محصول (شماره ${pricing.source_sale_id}) پیشنهاد شده‌اند؛ پیش از فعال‌سازی حتماً بازبینی و ذخیره کن.`
@@ -279,7 +280,7 @@ async function productDetail(id){
  ${isManager()?`<form id="photo-form" class="field"><label>افزودن تصویر (JPG / PNG / WebP؛ فشرده‌سازی خودکار برای ذخیره امن در D1)</label><input class="input" type="file" name="image" accept="image/png,image/jpeg,image/webp" required><button class="btn outline" type="submit">آپلود تصویر</button></form>`:''}
  <div class="summary-lines"><div class="line"><span class="name">وزن واحد</span><span>${number(p.weight,5)} گرم</span></div><div class="line"><span class="name">موجودی</span><span>${number(p.available,0)} عدد</span></div>
  ${isManager()?`<div class="line"><span class="name">تعداد خرید</span><span>${number(p.purchased_qty,0)}</span></div><div class="line"><span class="name">نرخ خرید طلا</span><span>${rial(p.purchase_gold_rate)}</span></div><div class="line"><span class="name">اجرت خرید</span><span>${number(p.purchase_labor_pct)}٪</span></div><div class="line"><span class="name">بهای خرید هر عدد</span><span>${rial(p.purchase_unit_cost)}</span></div><div class="line"><span class="name">تأمین‌کننده</span><span>${esc(p.supplier||'—')}</span></div>`:''}</div>
- ${isManager()?`<section class="public-pricing-settings">
+ ${isOwner()?`<section class="public-pricing-settings">
   <div class="form-section-title"><span class="form-section-index">۰۴</span><div><strong>قیمت‌گذاری قابل نمایش به مشتری</strong><small>تنظیمات عمومی مستقل از سوابق فروش</small></div></div>
   <p class="form-hint">${pricingSource} این تنظیمات فقط برای محاسبه قیمت در Mini App عمومی استفاده می‌شوند؛ اطلاعات خرید و سود داخلی افشا نمی‌شوند.</p>
   <form id="public-pricing-form" class="form">
