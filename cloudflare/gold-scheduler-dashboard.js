@@ -68,6 +68,12 @@ async function fetchServix(env,fetcher=fetch,now=nowMs()){
 const state=async db=>db.prepare('SELECT * FROM gold_market_state WHERE id=1').first();
 const policy=async db=>db.prepare('SELECT * FROM pricing_policy WHERE id=1').first();
 const ratePolicy=async db=>db.prepare('SELECT * FROM gold_rate_policy WHERE id=1').first();
+async function ensureMarketRows(db){
+ await db.prepare("INSERT OR IGNORE INTO gold_market_state(id,blocked) VALUES(1,1)").run();
+ await db.prepare("INSERT OR IGNORE INTO pricing_policy(id,approved) VALUES(1,0)").run();
+ // The separate rate-change policy is Mini App-specific; older storefront D1s may not have it.
+ try{await db.prepare("INSERT OR IGNORE INTO gold_rate_policy(id,approved) VALUES(1,0)").run();}catch{}
+}
 const audit=(db,event,rate,observed,now,detail='')=>
  db.prepare('INSERT INTO gold_rate_audit(event,rate_rial_per_gram,observed_at,created_at,detail) VALUES(?,?,?,?,?)')
    .bind(event,rate??null,observed??null,now,String(detail).slice(0,180)).run();
