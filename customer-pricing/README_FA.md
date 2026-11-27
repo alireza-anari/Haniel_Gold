@@ -32,14 +32,20 @@
 
 1. از D1 موجود `haniel-gold-db` نسخه پشتیبان بگیر.
 2. از صفحه Overview دیتابیس، Database ID واقعی را بردار و به‌جای `PASTE_EXISTING_HANIEL_GOLD_DB_ID_HERE` در `wrangler.toml` قرار بده. دیتابیس جدید نساز.
-3. مطمئن شو Wrangler به همان حساب Cloudflare اصلی متصل است.
+3. مطمئن شو Wrangler به همان حساب Cloudflare اصلی متصل است:
+   ```bash
+   npx wrangler@4 login
+   npx wrangler@4 whoami
+   npx wrangler@4 d1 list
+   ```
+   نام `haniel-gold-db` باید در فهرست همان حساب دیده شود.
 
 ## اجرای migration — فقط یک بار
 
 از ریشه مخزن:
 
 ```bash
-npx wrangler d1 execute haniel-gold-db --remote \
+npx wrangler@4 d1 execute haniel-gold-db --remote \
   --file=telegram-miniapp/db/migrations/0003_public_pricing.sql \
   --config=customer-pricing/wrangler.toml
 ```
@@ -49,8 +55,8 @@ npx wrangler d1 execute haniel-gold-db --remote \
 ## استقرار Mini App عمومی
 
 ```bash
-npx wrangler secret put SERVIX_API_KEY --config=customer-pricing/wrangler.toml
-npx wrangler deploy --config=customer-pricing/wrangler.toml
+npx wrangler@4 secret put SERVIX_API_KEY --config=customer-pricing/wrangler.toml
+npx wrangler@4 deploy --config=customer-pricing/wrangler.toml
 ```
 
 کلید Servix را فقط در prompt مخفی Wrangler وارد کن؛ آن را در GitHub یا فایل عمومی قرار نده. این Worker به Secretهای ربات یا شناسه مالک نیاز ندارد.
@@ -60,7 +66,7 @@ npx wrangler deploy --config=customer-pricing/wrangler.toml
 برای مشاهده لاگ:
 
 ```bash
-npx wrangler tail haniel-gold-customer-pricing --config=customer-pricing/wrangler.toml
+npx wrangler@4 tail haniel-gold-customer-pricing --config=customer-pricing/wrangler.toml
 ```
 
 ## به‌روزرسانی پنل مدیریت خصوصی
