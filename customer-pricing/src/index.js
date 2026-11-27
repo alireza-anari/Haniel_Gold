@@ -172,7 +172,11 @@ export default {
     }
 
     const imageMatch = /^\/api\/v1\/products\/(\d+)\/image$/.exec(path);
-    if (imageMatch) return imageResponse(env, Number(imageMatch[1]));
+    if (imageMatch) {
+      const imageProductId = Number(imageMatch[1]);
+      if (!Number.isSafeInteger(imageProductId) || imageProductId < 1) return json({ error: 'شناسه محصول معتبر نیست.' }, 400);
+      return imageResponse(env, imageProductId);
+    }
 
     const productMatch = /^\/api\/v1\/products\/(\d+)$/.exec(path);
     if (productMatch) {
