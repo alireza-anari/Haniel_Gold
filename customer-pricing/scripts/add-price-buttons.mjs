@@ -1,3 +1,4 @@
+import { buildPriceKeyboard } from './telegram-keyboard.js';
 import { readFile } from 'node:fs/promises';
 
 const [mappingPath] = process.argv.slice(2);
@@ -30,8 +31,7 @@ for (const item of entries) {
   url.searchParams.set('startapp', `product_${productId}`);
   url.searchParams.set('mode', 'compact');
 
-  const keyboard = Array.isArray(item.existing_keyboard) ? [...item.existing_keyboard] : [];
-  keyboard.push([{ text: 'مشاهده قیمت', url: url.toString() }]);
+  const keyboard = buildPriceKeyboard(item.existing_keyboard, url.toString());
 
   if (DRY_RUN === '1') {
     console.log(JSON.stringify({ message_id: messageId, product_id: productId, url: url.toString() }));
