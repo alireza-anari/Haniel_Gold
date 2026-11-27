@@ -78,7 +78,6 @@ function render(data) {
         <strong>${money(b.finalToman)}</strong>
       </div>
     </section>
-    <a class="contact-link" href="https://t.me/Hani_El_manager_bot">برای سفارش و هماهنگی با هانی‌ال در ارتباط باش</a>
     <p class="disclaimer">این مبلغ بر اساس نرخ ثبت‌شده در زمان مشاهده محاسبه شده است. قیمت محصول در دیتابیس ذخیره نمی‌شود و با به‌روزرسانی نرخ طلا تغییر می‌کند.</p>
   `;
 }
