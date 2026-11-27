@@ -21,5 +21,7 @@ test('private manager and pricing controls require the configured owner', () => 
   assert.match(app, /public-pricing-form/);
   assert.match(app, /فعال‌سازی نمایش قیمت این محصول/);
   assert.match(app, /مدیریت نرخ طلا/);
+  assert.match(app, /name="maxRateChangePercent"[^>]*type="text"|type="text"[^>]*name="maxRateChangePercent"/);
+  assert.match(app, /name="maxRateChangePercent"[^>]*inputmode="decimal"|inputmode="decimal"[^>]*name="maxRateChangePercent"/);
   assert.match(migration, /enabled INTEGER NOT NULL DEFAULT 0/);
 });
