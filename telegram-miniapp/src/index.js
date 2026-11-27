@@ -209,6 +209,34 @@ async function apiRequest(req,env,url,user){
   only(roles);const row=await first(db,'SELECT * FROM images WHERE id=?',Number(image[1]));if(!row)err('تصویر یافت نشد.',404);
   await run(db,'DELETE FROM images WHERE id=?',row.id);await auditBatch(db,user,'image.delete','product',row.product_id,String(row.id));return reply({ok:true});
  }
+ const publicPricing=path.match(/^\\/api\\/products\\/(\\d+)\\/public-pricing$/);
+ if(publicPricing&&m==='GET'){
+  only(roles);
+  const p=await product(db,Number(publicPricing[1]));if(!p)err('محصول یافت نشد.',404);
+  const row=await first(db,'SELECT * FROM product_public_pricing WHERE product_id=?',p.id);
+  if(!row)return reply({product_id:p.id,labor_pct:p.purchase_labor_pct,profit_pct:'',accessories:'0',discount:'0',enabled:0,show_profit:0,source_sale_id:null,configured:false});
+  return reply({...row,configured:row.profit_pct!==null&&String(row.profit_pct).trim()!==''});
+ }
+ if(publicPricing&&m==='PUT'){
+  only(roles);
+  const id=Number(publicPricing[1]),p=await product(db,id);if(!p)err('محصول یافت نشد.',404);
+  const body=await readJson(req);
+  const labor=fmt(valid(body.labor_pct,'درصد اجرت فروش',{max:'100'}));
+  const profitText=String(body.profit_pct??'').trim();
+  const profit=profitText?fmt(valid(profitText,'درصد سود فروش',{max:'100'})):null;
+  const accessories=fmt(valid(body.accessories??'0','متعلقات'));
+  const discount=fmt(valid(body.discount??'0','تخفیف'));
+  const enabled=body.enabled===true?1:0,showProfit=body.show_profit===true?1:0;
+  if(enabled&&profit===null)err('برای فعال‌سازی قیمت عمومی، درصد سود فروش را وارد کن.');
+  await run(db,`INSERT INTO product_public_pricing(product_id,labor_pct,profit_pct,accessories,discount,enabled,show_profit,updated_at)
+   VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+   ON CONFLICT(product_id) DO UPDATE SET labor_pct=excluded.labor_pct,profit_pct=excluded.profit_pct,
+   accessories=excluded.accessories,discount=excluded.discount,enabled=excluded.enabled,
+   show_profit=excluded.show_profit,updated_at=CURRENT_TIMESTAMP`,
+   id,labor,profit,accessories,discount,enabled,showProfit);
+  await auditBatch(db,user,'product.public_pricing','product',id,enabled?'public_enabled':'public_pricing_updated');
+  return reply({ok:true,enabled:!!enabled});
+ }
  if(path==='/api/quote'&&m==='POST'){
   only(seller(user));const body=await readJson(req),p=await product(db,Number(body.product_id));if(!p)err('محصول یافت نشد.',404);
   const avail=await first(db,'SELECT purchased_qty-COALESCE((SELECT SUM(quantity) FROM sales WHERE product_id=? AND voided=0),0) n FROM products WHERE id=?',p.id,p.id);
