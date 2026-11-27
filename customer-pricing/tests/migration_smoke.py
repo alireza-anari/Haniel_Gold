@@ -17,11 +17,13 @@ assert "product_public_pricing" in tables
 assert "gold_market_state" in tables
 assert "gold_rate_audit" in tables
 assert "pricing_policy" in tables
+assert "gold_rate_policy" in tables
 assert "gold_rate_state" not in tables
 assert db.execute("SELECT COUNT(*) FROM sales").fetchone()[0] == 0
 assert db.execute("SELECT COUNT(*) FROM product_public_pricing").fetchone()[0] == 0
 assert db.execute("SELECT blocked FROM gold_market_state WHERE id=1").fetchone()[0] == 1
 assert db.execute("SELECT approved FROM pricing_policy WHERE id=1").fetchone()[0] == 0
+assert db.execute("SELECT approved FROM gold_rate_policy WHERE id=1").fetchone()[0] == 0
 
 db.execute("""
   INSERT INTO products(sku,name,weight,purchase_gold_rate,purchase_labor_pct,purchased_qty)
