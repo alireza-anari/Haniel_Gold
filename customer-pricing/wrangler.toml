@@ -1,0 +1,19 @@
+name = "haniel-gold-customer-pricing"
+main = "src/index.js"
+compatibility_date = "2026-11-27"
+workers_dev = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "haniel-gold-db"
+database_id = "PASTE_EXISTING_HANIEL_GOLD_DB_ID_HERE"
+
+[triggers]
+crons = ["*/30 * * * *"]
+
+[observability]
+enabled = true
