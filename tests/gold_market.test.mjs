@@ -100,7 +100,7 @@ test('public market stays unavailable when the database is missing',async()=>{
 
 test('Mini App rate policy is separate from tax policy and requires explicit owner review',async()=>{
  let sqlSeen='',argsSeen=null;
- const env={DB:{prepare(sql){sqlSeen=sql;return {bind(...args){argsSeen=args;return this;},async run(){return {meta:{changes:1}};}};}}};
+ const env={DB:{prepare(sql){return {bind(...args){if(sql.includes('UPDATE gold_rate_policy')){sqlSeen=sql;argsSeen=args;}return this;},async run(){return {meta:{changes:1}};}};}}};
  await assert.rejects(()=>approveRatePolicy(env,{maxRateChangePercent:5,confirmReviewed:false},now),{code:'RATE_POLICY_INVALID'});
  assert.equal(sqlSeen,'');
  const r=await approveRatePolicy(env,{maxRateChangePercent:5,confirmReviewed:true},now);
