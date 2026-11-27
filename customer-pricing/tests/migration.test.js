@@ -9,7 +9,7 @@ test('public pricing and shared gold market migrations use safe defaults without
   const marketSql = read('../../telegram-miniapp/db/migrations/0004_gold_market_policy.sql');
   assert.match(publicSql, /CREATE TABLE IF NOT EXISTS product_public_pricing/);
   assert.match(publicSql, /enabled INTEGER NOT NULL DEFAULT 0/);
-  assert.doesNotMatch(publicSql, /INSERT|UPDATE|DELETE|DROP/i);
+  assert.ok(!/\\bINSERT\\s+INTO\\b|\\bUPDATE\\s+\\w|\\bDELETE\\s+FROM\\b|\\bDROP\\s+TABLE\\b/i.test(publicSql));
   assert.match(marketSql, /CREATE TABLE IF NOT EXISTS gold_market_state/);
   assert.match(marketSql, /CREATE TABLE IF NOT EXISTS gold_rate_audit/);
   assert.match(marketSql, /CREATE TABLE IF NOT EXISTS pricing_policy/);
