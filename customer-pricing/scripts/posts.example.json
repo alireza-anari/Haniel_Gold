@@ -1,14 +1,18 @@
 [
   {
     "message_id": 123,
-    "product_id": 15
+    "product_id": 15,
+    "existing_keyboard": []
   },
   {
     "message_id": 124,
     "product_id": 18,
     "existing_keyboard": [
       [
-        { "text": "مشاهده راهنما", "url": "https://example.com/guide" }
+        {
+          "text": "مشاهده راهنما",
+          "url": "https://example.com/guide"
+        }
       ]
     ]
   }
