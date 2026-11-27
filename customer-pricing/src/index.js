@@ -1,4 +1,4 @@
-import { marketRateContext, syncRate } from '../../functions/_lib/gold-market.js';
+import { marketRateContext, syncRateWithRatePolicy } from '../../functions/_lib/gold-market.js';
 import { buildPublicPrice } from './pricing.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -124,7 +124,7 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(syncRate(env).then(result => {
+    ctx.waitUntil(syncRateWithRatePolicy(env).then(result => {
       console.log(JSON.stringify({
         type: 'gold_rate_cron',
         status: result.status,
