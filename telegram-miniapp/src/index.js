@@ -32,13 +32,9 @@ export async function verifyTelegram(raw,token,maxAge=86400,now=Math.floor(Date.
 async function authenticate(req,env){
  if(!env.BOT_TOKEN||!env.OWNER_TELEGRAM_ID)err('تنظیمات محرمانه ربات روی سرور کامل نیست.',503);
  const id=await verifyTelegram(req.headers.get('X-Telegram-Init-Data'),env.BOT_TOKEN);
- if(id.id===String(env.OWNER_TELEGRAM_ID)){
-  await run(env.DB,"INSERT INTO users(telegram_id,display_name,role) VALUES(?,?,'owner') ON CONFLICT(telegram_id) DO UPDATE SET role='owner',display_name=excluded.display_name",id.id,id.name);
-  return {...id,role:'owner'};
- }
- const u=await first(env.DB,'SELECT role,display_name FROM users WHERE telegram_id=?',id.id);
- if(!u||u.role==='disabled')err('دسترسی شما فعال نشده است؛ با مالک تماس بگیرید.',403);
- return {...id,role:u.role};
+ if(id.id!==String(env.OWNER_TELEGRAM_ID))err('این پنل خصوصی است و فقط مالک دسترسی دارد.',403);
+ await run(env.DB,"INSERT INTO users(telegram_id,display_name,role) VALUES(?,?,'owner') ON CONFLICT(telegram_id) DO UPDATE SET role='owner',display_name=excluded.display_name",id.id,id.name);
+ return {...id,role:'owner'};
 }
 const manager=u=>['owner','manager'].includes(u.role),seller=u=>['owner','manager','sales'].includes(u.role);
 const only=(c,msg='مجوز انجام این عملیات را نداری.')=>{if(!c)err(msg,403)};
