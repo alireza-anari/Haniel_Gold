@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 
 test('migration adds public price settings and one gold-rate cache without changing sales history', () => {
-  const sql = read('../..//telegram-miniapp/db/migrations/0003_public_pricing.sql');
+  const sql = read('../../telegram-miniapp/db/migrations/0003_public_pricing.sql');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS product_public_pricing/);
   assert.match(sql, /CREATE TABLE IF NOT EXISTS gold_rate_state/);
   assert.match(sql, /INSERT OR IGNORE INTO product_public_pricing/);
