@@ -20,6 +20,7 @@ test('customer Worker never exposes manager-only financial columns in its public
   assert.ok(!worker.includes('p.purchase_gold_rate') && !worker.includes('p.purchase_labor_pct'));
   assert.match(worker, /fetchServix/);
   assert.match(worker, /scheduled\(controller, env, ctx\)/);
+  assert.match(read('../public/app.js'), /tgWebAppStartParam/);
 });
 
 test('30-minute cron only writes the cached gold rate, never recalculates or stores product prices', () => {
