@@ -175,3 +175,7 @@ test('scheduled sync uses quota status distinctly from provider errors',async()=
  assert.equal(recorded,'QUOTA');
  assert.equal(pause,now+24*60*60*1000);
 });
+
+ test('Servix non-success provider HTTP statuses are recorded safely',async()=>{
+ for(const status of [302,404,417,500,503]) await assert.rejects(()=>fetchServix({SERVIX_API_KEY:'fake-test-api-key'},async()=>({status}),now),{code:'PROVIDER_HTTP_'+status});
+ });
