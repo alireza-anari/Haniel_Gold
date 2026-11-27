@@ -64,13 +64,14 @@ function render(data) {
     </section>
     <section class="rate-card">
       <div><span class="rate-label">نرخ هر گرم طلای ۱۸ عیار</span><strong>${group(rate.tomanPerGram)} <small>تومان</small></strong></div>
-      <div class="rate-time">دریافت از API<br><bdi>${timeLabel(rate.fetchedAt)}</bdi><br>زمان ثبت نرخ<br><bdi>${timeLabel(rate.observedAt)}</bdi></div>
+      <div class="rate-time">زمان ثبت نرخ<br><bdi>${timeLabel(rate.observedAt)}</bdi><br>اعتبار نرخ تا<br><bdi>${timeLabel(rate.validUntil)}</bdi></div>
     </section>
     <section class="breakdown-card">
       <div class="section-title">جزئیات محاسبه قیمت</div>
       ${row('ارزش طلای خام', b.rawGoldToman, { money: true })}
       ${row(`اجرت فروش · ${escapeHtml(b.laborPercent)}٪`, b.laborToman, { money: true })}
       ${row(profitLabel, b.profitToman, { money: true })}
+      ${row(`مالیات بر اجرت و سود · ${escapeHtml(b.taxPercent)}٪`, b.taxToman, { money: true })}
       ${BigInt(b.accessoriesToman || '0') > 0n ? row('متعلقات', b.accessoriesToman, { money: true }) : ''}
       ${BigInt(b.discountToman || '0') > 0n ? row('تخفیف', b.discountToman, { money: true }) : ''}
       <div class="final-price">
