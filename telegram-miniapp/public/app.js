@@ -67,7 +67,7 @@ const iconPaths={
  help:'<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4M12 17.4h.01"/>'
 };
 const iconSvg=(name)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]||iconPaths.dashboard}</svg>`;
-const labels={dashboard:'داشبورد',products:'محصولات',sales:'فروش',quote:'محاسبه قیمت',reports:'گزارش‌ها',excel:'اکسل',team:'کاربران',help:'راهنما'};
+const labels={dashboard:'داشبورد',products:'محصولات',sales:'فروش',quote:'محاسبه قیمت',reports:'گزارش‌ها',excel:'اکسل',team:'کاربران',market:'نرخ طلا',help:'راهنما'};
 async function api(url,opts={}){
  const h={...headers(),...(opts.body instanceof FormData?{}:{'Content-Type':'application/json'}),...(opts.headers||{})};
  const r=await fetch(url,{...opts,headers:h,cache:'no-store'});
@@ -82,9 +82,9 @@ function loadError(err){notice(err?.message||'خطای ناشناخته','error'
 function loading(){view.innerHTML='<div class="loading"><span class="loader"></span> دریافت اطلاعات…</div>'}
 function blank(text='هنوز اطلاعاتی وجود ندارد.') {return `<div class="empty"><img class="empty-logo" src="/assets/logo.png" alt="HANI-EL GOLD"><h3>${esc(text)}</h3><p>اطلاعات واقعی پس از ثبت یا ورود اکسل اینجا نمایش داده می‌شوند.</p>${isManager()?`<div class="empty-actions">${button('افزودن محصول','addProduct','','outline')} ${button('ورود اکسل','nav','excel','ghost')}</div>`:''}</div>`}
 function button(text,action,id='',kind='outline',extra=''){return `<button class="btn ${kind}" type="button" data-action="${action}" data-id="${esc(id)}" ${extra}>${text}</button>`}
-function canSee(page){return (!['excel','reports'].includes(page)||isManager()) && (page!=='team'||session?.user.role==='owner') &&(!['sales','quote'].includes(page)||isSeller())}
+function canSee(page){return (!['excel','reports'].includes(page)||isManager()) && (page!=='team'||session?.user.role==='owner') && (page!=='market'||session?.user.role==='owner') &&(!['sales','quote'].includes(page)||isSeller())}
 function menus(){
- const pages=['dashboard','products','sales','quote','reports','excel','team','help'].filter(canSee);
+ const pages=['dashboard','products','sales','quote','market','reports','excel','team','help'].filter(canSee);
  navSide.innerHTML=pages.map(p=>`<button type="button" class="nav-btn ${p===current?'active':''}" data-nav="${p}" ${p===current?'aria-current="page"':''}><span class="nav-icon">${iconSvg(p)}</span><span>${labels[p]}</span></button>`).join('');
  const mobile=['dashboard','products','sales','quote',isManager()?'excel':'help'].filter(canSee);
  navMobile.innerHTML=mobile.map(p=>`<button type="button" class="${p===current?'active':''}" data-nav="${p}" ${p===current?'aria-current="page"':''}><span class="mobile-nav-icon">${iconSvg(p)}</span><span class="mobile-nav-label">${p==='quote'?'قیمت':labels[p]}</span></button>`).join('');
@@ -111,7 +111,7 @@ async function go(page,{remember=true}={}){
  try {if(['dashboard','products','sales','quote','reports'].includes(page))await refreshData();
   if(page==='dashboard')dashboard();if(page==='products')renderProducts();
   if(page==='sales')await renderSales();if(page==='quote')renderQuote();
-  if(page==='reports')renderReports();if(page==='excel')renderExcel();
+  if(page==='reports')renderReports();if(page==='excel')renderExcel();if(page==='market')await renderMarket();
   if(page==='team')await renderTeam();if(page==='help')renderHelp();
  }catch(e){view.innerHTML=blank('نمایش اطلاعات ممکن نشد.');loadError(e)}
 }
@@ -145,6 +145,7 @@ function dashboard(){
   <div><span class="section-kicker">HANI-EL GOLD / OVERVIEW</span><h2>وضعیت موجودی و فروش</h2><p>خلاصه اعداد واقعی ثبت‌شده در سیستم</p></div>
   <img src="/assets/clover.png" alt="" aria-hidden="true">
  </section>
+ ${session?.user.role==='owner'?`<div class="row-actions dashboard-market-action">${button('مدیریت نرخ طلا','nav','market','outline')}</div>`:''}
  <div class="metric-grid dashboard-grid ${isManager()?'':'dashboard-compact'}">
  ${isManager()?metric('طلای کل ثبت‌شده از ابتدا',number(summary.total_purchased_weight,4),'گرم · مجموع خرید ثبت‌شده، پیش از کسر فروش',true,'reports').replace('class="metric gold ', 'class="metric gold metric-total-gold '):''}
  ${metric('وزن طلای موجود',number(summary.available_weight,4),'گرم · موجودی فعلی',false,'reports')}
@@ -309,6 +310,51 @@ async function productDetail(id){
   }catch(err){loadError(err)}
  });
 }
+async function renderMarket(){
+ const data=await api('/api/market'),m=data.market,p=data.policy;
+ const statusLabel=m.status==='blocked'?'در انتظار تأیید مالک':m.status==='ready'?'فعال و معتبر':m.status==='expired'?'منقضی':'آماده نیست';
+ const reasons={initial_review:'نرخ اولیه باید توسط مالک بررسی شود',policy_not_approved:'سیاست نرخ هنوز تأیید نشده است',large_change:'تغییر نرخ از سقف مجاز بیشتر است',existing_pending_review:'یک نرخ قبلی هنوز در انتظار بررسی است'};
+ view.innerHTML=\`<div class="section-head"><div><span class="section-kicker">GOLD MARKET / CONTROL</span><h2>مدیریت نرخ طلا</h2><p>منبع نرخ: Servix · طلای ۱۸ عیار · واحد محاسباتی: ریال</p></div><div class="buttons">\${button('تازه‌سازی','refreshMarket','','outline')}</div></div>
+ <div class="panel market-panel">
+  <div class="summary-lines">
+   <div class="line"><span class="name">وضعیت نرخ</span><strong>\${esc(statusLabel)}</strong></div>
+   <div class="line"><span class="name">نرخ تأییدشده هر گرم</span><strong>\${m.rateTomanPerGram==null?'—':number(m.rateTomanPerGram,1)+' تومان'}</strong></div>
+   <div class="line"><span class="name">زمان ثبت منبع</span><span>\${m.observedAt?esc(new Date(m.observedAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">اعتبار نرخ تا</span><span>\${m.validUntil?esc(new Date(m.validUntil).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">آخرین تلاش دریافت</span><span>\${m.lastAttemptAt?esc(new Date(m.lastAttemptAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">سیاست مالی</span><strong>\${p.approved?'تأیید شده':'تأیید نشده'}</strong></div>
+  </div>
+  \${m.pendingTomanPerGram!=null?\`<div class="divider"></div><div class="summary-lines"><div class="line"><span class="name">نرخ پیشنهادی در انتظار بررسی</span><strong>\${number(m.pendingTomanPerGram,1)} تومان</strong></div><div class="line"><span class="name">زمان نرخ پیشنهادی</span><span>\${m.pendingObservedAt?esc(new Date(m.pendingObservedAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div><p class="form-hint">\${esc(reasons[m.pendingReason]||m.pendingReason||'تأیید مالک لازم است')}</p><div class="row-actions">\${button('تأیید نرخ پیشنهادی','approveMarketRate','','outline')}</div></div>\`:''}
+  \${m.lastError?\`<p class="form-hint">آخرین وضعیت دریافت: <bdi>\${esc(m.lastError)}</bdi></p>\`:''}
+ </div>
+ <div class="panel market-panel">
+  <div class="form-section-title"><span class="form-section-index">۰۱</span><div><strong>سیاست محاسبه و پذیرش نرخ</strong><small>این مقادیر فقط با تأیید صریح مالک ثبت می‌شوند</small></div></div>
+  <p class="form-hint">مالیات بر مبنای اجرت و سود محاسبه می‌شود. درصد مالیات را مطابق سیاست مالی و مقرراتی که خودت تأیید کرده‌ای وارد کن. سقف تغییر نرخ مشخص می‌کند چه تغییر روزانه‌ای خودکار پذیرفته شود؛ تغییر بزرگ‌تر دوباره به تأیید مالک نیاز دارد.</p>
+  <form id="market-policy-form" class="form">
+   <div class="form-grid">
+    <label class="field">درصد مالیات روی اجرت و سود<input class="input" type="number" name="taxPercent" min="0" max="100" step="0.01" value="\${p.taxPercent??''}" data-numeric required><small>عدد را از سیاست مالی تأییدشده وارد کن؛ مقدار پیش‌فرضی اعمال نمی‌شود.</small></label>
+    <label class="field">سقف تغییر خودکار نرخ (%)<input class="input" type="number" name="maxRateChangePercent" min="0.01" max="100" step="0.01" value="\${p.maxRateChangePercent??''}" data-numeric required><small>تغییر بیشتر از این مقدار، نرخ را در انتظار تأیید نگه می‌دارد.</small></label>
+   </div>
+   <label class="public-price-check"><input type="checkbox" name="confirmReviewed" required><span>مبنای مالیات «اجرت و سود» و سقف تغییر نرخ را بررسی و تأیید می‌کنم.</span></label>
+   <button class="btn outline" type="submit">ذخیره و تأیید سیاست</button>
+  </form>
+ </div>
+ <p class="tiny muted">تا زمانی که نرخ معتبر و سیاست مالی تأیید نشده باشند، Mini App مشتری قیمت نمایش نمی‌دهد. نرخ پیشنهادی اولیه و تغییرات خارج از سقف، نیازمند بررسی مالک هستند.</p>\`;
+ const form=document.getElementById('market-policy-form');
+ form?.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const body=formObject(form);
+  body.confirmReviewed=form.elements.confirmReviewed.checked;
+  body.taxBasis='fee_profit';
+  if(!body.confirmReviewed){notice('برای ثبت سیاست، تأیید صریح لازم است.','warn');return;}
+  try{
+   await api('/api/market/policy',{method:'POST',body:JSON.stringify(body)});
+   notice('سیاست قیمت‌گذاری ثبت و تأیید شد.');
+   await renderMarket();
+  }catch(error){loadError(error);}
+ });
+}
+
 async function renderSales(){
  sales=await api('/api/sales');
  view.innerHTML=`<div class="section-head"><div><h2>سوابق فروش</h2><p>هر سند شامل نرخ تاریخی طلاست و با تغییر قیمت روز بازنویسی نمی‌شود.</p></div><div class="buttons">${button('+ ثبت فروش','nav','quote','')}</div></div>
@@ -470,6 +516,14 @@ document.addEventListener('click',async e=>{
   if(a==='editUser')userForm(id);
   if(a==='voidSale')await voidSale(id);
   if(a==='deletePhoto')await deletePhoto(id,action.dataset.product);
+  if(a==='refreshMarket')await renderMarket();
+  if(a==='approveMarketRate'){
+   if(confirm('نرخ پیشنهادی Servix را پس از بررسی مستقل تأیید می‌کنی؟')){
+    await api('/api/market/approve',{method:'POST',body:JSON.stringify({confirmReviewed:true})});
+    notice('نرخ پیشنهادی تأیید شد.');
+    await renderMarket();
+   }
+  }
  }catch(err){loadError(err)}
 });
 document.getElementById('close-modal').addEventListener('click',closeModal);
