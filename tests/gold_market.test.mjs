@@ -179,3 +179,11 @@ test('scheduled sync uses quota status distinctly from provider errors',async()=
  test('Servix non-success provider HTTP statuses are recorded safely',async()=>{
  for(const status of [302,404,417,500,503]) await assert.rejects(()=>fetchServix({SERVIX_API_KEY:'fake-test-api-key'},async()=>({status}),now),{code:'PROVIDER_HTTP_'+status});
  });
+
+test('trim surrounding whitespace on Servix key, retain only documented 400 error code',async()=>{
+ await assert.rejects(()=>fetchServix({SERVIX_API_KEY:'  fake-test-api-key  '},async(url,opts)=>{
+  assert.equal(opts.headers['X-API-Key'],'fake-test-api-key');
+  return new Response(JSON.stringify({code:'INVALID_REQUEST_PARAMETER',message:'do not log this body'}),{status:400,headers:{'content-type':'application/json'}});
+ },now),{code:'PROVIDER_HTTP_400_INVALID_REQUEST_PARAMETER'});
+ await assert.rejects(()=>fetchServix({SERVIX_API_KEY:'fake-test-api-key'},async()=>new Response(JSON.stringify({code:'untrusted-secret-value'}),{status:400}),now),{code:'PROVIDER_HTTP_400'});
+});
