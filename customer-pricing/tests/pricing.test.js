@@ -18,13 +18,16 @@ test('public price uses the private manager fixed-point formula and converts Ria
     accessories: '0',
     discount: '453',
     show_profit: 0
-  }, 270000000, { observedAt: 1800000000000, fetchedAt: 1800000001000 });
+  }, 270000000, { observedAt: '2026-11-27T08:00:00.000Z', validUntil: '2026-11-27T08:40:00.000Z' }, 900);
 
-  assert.equal(result.breakdown.finalToman, '12800000');
+  assert.equal(result.breakdown.finalToman, '13004304');
+  assert.equal(result.breakdown.taxToman, '204304');
+  assert.equal(result.breakdown.taxPercent, '9');
   assert.equal(result.breakdown.rawGoldToman, '10530000');
   assert.equal(result.breakdown.laborPercent, '7');
   assert.equal(result.breakdown.profitPercent, null);
   assert.equal(result.rate.tomanPerGram, '27000000');
+  assert.equal(result.rate.validUntil, '2026-11-27T08:40:00.000Z');
   assert.equal(result.product.imageUrl, '/api/v1/products/15/image');
   assert.equal(result.product.available, true);
   assert.equal(Object.hasOwn(result, 'purchase_cost'), false);
@@ -34,7 +37,7 @@ test('public price uses the private manager fixed-point formula and converts Ria
 test('profit percentage is returned only when the owner explicitly enables it', () => {
   const result = buildPublicPrice(product, {
     labor_pct: '7', profit_pct: '13.6055', accessories: '0', discount: '0', show_profit: 1
-  }, 270000000);
+  }, 270000000, {}, 900);
   assert.equal(result.breakdown.profitPercent, '13.6055');
 });
 
