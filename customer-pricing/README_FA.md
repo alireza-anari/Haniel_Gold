@@ -88,7 +88,7 @@ npx cf deploy --secrets-file ./secrets.local.json
 قالب لینک محصول:
 
 ```text
-https://t.me/Hani_El_manager_bot/pricing?startapp=product_15&mode=compact
+https://t.me/<bot_username>/pricing?startapp=product_15&mode=compact
 ```
 
 عدد انتهایی شناسه واقعی محصول در D1 است. پارامتر `mode=compact` Mini App را در حالت نیم‌صفحه باز می‌کند.
@@ -101,14 +101,14 @@ https://t.me/Hani_El_manager_bot/pricing?startapp=product_15&mode=compact
 
 - `BOT_TOKEN`: توکن ربات؛ فقط در محیط محلی خودت
 - `CHANNEL_ID`: مانند `@channelname` یا شناسه عددی کانال خصوصی
-- `PRICE_APP_LINK`: مانند `https://t.me/Hani_El_manager_bot/pricing`
+- `PRICE_APP_LINK`: مانند `https://t.me/<bot_username>/pricing`
 
 ابتدا Dry Run:
 
 ```bash
 cd customer-pricing
 BOT_TOKEN='...' CHANNEL_ID='@channelname' \
-PRICE_APP_LINK='https://t.me/Hani_El_manager_bot/pricing' DRY_RUN=1 \
+PRICE_APP_LINK='https://t.me/<bot_username>/pricing' DRY_RUN=1 \
 node scripts/add-price-buttons.mjs scripts/posts.json
 ```
 
