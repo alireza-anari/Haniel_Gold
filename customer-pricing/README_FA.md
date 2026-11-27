@@ -31,17 +31,18 @@ Migration شماره ۳ جدول مستقل `product_public_pricing` را می�
 - `../telegram-miniapp/db/migrations/0004_gold_market_policy.sql`: جداول نرخ، ثبت رویداد و سیاست مستقل نرخ
 - `scripts/add-price-buttons.mjs`: افزودن دکمه مشاهده قیمت به پست‌های کانال
 
-## محیط Cloudflare فعلی
+## محیط Cloudflare متصل
 
-در حساب Cloudflare متصل، دیتابیس قابل شناسایی HANI-EL این است:
+در حساب Haniel، Worker فعال `haniel-gold-manager` به D1 زیر متصل است:
 
-- نام: `haniel-gold-miniapp-qa-20261114`
-- شناسه: `ac6ed841-fe6e-412a-9d33-b3f3a497b1ef`
-- محیط: QA
-- Migrationهای `0003_public_pricing.sql` و `0004_gold_market_policy.sql` در همین D1 آزمایشی اجرا و با Query مستقیم تأیید شده‌اند.
-- جدول تنظیمات قیمت عمومی فعلاً خالی است؛ نرخ و سیاست خودکار نیز تا تأیید مالک مسدود/تأییدنشده هستند.
+- نام: `haniel-gold-db`
+- شناسه: `020051e6-017e-4ae7-9f8a-795205c0e7f5`
+- محصولات: 36؛ فروش: 5؛ کاربران: 1؛ تصاویر: 3 (پیش از Migration)
+- قبل از تغییرات، Export کامل D1 با bookmark `00000028-00000000-00005130-68d9fafab6e37345cf49bb32df460fde` با وضعیت complete تهیه شد.
+- Migrationهای `0003_public_pricing.sql` و `0004_gold_market_policy.sql` روی همین D1 اجرا و وجود هر پنج جدول جدید تأیید شد.
+- پس از Migration تعداد محصولات/فروش/کاربران/تصاویر بدون تغییر باقی ماند؛ `product_public_pricing` و جدول‌های وضعیت نرخ/سیاست/ممیزی خالی هستند.
 
-تنظیمات فعلی هر دو Worker عمداً به همین D1 آزمایشی اشاره می‌کنند. این دیتابیس هنگام بررسی، جدول‌های پایه پنل مدیریت را داشت اما هیچ محصول، فروش، کاربر یا تصویری در آن ثبت نشده بود. در حساب متصل، Worker یا Pages فعال HANI-EL و D1 تولیدی قابل شناسایی نبود؛ بنابراین این تنظیمات را Production تلقی نکن.
+تنظیمات Worker مشتری به همین D1 اشاره می‌کند. هنوز هیچ Worker مشتری Deploy نشده و Cron نرخ فعال نشده است.
 
 ## پیش‌نیازهای استقرار QA
 
@@ -93,7 +94,7 @@ npm test
 npm run deploy
 ```
 
-تنظیمات `cloudflare.config.ts` در این شاخه به Worker آزمایشی `haniel-gold-manager-qa` و همان D1 QA متصل است. Secretهای `BOT_TOKEN` و `OWNER_TELEGRAM_ID` را فقط از طریق ابزار Deploy و Secret Store تنظیم کن. هیچ‌کدام نباید وارد GitHub شوند.
+تنظیمات `cloudflare.config.ts` در این شاخه به Worker موجود `haniel-gold-manager` و D1 واقعی `haniel-gold-db` متصل است. Deploy این فایل Worker اصلی را به‌روزرسانی می‌کند؛ پیش از Deploy باید تغییرات بررسی و زمان مناسب انتشار تأیید شود. Secretهای `BOT_TOKEN` و `OWNER_TELEGRAM_ID` را فقط از طریق ابزار Deploy و Secret Store تنظیم کن. هیچ‌کدام نباید وارد GitHub شوند.
 
 ## تأیید نرخ و سیاست خودکار
 
@@ -156,4 +157,4 @@ npm test
 python3 tests/migration_smoke.py
 ```
 
-**وضعیت فعلی:** کد و تست‌ها برای QA آماده می‌شوند. Production فعال نیست؛ برای Production باید D1 واقعی و مشترک پنل مدیریت/مشتری، Secretهای Production و تنظیم Mini App در BotFather به‌صورت جداگانه تأیید و پیکربندی شوند.
+**وضعیت فعلی:** Migrationهای افزایشی روی D1 واقعی پس از تهیه Export پشتیبان اجرا شده‌اند؛ داده‌های تجاری بدون تغییر مانده‌اند. Worker مشتری هنوز Deploy نشده، Cron فعال نیست و تنظیمات قیمت عمومی محصول خالی است. پیش از انتشار باید Worker اصلی مدیریت به‌روزرسانی، کلید Servix امن تنظیم، سیاست نرخ توسط مالک تأیید و قیمت‌های عمومی محصولات بازبینی شوند.
