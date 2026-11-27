@@ -210,7 +210,10 @@ async function apiRequest(req,env,url,user){
   only(roles);
   const p=await product(db,Number(publicPricing[1]));if(!p)err('محصول یافت نشد.',404);
   const row=await first(db,'SELECT * FROM product_public_pricing WHERE product_id=?',p.id);
-  if(!row)return reply({product_id:p.id,labor_pct:p.purchase_labor_pct,profit_pct:'',accessories:'0',discount:'0',enabled:0,show_profit:0,configured:false});
+  if(!row){
+   const sale=await first(db,'SELECT id,labor_pct,profit_pct,accessories,discount FROM sales WHERE product_id=? AND voided=0 ORDER BY id DESC LIMIT 1',p.id);
+   return reply({product_id:p.id,labor_pct:sale?.labor_pct??p.purchase_labor_pct,profit_pct:sale?.profit_pct??'',accessories:sale?.accessories??'0',discount:sale?.discount??'0',enabled:0,show_profit:0,configured:false,source_sale_id:sale?.id??null});
+  }
   return reply({...row,configured:row.profit_pct!==null&&String(row.profit_pct).trim()!==''});
  }
  if(publicPricing&&m==='PUT'){
