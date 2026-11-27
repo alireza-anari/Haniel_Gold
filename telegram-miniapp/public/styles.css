@@ -338,3 +338,11 @@ dialog{background:#1b211b;border-color:#525440;border-radius:21px;box-shadow:0 2
 
 .dashboard-compact{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:750px){.dashboard-compact{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Public customer price settings remain inside the authenticated manager workspace. */
+.public-pricing-settings{display:grid;gap:14px;padding:18px;border:1px solid #62583d;border-radius:16px;background:#22251e}
+.public-pricing-settings .form-section-title{margin:0}
+.public-pricing-settings .form-hint{margin:0;color:#c1bba8;font-size:11px;line-height:2}
+.public-price-check{display:flex;align-items:flex-start;gap:10px;color:var(--ink);font-size:12px;line-height:1.9;cursor:pointer}
+.public-price-check input{width:18px;height:18px;accent-color:var(--gold);flex:none;margin:3px 0 0}
+.public-pricing-settings .tiny{line-height:1.9}
