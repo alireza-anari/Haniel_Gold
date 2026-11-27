@@ -315,29 +315,29 @@ async function renderMarket(){
  const data=await api('/api/market'),m=data.market,p=data.ratePolicy;
  const statusLabel=m.status==='blocked'?'در انتظار تأیید مالک':m.status==='ready'?'فعال و معتبر':m.status==='expired'?'منقضی':'آماده نیست';
  const reasons={initial_review:'نرخ اولیه باید توسط مالک بررسی شود',rate_policy_not_approved:'سیاست پذیرش خودکار نرخ هنوز تأیید نشده است',large_change:'تغییر نرخ از سقف مجاز بیشتر است',existing_pending_review:'یک نرخ قبلی هنوز در انتظار بررسی است'};
- view.innerHTML=\`<div class="section-head"><div><span class="section-kicker">GOLD MARKET / CONTROL</span><h2>مدیریت نرخ طلا</h2><p>منبع نرخ: Servix · طلای ۱۸ عیار · واحد محاسباتی: ریال</p></div><div class="buttons">\${button('تازه‌سازی','refreshMarket','','outline')}</div></div>
+ view.innerHTML=`<div class="section-head"><div><span class="section-kicker">GOLD MARKET / CONTROL</span><h2>مدیریت نرخ طلا</h2><p>منبع نرخ: Servix · طلای ۱۸ عیار · واحد محاسباتی: ریال</p></div><div class="buttons">${button('تازه‌سازی','refreshMarket','','outline')}</div></div>
  <div class="panel market-panel">
   <div class="summary-lines">
-   <div class="line"><span class="name">وضعیت نرخ</span><strong>\${esc(statusLabel)}</strong></div>
-   <div class="line"><span class="name">نرخ تأییدشده هر گرم</span><strong>\${m.rateTomanPerGram==null?'—':number(m.rateTomanPerGram,1)+' تومان'}</strong></div>
-   <div class="line"><span class="name">زمان ثبت منبع</span><span>\${m.observedAt?esc(new Date(m.observedAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
-   <div class="line"><span class="name">اعتبار نرخ تا</span><span>\${m.validUntil?esc(new Date(m.validUntil).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
-   <div class="line"><span class="name">آخرین تلاش دریافت</span><span>\${m.lastAttemptAt?esc(new Date(m.lastAttemptAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
-   <div class="line"><span class="name">سیاست پذیرش خودکار</span><strong>\${p.approved?'تأیید شده':'تأیید نشده'}</strong></div>
+   <div class="line"><span class="name">وضعیت نرخ</span><strong>${esc(statusLabel)}</strong></div>
+   <div class="line"><span class="name">نرخ تأییدشده هر گرم</span><strong>${m.rateTomanPerGram==null?'—':number(m.rateTomanPerGram,1)+' تومان'}</strong></div>
+   <div class="line"><span class="name">زمان ثبت منبع</span><span>${m.observedAt?esc(new Date(m.observedAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">اعتبار نرخ تا</span><span>${m.validUntil?esc(new Date(m.validUntil).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">آخرین تلاش دریافت</span><span>${m.lastAttemptAt?esc(new Date(m.lastAttemptAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div>
+   <div class="line"><span class="name">سیاست پذیرش خودکار</span><strong>${p.approved?'تأیید شده':'تأیید نشده'}</strong></div>
   </div>
-  \${m.pendingTomanPerGram!=null?\`<div class="divider"></div><div class="summary-lines"><div class="line"><span class="name">نرخ پیشنهادی در انتظار بررسی</span><strong>\${number(m.pendingTomanPerGram,1)} تومان</strong></div><div class="line"><span class="name">زمان نرخ پیشنهادی</span><span>\${m.pendingObservedAt?esc(new Date(m.pendingObservedAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div><p class="form-hint">\${esc(reasons[m.pendingReason]||m.pendingReason||'تأیید مالک لازم است')}</p><div class="row-actions">\${button('تأیید نرخ پیشنهادی','approveMarketRate','','outline')}</div></div>\`:''}
-  \${m.lastError?\`<p class="form-hint">آخرین وضعیت دریافت: <bdi>\${esc(m.lastError)}</bdi></p>\`:''}
+  ${m.pendingTomanPerGram!=null?`<div class="divider"></div><div class="summary-lines"><div class="line"><span class="name">نرخ پیشنهادی در انتظار بررسی</span><strong>${number(m.pendingTomanPerGram,1)} تومان</strong></div><div class="line"><span class="name">زمان نرخ پیشنهادی</span><span>${m.pendingObservedAt?esc(new Date(m.pendingObservedAt).toLocaleString('fa-IR',{timeZone:'Asia/Tehran'})):'—'}</span></div><p class="form-hint">${esc(reasons[m.pendingReason]||m.pendingReason||'تأیید مالک لازم است')}</p><div class="row-actions">${p?.approved?button('تأیید نرخ پیشنهادی','approveMarketRate','','outline'):'<p class="form-hint">ابتدا سقف تغییر خودکار نرخ را ثبت و تأیید کن.</p>'}</div></div>`:''}
+  ${m.lastError?`<p class="form-hint">آخرین وضعیت دریافت: <bdi>${esc(m.lastError)}</bdi></p>`:''}
  </div>
  <div class="panel market-panel">
   <div class="form-section-title"><span class="form-section-index">۰۱</span><div><strong>سقف پذیرش خودکار تغییر نرخ</strong><small>این مقدار مستقل از فرمول مالیات است</small></div></div>
   <p class="form-hint">تغییرات نرخ کمتر یا مساوی این سقف، پس از تأیید اولیه، خودکار پذیرفته می‌شوند. تغییر بزرگ‌تر از سقف یا نرخ اولیه تا زمان بررسی و تأیید مالک منتشر نمی‌شود. این تنظیم هیچ درصد مالیات یا هزینه جدیدی به فرمول قیمت محصول اضافه نمی‌کند.</p>
   <form id="market-policy-form" class="form">
-   <label class="field">حداکثر تغییر خودکار نرخ (%)<input class="input" type="number" name="maxRateChangePercent" min="0.01" max="100" step="0.01" value="\${p.maxRateChangePercent??''}" data-numeric required><small>مقدار را خودت براساس سیاست کنترل ریسک انتخاب کن؛ پیش‌فرضی اعمال نمی‌شود.</small></label>
+   <label class="field">حداکثر تغییر خودکار نرخ (%)<input class="input" type="number" name="maxRateChangePercent" min="0.01" max="100" step="0.01" value="${p.maxRateChangePercent??''}" data-numeric required><small>مقدار را خودت براساس سیاست کنترل ریسک انتخاب کن؛ پیش‌فرضی اعمال نمی‌شود.</small></label>
    <label class="public-price-check"><input type="checkbox" name="confirmReviewed" required><span>سقف تغییر خودکار نرخ را بررسی و تأیید می‌کنم.</span></label>
    <button class="btn outline" type="submit">ذخیره و تأیید سیاست نرخ</button>
   </form>
  </div>
- <p class="tiny muted">قیمت مشتری فقط با نرخ تأییدشده و معتبر محاسبه می‌شود. فرمول قیمت همان فرمول محاسبات فروش پنل مدیریت است؛ قیمت محصول ذخیره نمی‌شود.</p>\`;
+ <p class="tiny muted">قیمت مشتری فقط با نرخ تأییدشده و معتبر محاسبه می‌شود. فرمول قیمت همان فرمول محاسبات فروش پنل مدیریت است؛ قیمت محصول ذخیره نمی‌شود.</p>`;
  const form=document.getElementById('market-policy-form');
  form?.addEventListener('submit',async e=>{
   e.preventDefault();
