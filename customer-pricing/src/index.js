@@ -66,7 +66,7 @@ async function imageResponse(env, productId) {
   const row = await first(env.DB, `
     SELECT i.mime, i.image_blob
     FROM images i
-    JOIN product_public_pricing pp ON pp.product_id=i.product_id AND pp.enabled=1 AND pp.profit_pct IS NOT NULL
+    JOIN product_public_pricing pp ON pp.product_id=i.product_id AND pp.enabled=1 AND pp.profit_pct IS NOT NULL AND TRIM(pp.profit_pct)<>''
     WHERE i.product_id=?
     ORDER BY i.id
     LIMIT 1
