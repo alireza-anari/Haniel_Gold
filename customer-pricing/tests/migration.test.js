@@ -20,10 +20,9 @@ test('public pricing and shared gold market migrations use safe defaults without
 
 test('customer Worker uses the same owner-approved market rate and policy as the main site', () => {
   const worker = read('../src/index.js');
-  assert.match(worker, /dynamicContext/);
-  assert.match(worker, /marketPublic/);
+  assert.match(worker, /marketRateContext/);
   assert.match(worker, /syncRate/);
-  assert.doesNotMatch(worker, /gold_rate_state|fetchServix/);
+  assert.doesNotMatch(worker, /gold_rate_state|fetchServix|dynamicContext|marketPublic/);
   assert.doesNotMatch(worker, /SELECT[^;]*(supplier|customer|purchase_cost|net_profit)/is);
   assert.ok(!worker.includes('p.purchase_gold_rate') && !worker.includes('p.purchase_labor_pct'));
   assert.match(worker, /scheduled\(controller, env, ctx\)/);
