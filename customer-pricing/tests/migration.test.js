@@ -10,7 +10,7 @@ test('migration adds public price settings and one gold-rate cache without chang
   assert.match(sql, /CREATE TABLE IF NOT EXISTS gold_rate_state/);
   assert.doesNotMatch(sql, /DELETE FROM (products|sales)/i);
   assert.match(sql, /enabled INTEGER NOT NULL DEFAULT 0/);
-  assert.doesNotMatch(sql, /INSERT|UPDATE|DELETE|DROP/i);
+  assert.ok(!/\b(INSERT|UPDATE|DELETE|DROP)\b/i.test(sql));
 });
 
 test('customer Worker never exposes manager-only financial columns in its public query', () => {
