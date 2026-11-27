@@ -14,6 +14,8 @@ test('pricing and market controls are owner-only while existing team roles remai
   assert.ok(worker.includes("if(publicPricing&&m==='GET'){\n  only(user.role==='owner');"));
   assert.ok(worker.includes("if(publicPricing&&m==='PUT'){\n  only(user.role==='owner');"));
   assert.ok(worker.includes("if(path==='/api/market'&&m==='GET'){\n  only(user.role==='owner');"));
+  assert.ok(worker.includes("if(path==='/api/market/rate-policy'&&m==='POST'){\n  only(user.role==='owner');"));
+  assert.match(worker, /approveRatePolicy/);
   assert.match(app, /const isOwner=\(\)=>session\?\.user\.role==='owner'/);
   assert.match(app, /public-pricing-form/);
   assert.match(app, /فعال‌سازی نمایش قیمت این محصول/);
