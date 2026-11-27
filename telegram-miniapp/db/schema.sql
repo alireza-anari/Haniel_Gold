@@ -20,6 +20,18 @@ CREATE TABLE IF NOT EXISTS products (
  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_products_name ON products(name);
+CREATE TABLE IF NOT EXISTS product_public_pricing (
+ product_id INTEGER PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+ labor_pct TEXT NOT NULL,
+ profit_pct TEXT,
+ accessories TEXT NOT NULL DEFAULT '0',
+ discount TEXT NOT NULL DEFAULT '0',
+ enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
+ show_profit INTEGER NOT NULL DEFAULT 0 CHECK(show_profit IN (0,1)),
+ updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_product_public_pricing_enabled
+ ON product_public_pricing(enabled, product_id);
 CREATE TABLE IF NOT EXISTS sales (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  product_id INTEGER NOT NULL REFERENCES products(id),
@@ -74,6 +86,16 @@ CREATE TABLE IF NOT EXISTS imports (
  revision INTEGER NOT NULL,
  plan TEXT NOT NULL,
  expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gold_rate_state (
+ id INTEGER PRIMARY KEY CHECK(id=1),
+ rate_rial_per_gram INTEGER,
+ observed_at INTEGER,
+ fetched_at INTEGER,
+ valid_until INTEGER,
+ last_attempt_at INTEGER NOT NULL DEFAULT 0,
+ last_error TEXT NOT NULL DEFAULT '',
+ version INTEGER NOT NULL DEFAULT 1
 );
 CREATE TRIGGER IF NOT EXISTS sales_stock_before_insert
 BEFORE INSERT ON sales WHEN NEW.voided=0 AND (
