@@ -13,6 +13,8 @@ test('public pricing and shared gold market migrations use safe defaults without
   assert.match(marketSql, /CREATE TABLE IF NOT EXISTS gold_market_state/);
   assert.match(marketSql, /CREATE TABLE IF NOT EXISTS gold_rate_audit/);
   assert.match(marketSql, /CREATE TABLE IF NOT EXISTS pricing_policy/);
+  assert.match(marketSql, /CREATE TABLE IF NOT EXISTS gold_rate_policy/);
+  assert.match(marketSql, /INSERT OR IGNORE INTO gold_rate_policy\\(id,approved\\) VALUES\\(1,0\\)/);
   assert.match(marketSql, /INSERT OR IGNORE INTO gold_market_state\(id,blocked\) VALUES\(1,1\)/);
   assert.match(marketSql, /INSERT OR IGNORE INTO pricing_policy\(id,approved\) VALUES\(1,0\)/);
   assert.doesNotMatch(marketSql, /INSERT\s+INTO\s+(products|sales)|UPDATE\s+(products|sales)|DELETE\s+FROM\s+(products|sales)/i);
