@@ -15,7 +15,7 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({
 
 function productIdFromTelegram() {
   const query = new URLSearchParams(location.search);
-  const raw = tg?.initDataUnsafe?.start_param || query.get('startapp') || '';
+  const raw = tg?.initDataUnsafe?.start_param || query.get('tgWebAppStartParam') || query.get('startapp') || '';
   const match = /^product_(\d{1,10})$/.exec(raw);
   if (match) return Number(match[1]);
   const path = /^\/product\/(\d+)$/.exec(location.pathname);
